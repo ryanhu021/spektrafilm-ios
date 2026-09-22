@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-PROJECT := App/Spektrafilm.xcodeproj
+PROJECT := App/SpektrafilmApp.xcodeproj
 SCHEME  := Spektrafilm
 SIM     := 'platform=iOS Simulator,name=iPhone 17 Pro'
 
@@ -26,18 +26,19 @@ lint: ## Check formatting without writing
 	swift format lint --strict --recursive Sources Tests App/Spektrafilm Package.swift
 
 .PHONY: project
-project: ## Generate App/Spektrafilm.xcodeproj from project.yml
+project: ## Generate App/SpektrafilmApp.xcodeproj from project.yml
 	cd App && xcodegen generate
 
 .PHONY: app
 app: project ## Build the iOS app for the simulator
-	set -o pipefail; xcodebuild build -project $(PROJECT) -scheme $(SCHEME) \
-		-destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -30
+	xcodebuild build -quiet -project $(PROJECT) -scheme $(SCHEME) \
+		-destination 'generic/platform=iOS Simulator' -derivedDataPath .build/xcode \
+		CODE_SIGNING_ALLOWED=NO
 
 .PHONY: run
 run: project ## Build and launch the app in the simulator
-	set -o pipefail; xcodebuild build -project $(PROJECT) -scheme $(SCHEME) \
-		-destination $(SIM) CODE_SIGNING_ALLOWED=NO | tail -20
+	xcodebuild build -quiet -project $(PROJECT) -scheme $(SCHEME) \
+		-destination $(SIM) -derivedDataPath .build/xcode CODE_SIGNING_ALLOWED=NO
 
 .PHONY: oracle
 oracle: ## Create the pinned Python oracle venv under Tools/parity/oracle
@@ -57,4 +58,4 @@ docs: ## Check documentation consistency
 
 .PHONY: clean
 clean: ## Remove build products
-	rm -rf .build App/Spektrafilm.xcodeproj
+	rm -rf .build App/SpektrafilmApp.xcodeproj

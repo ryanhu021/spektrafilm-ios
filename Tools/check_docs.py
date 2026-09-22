@@ -143,6 +143,47 @@ def check_swift_paths() -> None:
     note("lint paths", ", ".join(sorted(lint_paths)) or "none")
 
 
+def check_build_name_collisions() -> None:
+    """No two build-product names differ only by letter case.
+
+    Xcode derives Intermediates.noindex directory names from the Xcode project, the Swift package
+    and each target's PRODUCT_NAME. Two names that differ only by case merge into one directory on a
+    case-insensitive filesystem, where the targets overwrite each other's output file maps and the
+    build fails with "unable to open dependencies file". macOS is case-insensitive by default, so
+    this reproduces in CI while passing on a case-sensitive local volume, which makes it expensive
+    to diagnose and worth asserting.
+    """
+    names: dict[str, list[str]] = {}
+
+    def add(name: str, source: str) -> None:
+        names.setdefault(name.casefold(), []).append(f"{name} ({source})")
+
+    package = re.search(r'name:\s*"([^"]+)"', (REPO / "Package.swift").read_text())
+    if package:
+        add(package.group(1), "Package.swift")
+    for match in re.finditer(
+        r'\.(?:target|testTarget)\(\s*name:\s*"([^"]+)"', (REPO / "Package.swift").read_text()
+    ):
+        add(match.group(1), "package target")
+
+    project = REPO / "App/project.yml"
+    if project.exists():
+        text = project.read_text()
+        if top := re.search(r"^name:\s*(\S+)", text, re.M):
+            add(top.group(1), "Xcode project")
+        for match in re.finditer(r"^\s+PRODUCT_NAME:\s*(\S+)", text, re.M):
+            add(match.group(1), "PRODUCT_NAME")
+
+    for folded, variants in sorted(names.items()):
+        distinct = sorted(set(variants))
+        if len({v.split(" (")[0] for v in distinct}) > 1:
+            problem(
+                "build names differ only by case and will collide on a case-insensitive "
+                f"filesystem: {', '.join(distinct)}"
+            )
+    note("build names checked", str(sum(len(v) for v in names.values())))
+
+
 def main() -> int:
     for check in (
         check_links,
@@ -151,6 +192,7 @@ def main() -> int:
         check_oracle_pin,
         check_ci_references,
         check_swift_paths,
+        check_build_name_collisions,
     ):
         check()
 

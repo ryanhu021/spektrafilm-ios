@@ -3,7 +3,13 @@
 # The .xcodeproj is generated, not committed: an Xcode project file is unreviewable in a diff and
 # conflicts on every parallel change. `make project` regenerates it, and CI does the same before
 # building, so this file is the only thing to review.
-name: Spektrafilm
+# Project name is SpektrafilmApp, not Spektrafilm. Xcode derives Intermediates.noindex directory
+# names from the project and the Swift package, and the engine package is SpektraFilm; two names
+# differing only by the case of one letter merge into a single directory on a case-insensitive
+# filesystem, where the targets overwrite each other's output file maps and the build fails with
+# "unable to open dependencies file". macOS is case-insensitive by default, CI runners included, so
+# this only reproduces off a case-sensitive volume. Users see CFBundleDisplayName, not this.
+name: SpektrafilmApp
 options:
   bundleIdPrefix: dev.ryanhu.spektrafilm
   deploymentTarget:
@@ -20,13 +26,10 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    SWIFT_STRICT_CONCURRENCY: complete
-    ENABLE_USER_SCRIPT_SANDBOXING: true
-    DEAD_CODE_STRIPPING: true
     SWIFT_TREAT_WARNINGS_AS_ERRORS: true
 
 targets:
-  Spektrafilm:
+  SpektrafilmApp:
     type: application
     platform: iOS
     sources:
@@ -37,7 +40,14 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ryanhu.spektrafilm
-        PRODUCT_NAME: Spektrafilm
+        # SpektrafilmApp, not Spektrafilm. Xcode names a target's Intermediates.noindex directory
+        # after PRODUCT_NAME, and the engine module is SpektraFilm, so a product called Spektrafilm
+        # collides with it on a case-insensitive filesystem: the two targets share one directory,
+        # overwrite each other's output file maps, and the build dies with "unable to open
+        # dependencies file". macOS is case-insensitive by default, CI runners included, which is
+        # why this passed on a case-sensitive local volume and failed in CI. Users never see this
+        # name; CFBundleDisplayName and CFBundleName below are what the home screen shows.
+        PRODUCT_NAME: SpektrafilmApp
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "0.1.0"
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -46,6 +56,7 @@ targets:
       path: Generated/Info.plist
       properties:
         CFBundleDisplayName: Spektrafilm
+        CFBundleName: Spektrafilm
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -66,7 +77,7 @@ schemes:
   Spektrafilm:
     build:
       targets:
-        Spektrafilm: all
+        SpektrafilmApp: all
     run:
       config: Debug
     archive:

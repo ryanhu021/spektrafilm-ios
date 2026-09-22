@@ -45,17 +45,17 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: make project
+      # -quiet rather than piping through tail: tail drops the middle of the log, which is where
+      # a compile diagnostic lands, and -quiet still prints warnings and errors in full.
       - name: Build for simulator
         run: |
-          set -o pipefail
-          xcodebuild build \
-            -project App/Spektrafilm.xcodeproj \
+          xcodebuild build -quiet \
+            -project App/SpektrafilmApp.xcodeproj \
             -scheme Spektrafilm \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .build/xcode \
-            CODE_SIGNING_ALLOWED=NO \
-            | tail -40
+            CODE_SIGNING_ALLOWED=NO
 
   docs:
     name: Docs consistency
