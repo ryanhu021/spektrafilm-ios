@@ -1,0 +1,25 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+!*.xcodeproj/project.pbxproj
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Python (parity tooling)
+.venv/
+__pycache__/
+*.pyc
+
+# Local scratch
+/tmp/
+*.log

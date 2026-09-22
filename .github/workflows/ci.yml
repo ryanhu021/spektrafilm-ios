@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+jobs:
+  engine:
+    name: Engine (build + parity)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: swift --version
+      - name: Build
+        run: swift build -c release
+      - name: Test
+        run: swift test --parallel
+
+  format:
+    name: swift-format
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Lint
+        run: |
+          swift format lint --strict --recursive \
+            Sources Tests App/Spektrafilm Package.swift
+
+  app:
+    name: iOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: make project
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project App/Spektrafilm.xcodeproj \
+            -scheme Spektrafilm \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -40
+
+  docs:
+    name: Docs consistency
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check
+        run: Tools/check_docs.sh
