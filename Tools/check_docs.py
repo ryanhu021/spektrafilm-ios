@@ -2,8 +2,8 @@
 """Check that the documentation still describes the repository it ships with.
 
 Docs drift quietly. A count in prose stays plausible long after it stops being true, and a relative
-link keeps rendering as a link after the file moves. Every check here verifies a claim a reader
-would act on; none of them need the parity oracle, so this runs on a bare checkout.
+link keeps rendering after the file moves. Every check covers a claim a reader would act on, and
+none need the parity oracle, so this runs on a bare checkout.
 
 Usage:  Tools/check_docs.py
 """
@@ -120,7 +120,7 @@ def check_ci_references() -> None:
 def check_swift_paths() -> None:
     """Paths the lint and build steps name actually exist.
 
-    A lint step pointed at a directory that was renamed passes by checking nothing.
+    A lint step aimed at a renamed directory passes by checking nothing.
     """
     lint_paths = set()
     for workflow in (REPO / ".github/workflows").glob("*.yml"):
@@ -129,8 +129,8 @@ def check_swift_paths() -> None:
             if "swift format lint" not in line:
                 continue
             # Collect the command's own arguments, following backslash continuations. Scanning the
-            # whole file instead would pick up `-project App/Spektrafilm.xcodeproj` from the build
-            # job, which is generated and deliberately untracked.
+            # whole file would pick up `-project App/SpektrafilmApp.xcodeproj` from the build job,
+            # which is generated and untracked.
             block = [line]
             while block[-1].rstrip().endswith("\\") and i + len(block) < len(lines):
                 block.append(lines[i + len(block)])
@@ -146,12 +146,11 @@ def check_swift_paths() -> None:
 def check_build_name_collisions() -> None:
     """No two build-product names differ only by letter case.
 
-    Xcode derives Intermediates.noindex directory names from the Xcode project, the Swift package
-    and each target's PRODUCT_NAME. Two names that differ only by case merge into one directory on a
+    Xcode names its Intermediates.noindex directories after the Xcode project, the Swift package and
+    each target's PRODUCT_NAME. Two names differing only by case merge into one directory on a
     case-insensitive filesystem, where the targets overwrite each other's output file maps and the
     build fails with "unable to open dependencies file". macOS is case-insensitive by default, so
-    this reproduces in CI while passing on a case-sensitive local volume, which makes it expensive
-    to diagnose and worth asserting.
+    this fails in CI while passing on a case-sensitive local volume. Expensive to diagnose twice.
     """
     names: dict[str, list[str]] = {}
 

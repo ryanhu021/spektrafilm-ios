@@ -2,9 +2,9 @@ import Foundation
 
 // MARK: - Decoding
 
-/// JSON `null` means "the datasheet does not cover this wavelength", and the reference loads it as
-/// NaN and keeps it: `nanmin`/`nanmax` skip it, and it propagates through the spectral products so
-/// unmeasured bands contribute nothing. Decoding it as 0 would invent absorption that is not there.
+/// JSON `null` means the datasheet does not cover that wavelength. The reference loads it as NaN
+/// and keeps it: `nanmin` and `nanmax` skip it, and it travels through the spectral products so
+/// unmeasured bands contribute nothing. Decoding it as 0 would invent absorption.
 private func flatten(_ values: [Double?]) -> [Double] {
     values.map { $0 ?? .nan }
 }
@@ -97,9 +97,9 @@ extension Profile: Decodable {
 
 /// Loads the bundled film and print-paper profiles.
 ///
-/// The 28 JSON files are upstream's, shipped verbatim. Loading validates array shapes the way
-/// `_validate_profile` does, because a profile whose curves and exposure axis disagree would
-/// otherwise fail deep inside the pipeline with a bounds trap.
+/// The 28 JSON files ship verbatim from upstream. Loading checks array shapes the way
+/// `_validate_profile` does, so a profile whose curves and exposure axis disagree fails here
+/// instead of trapping deep inside the pipeline.
 public enum ProfileLibrary {
 
     /// Where the profiles live inside the package bundle.
@@ -135,10 +135,10 @@ public enum ProfileLibrary {
         return urls.map { $0.deletingPathExtension().lastPathComponent }.sorted()
     }()
 
-    /// Profiles valid as the camera negative, i.e. `stage == .filming`, which is 20 of the 28.
+    /// Profiles usable as the camera negative, meaning `stage == .filming`, which is 20 of the 28.
     ///
-    /// Keyed on `stage`, not `support`: Kodak 2383 and 2393 are cine print *films*, so they carry
-    /// `support: film` while belonging on the print side. Filtering by support would offer them as
+    /// Keyed on `stage` because Kodak 2383 and 2393 are cine print films: they carry
+    /// `support: film` but belong on the print side. Filtering by support would offer them as
     /// camera stocks and hide two print media.
     public static var filmStocks: [Profile] {
         get throws { try available.map { try load($0) }.filter { $0.info.stage == .filming } }
@@ -171,10 +171,10 @@ public enum ProfileLibrary {
         }
     }
 
-    /// The shape checks from `_validate_profile`, plus resolvable illuminant labels.
+    /// The shape checks from `_validate_profile`, plus illuminant labels that resolve.
     ///
-    /// Illuminants are checked here rather than at first use so an unknown label fails profile
-    /// loading instead of silently becoming D50 halfway through a render.
+    /// Checking illuminants at load time means an unknown label fails here, instead of quietly
+    /// becoming D50 halfway through a render.
     static func validate(_ profile: Profile, stock: String) throws {
         let d = profile.data
         let wavelengths = d.wavelengthCount

@@ -2,12 +2,11 @@ import Testing
 
 @testable import SpektraFilm
 
-/// Checks the bundled profiles load, validate, and preserve the values the pipeline reduces over.
+/// Checks the bundled profiles load, validate, and keep the values the pipeline reduces over.
 ///
-/// Not parity tests against goldens. The JSON is upstream's, byte for byte, so what needs proving
-/// is that the Swift decoder reads it faithfully. The NaN cases are the interesting ones: profiles
-/// use JSON `null` for wavelengths the datasheet does not cover, and the reference relies on those
-/// staying NaN.
+/// The JSON ships byte for byte from upstream, so these test the decoder, not the numbers. Watch
+/// the NaN cases: profiles use JSON `null` for wavelengths the datasheet skips, and the reference
+/// needs those to stay NaN.
 @Suite("Profiles")
 struct ProfileTests {
 
@@ -20,9 +19,9 @@ struct ProfileTests {
         }
     }
 
-    /// Stage, not support, is what makes a profile selectable as the negative or the print. Kodak
-    /// 2383 and 2393 are cine print films: `support: film`, `stage: printing`. Keying the pickers
-    /// off support would offer them as camera stocks and hide two print media.
+    /// Stage decides whether a profile can act as the negative or the print. Kodak 2383 and 2393
+    /// are cine print films, carrying `support: film` with `stage: printing`. Keying the pickers off
+    /// support would offer them as camera stocks and hide two print media.
     @Test("the library splits by stage into 20 camera stocks and 8 print media")
     func stageSplit() throws {
         let profiles = try ProfileLibrary.available.map { try ProfileLibrary.load($0) }
@@ -49,8 +48,8 @@ struct ProfileTests {
         }
     }
 
-    /// Portra 400 has 22 nulls in `channel_density` and 20 in `base_density`; those are bands the
-    /// datasheet leaves out, and the reference's `nanmin`/`nanmax` skip them.
+    /// Portra 400 has 22 nulls in `channel_density` and 20 in `base_density`, bands the datasheet
+    /// leaves out. The reference's `nanmin` and `nanmax` skip them.
     @Test("JSON null decodes to NaN, not zero")
     func nullsBecomeNaN() throws {
         let d = try ProfileLibrary.load("kodak_portra_400").data

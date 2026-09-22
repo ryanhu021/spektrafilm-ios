@@ -2,17 +2,17 @@ import Testing
 
 @testable import SpektraFilm
 
-/// Gates the colour foundations against colour-science.
+/// Checks the colour foundations against colour-science.
 ///
-/// These run first in spirit: the whole render sits on top of transfer functions, illuminant
-/// spectra and the XYZ↔RGB matrices, so a defect here would show up as a diffuse "the colours are
-/// slightly off" in the end-to-end fixtures and be miserable to localise.
+/// The whole render sits on transfer functions, illuminant spectra and the XYZ to RGB matrices. A
+/// bug in any of them shows up in the end-to-end fixtures as a vague colour shift that is painful
+/// to track down, so they get their own gate.
 @Suite("Colour parity")
 struct ColourParityTests {
 
     // MARK: - Transfer functions
 
-    /// Slug matching `generate_goldens.py`'s, so a renamed fixture fails loudly.
+    /// Slugs match `generate_goldens.py`, so a renamed fixture fails loudly.
     static let transferCases: [(space: String, slug: String)] = [
         ("sRGB", "srgb"),
         ("DCI-P3", "dci_p3"),
@@ -37,10 +37,10 @@ struct ColourParityTests {
         try expectParity(input.map(transfer.decode), matches: "transfer_\(slug)_decode")
     }
 
-    /// The sweep deliberately includes negatives. sRGB and BT.2020 use a signed power and stay
-    /// finite; DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. If that
-    /// ever silently changed to a clamp, the parity test above would still pass on the positive
-    /// half, so assert the shape of the behaviour directly.
+    /// The sweep includes negatives. sRGB and BT.2020 use a signed power and stay finite, while
+    /// DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. A silent change
+    /// to clamping would still pass the parity test on the positive half, so assert the behaviour
+    /// directly.
     @Test("negative inputs keep colour-science's divergent handling")
     func negativeHandling() throws {
         #expect(TransferFunction.sRGB.encode(-0.5).isFinite)
@@ -153,9 +153,9 @@ struct ColourParityTests {
             matches: "colour_xyz_to_rgb_\(space.slug)_\(illuminantLabel.lowercased())")
     }
 
-    /// The scanning stage encodes its output via `RGB_to_RGB(rgb, cs, cs, ...)`, which applies
-    /// `fromXYZ · (CAT · toXYZ)` before the transfer function. That product is close to identity
-    /// but not identity, so skipping it would show up here.
+    /// The scanning stage encodes its output through `RGB_to_RGB(rgb, cs, cs, ...)`, which applies
+    /// `fromXYZ * (CAT * toXYZ)` before the transfer function. The product only comes close to
+    /// identity, so skipping it shows up here.
     @Test(
         "same-space RGB_to_RGB keeps its near-identity matrix",
         arguments: [("sRGB", "srgb"), ("Display P3", "display_p3"), ("ProPhoto RGB", "prophoto_rgb")]

@@ -1,14 +1,14 @@
 # XcodeGen spec for the iOS app.
 #
-# The .xcodeproj is generated, not committed: an Xcode project file is unreviewable in a diff and
-# conflicts on every parallel change. `make project` regenerates it, and CI does the same before
+# The .xcodeproj is generated and not committed, since a project file is unreadable in a diff and
+# conflicts on every parallel change. `make project` regenerates it and CI does the same before
 # building, so this file is the only thing to review.
-# Project name is SpektrafilmApp, not Spektrafilm. Xcode derives Intermediates.noindex directory
-# names from the project and the Swift package, and the engine package is SpektraFilm; two names
-# differing only by the case of one letter merge into a single directory on a case-insensitive
-# filesystem, where the targets overwrite each other's output file maps and the build fails with
-# "unable to open dependencies file". macOS is case-insensitive by default, CI runners included, so
-# this only reproduces off a case-sensitive volume. Users see CFBundleDisplayName, not this.
+# The project is called SpektrafilmApp because Xcode names its Intermediates.noindex directories
+# after the project and the Swift package, and the engine package is SpektraFilm. Two names
+# differing by one letter's case merge into a single directory on a case-insensitive filesystem,
+# where the targets overwrite each other's output file maps and the build fails with "unable to open
+# dependencies file". macOS is case-insensitive by default, CI runners included, so this only shows
+# up off a case-sensitive volume. Users see CFBundleDisplayName.
 name: SpektrafilmApp
 options:
   bundleIdPrefix: dev.ryanhu.spektrafilm
@@ -19,8 +19,8 @@ options:
 
 packages:
   SpektraFilm:
-    # The engine package at the repository root. A local path rather than a version pin: the
-    # engine and the app ship together and are reviewed together.
+    # The engine package at the repository root. A local path, since the engine and the app ship
+    # and get reviewed together.
     path: ..
 
 settings:
@@ -40,13 +40,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ryanhu.spektrafilm
-        # SpektrafilmApp, not Spektrafilm. Xcode names a target's Intermediates.noindex directory
-        # after PRODUCT_NAME, and the engine module is SpektraFilm, so a product called Spektrafilm
-        # collides with it on a case-insensitive filesystem: the two targets share one directory,
-        # overwrite each other's output file maps, and the build dies with "unable to open
-        # dependencies file". macOS is case-insensitive by default, CI runners included, which is
-        # why this passed on a case-sensitive local volume and failed in CI. Users never see this
-        # name; CFBundleDisplayName and CFBundleName below are what the home screen shows.
+        # Same case-collision reason as the project name above: Xcode also names a target's
+        # Intermediates.noindex directory after PRODUCT_NAME. CFBundleDisplayName and CFBundleName
+        # below are what the home screen shows.
         PRODUCT_NAME: SpektrafilmApp
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "0.1.0"
@@ -67,7 +63,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # Required because the app reads photos the user picks for simulation.
+        # The app reads the photo the user picks.
         NSPhotoLibraryUsageDescription:
           Spektrafilm reads the photo you choose so it can run the film simulation on it.
         NSPhotoLibraryAddUsageDescription:

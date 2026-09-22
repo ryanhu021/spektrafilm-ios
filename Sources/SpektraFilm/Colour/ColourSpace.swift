@@ -1,11 +1,11 @@
 import Foundation
 
-/// An RGB colourspace: primaries (as conversion matrices), whitepoint, and transfer function.
+/// An RGB colourspace: conversion matrices, whitepoint and transfer function.
 ///
-/// The seven registered spaces are the ones the reference GUI exposes
-/// (`spektrafilm_gui/options.py:RGBColorSpaces`). Matrices come from ``ColourTables``, dumped from
-/// colour-science rather than derived from primaries, because several spaces ship published
-/// matrices that a fresh derivation would not reproduce digit for digit.
+/// The seven registered spaces are the ones the reference GUI offers
+/// (`spektrafilm_gui/options.py:RGBColorSpaces`). Matrices come from ``ColourTables``, dumped
+/// straight from colour-science, because several spaces ship published matrices that a fresh
+/// derivation from the primaries would not match digit for digit.
 public struct ColourSpace: Sendable, Hashable, Identifiable {
     public let name: String
     public let whitepoint: Chromaticity
@@ -91,7 +91,7 @@ public enum Colour {
 
     /// `colour.adaptation.matrix_chromatic_adaptation_VonKries`.
     ///
-    /// The product order is upstream's: `(inv(M) * D) * M`, not `inv(M) * (D * M)`.
+    /// Upstream multiplies as `(inv(M) * D) * M`, and the grouping matters for parity.
     public static func chromaticAdaptationMatrix(
         from source: (Double, Double, Double),
         to destination: (Double, Double, Double),
@@ -106,9 +106,9 @@ public enum Colour {
 
     /// `colour.XYZ_to_RGB(XYZ, colourspace, illuminant:, apply_cctf_encoding: false)`.
     ///
-    /// When `illuminant` is supplied and differs from the colourspace whitepoint, the adaptation
-    /// matrix and the XYZ→RGB matrix are applied as two separate products, matching upstream. The
-    /// scanning stage relies on this: it passes the print's viewing-illuminant chromaticity.
+    /// Given an `illuminant`, the adaptation matrix and the XYZ to RGB matrix go on as two separate
+    /// products, the way upstream does it. The scanning stage passes the print's viewing-illuminant
+    /// chromaticity through here.
     public static func XYZToRGB(
         _ buffer: inout ImageBuffer,
         colourspace: ColourSpace,
@@ -141,10 +141,9 @@ public enum Colour {
 
     /// `colour.RGB_to_RGB`.
     ///
-    /// Note that upstream calls this with `input == output` purely to run the output transfer
-    /// function (`ScanningStage._apply_cctf_encoding`). That path still multiplies by
-    /// `fromXYZ · (CAT · toXYZ)`, which is only *near* identity, so this reproduces the matrix
-    /// step unconditionally instead of short-circuiting it.
+    /// Upstream calls this with `input == output` just to run the output transfer function, in
+    /// `ScanningStage._apply_cctf_encoding`. That path still multiplies by `fromXYZ * (CAT *
+    /// toXYZ)`, which only comes close to identity, so the matrix step always runs here.
     public static func RGBToRGB(
         _ buffer: inout ImageBuffer,
         from input: ColourSpace,

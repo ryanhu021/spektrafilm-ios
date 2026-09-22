@@ -1,10 +1,10 @@
 import Foundation
 
-/// Failures the engine surfaces to callers.
+/// Failures the engine reports to callers.
 ///
-/// Every case is a configuration or resource problem detected before pixels move. Numeric
-/// conditions inside the pipeline are not errors: the reference propagates NaN and clamps rather
-/// than failing, and the port matches that so a render never dies part-way through.
+/// Every case is a configuration or resource problem caught before any pixels move. Numeric
+/// trouble inside the pipeline never throws. The reference propagates NaN and clamps, and the port
+/// does the same, so a render never dies half-finished.
 public enum SpektraError: Error, Equatable, Sendable {
     case unknownColourSpace(String, known: [String])
     case unknownIlluminant(String)

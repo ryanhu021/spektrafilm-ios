@@ -1,28 +1,26 @@
 import Foundation
 
-/// 1-D linear interpolation, in the two flavours the reference engine relies on.
+/// 1-D linear interpolation. The engine needs two variants and they behave differently.
 ///
-/// The reference uses two different interpolators and they are *not* interchangeable:
-///
-/// - ``npInterp(query:xp:fp:)`` reproduces `numpy.interp`, including its guess-threaded binary
-///   search. The DIR-coupler stage calls it on an axis that is not sorted for positive (slide)
-///   stocks, where the search path (not just the interval) determines the answer.
-/// - ``fastInterp(_:axis:values:)`` reproduces upstream's Numba kernel `fast_interp`, which
-///   clamps to the endpoints and does a fresh `searchsorted` per sample. That one is
-///   order-independent and is what the per-pixel density lookups use.
+/// - ``npInterp(query:xp:fp:)`` copies `numpy.interp`, including its guess-threaded binary search.
+///   The DIR-coupler stage calls it on an axis that runs backwards for slide film, where the
+///   search path decides the answer.
+/// - ``fastInterp(_:axis:values:)`` copies upstream's Numba kernel `fast_interp`. It clamps to the
+///   endpoints and searches fresh for every sample, so input order does not matter. The per-pixel
+///   density lookups use it.
 public enum Interpolation {
 
     // MARK: - numpy.interp
 
-    /// Matches NumPy's `binary_search_with_guess` in `numpy/_core/src/multiarray/compiled_base.c`.
+    /// NumPy's `binary_search_with_guess` from `numpy/_core/src/multiarray/compiled_base.c`.
     ///
-    /// Reproduced verbatim rather than replaced with a plain bisection because `xp` is not always
-    /// sorted. `compute_density_curves_before_dir_couplers` builds its axis as
-    /// `log_exposure - couplers_amount_curves`, which for positive stocks (Velvia, Provia,
-    /// Ektachrome, Kodachrome) steps backwards by as much as 0.039. NumPy's result there is
-    /// well-defined but depends on the guess carried over from the previous sample, the
-    /// three-probe fast path and the cache-locality clamps. A textbook bisection returns a
-    /// different interval, and slide film renders visibly differently.
+    /// Copied line for line because `xp` is not always sorted.
+    /// `compute_density_curves_before_dir_couplers` builds its axis as
+    /// `log_exposure - couplers_amount_curves`, which steps backwards by up to 0.039 for positive
+    /// stocks (Velvia, Provia, Ektachrome, Kodachrome). NumPy still returns something definite,
+    /// but the answer depends on the guess carried from the previous sample, the three-probe fast
+    /// path and the cache-locality clamps. A plain bisection lands on a different interval and
+    /// slide film comes out wrong.
     ///
     /// - Returns: `-1` below the range, `len` above it, otherwise an interval start index.
     @usableFromInline
@@ -81,10 +79,11 @@ public enum Interpolation {
         return imin - 1
     }
 
-    /// `numpy.interp(query, xp, fp)` with default `left`/`right` (the endpoint values).
+    /// `numpy.interp(query, xp, fp)` with the default `left`/`right`, which are the endpoint
+    /// values.
     ///
-    /// `query` is processed in order, because the search guess is carried from one sample to the
-    /// next exactly as NumPy does. Do not parallelise this or reorder the input.
+    /// Processes `query` in order, because the search guess carries from one sample to the next
+    /// like NumPy's does. Do not parallelise this or reorder the input.
     public static func npInterp(query: [Double], xp: [Double], fp: [Double]) -> [Double] {
         precondition(xp.count == fp.count, "xp and fp must be the same length")
         let len = xp.count
@@ -92,8 +91,10 @@ public enum Interpolation {
 
         var out = [Double](repeating: 0, count: query.count)
         if len == 1 {
-            for i in query.indices { out[i] = query[i].isNaN ? query[i] : fp[0] }
-            return out
+            // NumPy's single-point path is `x < xp[0] ? left : (x > xp[0] ? right : fp[0])`.
+            // Both comparisons are false for NaN, so a NaN query also yields `fp[0]`. With one
+            // sample `left` and `right` are `fp[0]` too, so the whole branch collapses.
+            return [Double](repeating: fp[0], count: query.count)
         }
 
         let lval = fp[0]
@@ -104,8 +105,8 @@ public enum Interpolation {
                 let dx = xpBuf.baseAddress!
                 let dy = fpBuf.baseAddress!
 
-                // NumPy precomputes slopes when `lenxp <= lenx`; the arithmetic is identical
-                // either way, so always precompute.
+                // NumPy only precomputes slopes when `lenxp <= lenx`. The arithmetic comes out
+                // the same either way, so always precompute.
                 var slopes = [Double](repeating: 0, count: len - 1)
                 for i in 0..<(len - 1) {
                     slopes[i] = (dy[i + 1] - dy[i]) / (dx[i + 1] - dx[i])
@@ -171,9 +172,16 @@ public enum Interpolation {
     ///     `gamma_factor` into the axis).
     ///   - values: `count * 3` interleaved y values.
     ///
-    /// Repeated x values are allowed: upstream stores a reciprocal of 0 for a zero-width interval,
-    /// which makes the interpolation weight 0 and returns the lower y. That is reproduced here,
-    /// rather than dividing and getting an infinity.
+    /// Repeated x values are allowed. Upstream stores a reciprocal of 0 for a zero-width interval,
+    /// so the weight becomes 0 and the lower y comes back.
+    ///
+    /// A NaN query returns `values[0, channel]`, same as a query below the axis. That is what the
+    /// oracle does, though it falls out of undefined behaviour: upstream's `x <= xa[0]` and
+    /// `x >= xa[K-1]` are both false for NaN, so it reaches `searchsorted`, which returns `K` and
+    /// indexes `inv_dx[K-1]` one past the end. Numba compiles with `fastmath=True`, which lets it
+    /// assume NaN never appears. Nothing on the default path feeds NaN here, since every caller
+    /// passes `log10(fmax(raw, 0) + 1e-10)` and `fmax` drops NaN. The `interp_fast_nan_query`
+    /// golden pins the behaviour.
     public static func fastInterp(
         _ image: ImageBuffer, axis: [Double], values: [Double]
     ) -> ImageBuffer {
@@ -225,12 +233,7 @@ public enum Interpolation {
                                     let invBase = perChannelAxis ? iv + c : iv
                                     let first = axBase[0]
                                     let last = axBase[(count - 1) * axisStride]
-                                    if x.isNaN {
-                                        // Upstream reads out of bounds here (Numba runs without
-                                        // bounds checks), which is undefined rather than a
-                                        // behaviour worth copying. Propagate instead.
-                                        d[p * 3 + c] = .nan
-                                    } else if x <= first {
+                                    if x.isNaN || x <= first {
                                         d[p * 3 + c] = y[c]
                                     } else if x >= last {
                                         d[p * 3 + c] = y[(count - 1) * 3 + c]

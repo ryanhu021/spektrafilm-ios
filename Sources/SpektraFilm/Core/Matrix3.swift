@@ -1,11 +1,10 @@
 import Foundation
 
-/// A 3×3 matrix of `Double`, row-major.
+/// A 3x3 matrix of `Double`, row-major.
 ///
-/// Small and concrete rather than a general linear-algebra type: every matrix in the engine is
-/// 3×3 (colourspace conversions, cone responses, the DIR-coupler inhibition matrix), and the
-/// parity gate cares about multiplication *order*, which is easier to keep honest with explicit
-/// operations than with a generic BLAS call.
+/// Every matrix in the engine is 3x3: colourspace conversions, cone responses, the DIR-coupler
+/// inhibition matrix. Multiplication order affects parity, and explicit operations make the order
+/// easy to read off.
 public struct Matrix3: Sendable, Equatable {
     public var m00, m01, m02: Double
     public var m10, m11, m12: Double
@@ -89,9 +88,9 @@ public struct Matrix3: Sendable, Equatable {
 
     /// Analytic inverse via the adjugate.
     ///
-    /// The reference gets its inverses from LAPACK, which differs from this in the last couple of
-    /// bits. That propagates to roughly 1e-16 relative in the rendered pixel, twelve orders of
-    /// magnitude under the 1e-4 parity gate, so reproducing LAPACK is not worth the dependency.
+    /// The reference gets its inverses from LAPACK, which differs in the last couple of bits. That
+    /// reaches about 1e-16 relative in the rendered pixel, twelve orders of magnitude under the
+    /// 1e-4 gate, so LAPACK is not worth a dependency.
     public var inverse: Matrix3 {
         let det = determinant
         precondition(det != 0, "Matrix3 is singular")

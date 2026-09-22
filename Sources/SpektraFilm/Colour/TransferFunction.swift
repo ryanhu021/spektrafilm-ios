@@ -1,19 +1,18 @@
 import Foundation
 
-/// The colour-component transfer functions of the supported RGB colourspaces.
+/// Colour-component transfer functions for the supported RGB colourspaces.
 ///
-/// Reimplemented from colour-science's definitions rather than tabulated, and gated against it by
-/// `TransferFunctionParityTests`, which sweeps the domain including negatives and the piecewise
-/// breakpoints. Each case documents the colour-science function it mirrors, because the details
-/// that matter here are not the ones a textbook states:
+/// Each case names the colour-science function it follows, and the golden sweep in
+/// `ColourParityTests` covers negatives and every piecewise breakpoint. Three details differ from
+/// the textbook forms:
 ///
-/// - `spow` is a *signed* power (`sign(a) * |a|^p`), so the sRGB and BT.2020 segments are odd
-///   functions rather than undefined below zero.
-/// - `gamma_function`'s default negative handling is "Indeterminate", a plain `a ** p`, which is
-///   NaN for a negative base and a fractional exponent. DCI-P3 and Adobe RGB therefore return NaN
-///   below zero, and the engine must not quietly clamp that away.
-/// - ROMM RGB (ProPhoto) scales through an 8-bit integer range and back, so its arithmetic is
-///   `X * 16 * 255 / 255`, not `X * 16`.
+/// - `spow` is a signed power, `sign(a) * |a|^p`, so the sRGB and BT.2020 segments stay finite
+///   below zero.
+/// - `gamma_function` defaults to "Indeterminate" negative handling, a plain `a ** p`, which is
+///   NaN for a negative base with a fractional exponent. DCI-P3 and Adobe RGB go NaN below zero
+///   and the engine leaves that alone.
+/// - ROMM RGB (ProPhoto) scales through an 8-bit integer range and back, so the arithmetic is
+///   `X * 16 * 255 / 255`.
 public enum TransferFunction: String, Sendable, CaseIterable {
     case linear
     case sRGB
@@ -116,7 +115,7 @@ public enum TransferFunction: String, Sendable, CaseIterable {
     // MARK: - Constants
 
     /// `CONSTANTS_BT2020.alpha(is_12_bits_system: False)`. colour-science uses the rounded
-    /// Rec.2020 values, not the exact 1.09929682680944 / 0.018053968510807 pair.
+    /// Rec.2020 values, so 1.099 and 0.018 rather than 1.09929682680944 and 0.018053968510807.
     @usableFromInline static let bt2020Alpha = 1.099
     @usableFromInline static let bt2020Beta = 0.018
     /// `oetf_BT2020(0.018)` = 0.018 * 4.5.

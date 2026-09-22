@@ -1,14 +1,14 @@
 import Foundation
 
-/// A film or print-paper profile: the measured data the simulation is driven by.
+/// A film or print-paper profile: the measured data that drives the simulation.
 ///
-/// Mirrors `spektrafilm.profiles.io.Profile` one-to-one, including field names on the wire, so the
-/// 28 upstream JSON files load unmodified and stay redistributable under their own CC BY-SA 4.0
-/// terms (see docs/LICENSING.md).
+/// Matches `spektrafilm.profiles.io.Profile` field for field, including the wire names, so the 28
+/// upstream JSON files load unmodified and stay redistributable under their own CC BY-SA 4.0 terms.
+/// See docs/LICENSING.md.
 ///
-/// Arrays are stored flattened with shapes derived from `wavelengths` and `logExposure`; see each
-/// property for its logical shape. Missing datasheet coverage is `null` in JSON and NaN here, and
-/// it must stay NaN, because the reference reduces with `nanmin`/`nanmax` and relies on it propagating
+/// Arrays are flattened, with shapes derived from `wavelengths` and `logExposure`. Each property
+/// documents its logical shape. Gaps in datasheet coverage are `null` in JSON and NaN here, and
+/// they have to stay NaN: the reference reduces with `nanmin` and `nanmax` and lets NaN travel
 /// through the density lookups.
 public struct Profile: Sendable, Equatable {
     public var metadata: ProfileMetadata
@@ -40,8 +40,8 @@ public struct Profile: Sendable, Equatable {
 
 /// Redistribution terms and provenance, carried verbatim from the upstream JSON.
 ///
-/// Decoded and preserved rather than dropped: each profile's `license` and `citation` are the
-/// attribution the CC BY-SA 4.0 terms require, and the app surfaces them.
+/// Each profile's `license` and `citation` are the attribution CC BY-SA 4.0 requires, and the app
+/// shows them, so they are decoded and kept.
 public struct ProfileMetadata: Sendable, Equatable, Codable {
     public var version: String?
     public var copyright: String?
@@ -122,7 +122,7 @@ public struct ProfileInfo: Sendable, Equatable, Codable {
 /// Parametric model of the density curves, used by the print-curve morph.
 ///
 /// `centers`, `amplitudes` and `sigmas` are `[channel][layer]`, flattened. The layer count comes
-/// from the data rather than being fixed at 3.
+/// from the data and is not fixed at 3.
 public struct DensityCurvesModel: Sendable, Equatable {
     public var modelType: String
     public var channelCount: Int
@@ -160,7 +160,7 @@ public struct DensityCurvesModel: Sendable, Equatable {
 }
 
 public struct ProfileData: Sendable, Equatable {
-    /// Spectral sample points in nm; 81 values on the engine's 380–780 / 5 nm grid.
+    /// Spectral sample points in nm. 81 values on the engine's 380 to 780 nm grid at 5 nm steps.
     public var wavelengths: [Double]
     /// log10 spectral sensitivity, `[wavelength][rgb]` flattened.
     public var logSensitivity: [Double]
@@ -218,8 +218,8 @@ public struct ProfileData: Sendable, Equatable {
 /// Sensitivity adaptation applied when upsampling RGB to spectra.
 ///
 /// The window and surface fits are per-stock corrections that keep the Hanatos-2025 reconstruction
-/// consistent with the stock's measured sensitivities; `applyWindow` defaults on and
-/// `applySurface` off, matching `SettingsParams`.
+/// consistent with the stock's measured sensitivities. `applyWindow` defaults on and `applySurface`
+/// off, following `SettingsParams`.
 public struct Hanatos2025SensitivityAdaptation: Sendable, Equatable {
     public var windowParams: [Double]
     public var surfaceParams: [Double]

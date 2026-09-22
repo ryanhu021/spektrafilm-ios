@@ -2,13 +2,12 @@ import Foundation
 
 /// A dense, row-major `[height][width][channels]` buffer of `Double`.
 ///
-/// This is the single interchange type inside the engine, standing in for the NumPy arrays the
-/// reference implementation passes between stages. `channels` is 3 for RGB, CMY density and XYZ,
-/// and 81 for spectral quantities sampled on the engine's 380–780 nm / 5 nm grid.
+/// Every stage passes these around, standing in for the reference's NumPy arrays. `channels` is 3
+/// for RGB, CMY density and XYZ, and 81 for spectral quantities on the engine's 380 to 780 nm
+/// grid at 5 nm steps.
 ///
-/// `Double` throughout, deliberately: the reference computes in float64 and the parity gate is
-/// tight enough (1e-4 absolute) that accumulating in Float would fail it in the spectral
-/// contractions, where 81 terms are summed per pixel per channel.
+/// `Double` throughout. The reference computes in float64, and the spectral contractions sum 81
+/// terms per pixel per channel, which would drift past the 1e-4 gate in Float.
 public struct ImageBuffer: Sendable, Equatable {
     public let height: Int
     public let width: Int
@@ -60,8 +59,8 @@ public struct ImageBuffer: Sendable, Equatable {
 
     /// A contiguous band of rows, `[rows][width][channels]`.
     ///
-    /// Spectral stages expand 3 channels to 81, so a full-resolution frame cannot be converted in
-    /// one allocation, since 12 MP would need 7.8 GB. Per-pixel stages run band by band; see
+    /// Spectral stages expand 3 channels to 81, so a whole frame will not fit in one allocation:
+    /// 12 MP would need 7.8 GB. Per-pixel stages work band by band through
     /// ``mapPerPixel(bandRows:channelsOut:transform:)``.
     public func rowBand(from start: Int, count rows: Int) -> ImageBuffer {
         let lo = start * width * channels
@@ -77,11 +76,11 @@ public struct ImageBuffer: Sendable, Equatable {
         values.replaceSubrange(lo..<(lo + band.count), with: band.values)
     }
 
-    /// Applies a per-pixel transform in row bands, so intermediates stay bounded.
+    /// Applies a per-pixel transform in row bands to keep intermediates small.
     ///
-    /// Only valid for transforms where each output pixel depends solely on the co-located input
-    /// pixel. The spectral maps (`density → radiance → XYZ`, `film CMY → print exposure`) qualify,
-    /// spatial effects (blur, grain, coupler diffusion) do not.
+    /// Only valid when each output pixel depends on the input pixel at the same position. The
+    /// spectral maps (density to radiance to XYZ, film CMY to print exposure) qualify. Blur,
+    /// grain and coupler diffusion do not.
     public func mapPerPixel(
         bandRows: Int,
         channelsOut: Int,
@@ -104,8 +103,8 @@ public struct ImageBuffer: Sendable, Equatable {
 
     /// Row-band height that keeps a `channels`-deep intermediate under `budgetBytes`.
     ///
-    /// At least one row always, even if a single row exceeds the budget: correctness before
-    /// footprint, and a one-row band is what a very wide panorama will get.
+    /// Always at least one row, even when a single row blows the budget. A very wide panorama ends
+    /// up with one-row bands.
     public static func bandRows(
         width: Int, channels: Int, budgetBytes: Int = 64 << 20
     ) -> Int {

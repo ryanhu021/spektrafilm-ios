@@ -1,9 +1,8 @@
 """Minimal container for parity goldens.
 
-One fixture per file. The format exists so a Swift test can read a NumPy array without a
-dependency, and so a stale or truncated fixture fails loudly instead of being interpreted as
-zeros. `.npy` would have worked but needs a header parser that has to handle dtype strings,
-Fortran order and shape tuples; this needs none of that.
+One fixture per file, so a Swift test can read a NumPy array with no dependency and a truncated
+file fails loudly instead of reading as zeros. `.npy` would also work, but its header carries dtype
+strings, Fortran order and shape tuples to parse.
 
 Layout, little-endian throughout:
 
@@ -13,8 +12,8 @@ Layout, little-endian throughout:
     ..  pad to a multiple of 8
     ..  8*count   float64 values, C order
 
-Only float64 is supported, deliberately: the reference computes in float64 and a fixture that
-silently narrowed to float32 would move the goldens under the 1e-4 gate.
+float64 only. The reference computes in float64, and a fixture that quietly narrowed to float32
+would shift the goldens under the 1e-4 gate.
 """
 
 from __future__ import annotations

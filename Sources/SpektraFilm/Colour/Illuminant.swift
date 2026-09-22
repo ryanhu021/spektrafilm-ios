@@ -1,9 +1,9 @@
 import Foundation
 
-/// A light source, identified by the same string labels the profile JSONs use.
+/// A light source, labelled the way the profile JSONs label it.
 ///
-/// Mirrors `spektrafilm.model.illuminants.standard_illuminant`. Every spectrum is normalised so
-/// its mean over the 81 samples is 1, which is what makes exposure factors comparable between
+/// Follows `spektrafilm.model.illuminants.standard_illuminant`. Every spectrum is normalised to a
+/// mean of 1 over the 81 samples, which is what makes exposure factors comparable across
 /// illuminants.
 public enum Illuminant: Sendable, Hashable {
     /// A CIE standard illuminant tabulated in ``ColourTables``: `"D50"`, `"D55"` or `"D65"`.
@@ -79,10 +79,10 @@ public enum Illuminant: Sendable, Hashable {
         return values
     }
 
-    /// The chromaticity of this illuminant under the CIE 1931 2° observer.
+    /// Chromaticity under the CIE 1931 2-degree observer.
     ///
-    /// Matches `spectral_upsampling._illuminant_to_xy`: sum the normalised spectrum against each
-    /// colour-matching function, then divide by the sum of the three.
+    /// Follows `spectral_upsampling._illuminant_to_xy`: sum the normalised spectrum against each
+    /// colour-matching function, then divide by the total.
     public var chromaticity: Chromaticity {
         let spd = spectrum
         var xyz = (0.0, 0.0, 0.0)

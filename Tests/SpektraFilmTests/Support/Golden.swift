@@ -3,11 +3,10 @@ import Testing
 
 @testable import SpektraFilm
 
-/// Reads a parity fixture produced by `Tools/parity/generate_goldens.py`.
+/// Reads a parity fixture written by `Tools/parity/generate_goldens.py`.
 ///
-/// See `Tools/parity/spkg.py` for the layout. The reader is strict: a wrong magic, a truncated
-/// payload or a shape that does not match what the test asked for is a failure, not a silently
-/// empty array, because an empty array would make every comparison pass.
+/// `Tools/parity/spkg.py` documents the layout. A wrong magic, a truncated payload or an
+/// unexpected shape all throw, because an empty array would make every comparison pass.
 struct Golden {
     let shape: [Int]
     let values: [Double]
@@ -103,10 +102,10 @@ struct ParityReport: CustomStringConvertible {
 
 /// Compares elementwise, treating NaN as equal to NaN.
 ///
-/// NaN equality matters: profiles encode "no data" as JSON `null`, which the reference loads as
-/// NaN and propagates through the density curves. A comparison that called NaN a mismatch would
-/// fail on stocks with partial datasheet coverage, and one that skipped NaN entirely would let the
-/// port turn real numbers into NaN unnoticed. Hence the separate ``ParityReport/nanMismatches``.
+/// Profiles encode missing data as JSON `null`, which the reference loads as NaN and carries
+/// through the density curves, so stocks with partial datasheet coverage legitimately contain NaN.
+/// Skipping NaN outright would hide a port that turned real numbers into NaN, which is what
+/// ``ParityReport/nanMismatches`` counts.
 func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
     precondition(
         actual.count == expected.count,
@@ -144,7 +143,7 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
 
 /// The parity contract: absolute and RMS bounds, and no NaN appearing or disappearing.
 ///
-/// Matching the tolerance the Android port settled on, so the two ports make the same promise.
+/// Same tolerance the Android port settled on, so both ports promise the same thing.
 func expectParity(
     _ actual: [Double],
     matches golden: String,
@@ -154,8 +153,8 @@ func expectParity(
 ) throws {
     let expected = try Golden(golden)
     let report = parity(actual, expected.values)
-    // Without this, a fixture that is entirely NaN (or a port that turned everything into NaN)
-    // would compare zero elements and pass.
+    // A fixture that is entirely NaN, or a port that turned everything into NaN, would otherwise
+    // compare zero elements and pass.
     #expect(
         report.count > 0,
         "\(golden): no comparable values; \(report)",
