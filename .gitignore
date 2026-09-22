@@ -26,3 +26,6 @@ __pycache__/
 
 # Parity oracle (regenerate with `make oracle`)
 Tools/parity/oracle/
+
+# Python bytecode from the parity tooling
+Tools/parity/__pycache__/
