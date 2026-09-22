@@ -30,7 +30,7 @@ sys.path.insert(0, str(HERE))
 
 import oracle_env  # noqa: E402
 import spkg  # noqa: E402
-from fixture_registry import registered  # noqa: E402
+from fixture_registry import registered, registered_sidecars  # noqa: E402
 
 REPO = HERE.parents[1]
 GOLDENS = REPO / "Tests" / "SpektraFilmTests" / "Goldens"
@@ -51,7 +51,9 @@ def main() -> int:
 
     producers = registered()
     if wanted:
-        known = {fn.__name__ for fn in producers}
+        known = {fn.__name__ for fn in producers} | {
+            fn.__name__ for fn in registered_sidecars()
+        }
         unknown = wanted - known
         if unknown:
             print(
@@ -78,6 +80,11 @@ def main() -> int:
             }
             total += size
             print(f"  {name:48s} {str(array.shape):18s} {size:>9,d} B")
+
+    for produce in registered_sidecars():
+        if wanted and produce.__name__ not in wanted:
+            continue
+        print(f"  {produce.__name__:48s} {produce()}")
 
     manifest_path = GOLDENS / "manifest.json"
     if wanted and manifest_path.exists():
