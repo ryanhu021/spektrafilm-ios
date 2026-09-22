@@ -24,6 +24,9 @@ from pathlib import Path
 import colour
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import oracle_env  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 GENERATED = REPO / "Sources" / "SpektraFilm" / "Generated"
 
@@ -328,6 +331,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="fail if a committed file is stale")
     args = ap.parse_args()
+    oracle_env.require()
 
     stale = False
     for filename, builder in OUTPUTS.items():

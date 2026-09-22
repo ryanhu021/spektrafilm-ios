@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import oracle_env  # noqa: E402
 import spkg  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
@@ -219,6 +220,7 @@ def interpolation():
 
 
 def main() -> int:
+    oracle_env.require()
     wanted = set(sys.argv[1:])
     manifest: dict[str, dict] = {}
     total = 0

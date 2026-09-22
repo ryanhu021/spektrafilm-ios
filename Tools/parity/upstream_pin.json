@@ -6,13 +6,22 @@
     "oracle_commit": "3bb2c2d2801ff68b92019cf1dbcbb133d60832bc",
     "oracle_subject": "fix: vlog midgray exposure",
     "oracle_date": "2026-06-07",
+    "note": "Every committed golden under Tests/SpektraFilmTests/Goldens came from this commit. Re-pinning means regenerating all goldens and reviewing the render delta."
+  },
+  "oracle_environment": {
+    "note": "Exact versions, because the goldens depend on them. colour-science supplies the colourimetric tables and the transfer functions; NumPy's C implementation of np.interp supplies the guess-threaded binary search the DIR-coupler stage relies on; SciPy supplies the Akima resampling baked into the filter tables; Numba's fastmath governs what fast_interp does with NaN. setup_oracle.sh installs these, and both generators assert them before writing anything.",
     "python": "3.13",
-    "note": "Every committed golden under Tests/SpektraFilmTests/Goldens was produced by this commit. Re-pinning requires regenerating all goldens and reviewing the render delta."
+    "packages": {
+      "colour-science": "0.4.7",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "numba": "0.67.0"
+    }
   },
   "related": {
     "android_port": {
       "url": "https://github.com/thetechgeekko/Spektrafilm-android",
-      "role": "prior art only, still under active development; never a numeric source of truth"
+      "role": "prior art only, still under active development, never a numeric source of truth"
     }
   }
 }

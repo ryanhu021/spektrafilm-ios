@@ -32,10 +32,20 @@ echo "==> creating Python 3.13 venv"
 uv python install 3.13 >/dev/null
 uv venv --quiet --python 3.13 "$ORACLE/.venv"
 
+# The four libraries whose output lands in a committed fixture are pinned exactly; see
+# oracle_environment in upstream_pin.json. The rest only need to satisfy upstream's imports.
+pinned=$(python3 - "$PIN" <<'EOF'
+import json, sys
+packages = json.load(open(sys.argv[1]))["oracle_environment"]["packages"]
+print(" ".join(f"{name}=={want}" for name, want in packages.items()))
+EOF
+)
+
 echo "==> installing runtime dependencies"
-VIRTUAL_ENV="$ORACLE/.venv" uv pip install --quiet \
-  "numpy~=2.4" "scipy~=1.17" "colour-science~=0.4.6" "scikit-image~=0.26" \
-  "opt-einsum~=3.4.0" "numba~=0.64" "pyfftw~=0.15.0" "matplotlib~=3.10" \
+echo "    pinned: $pinned"
+# shellcheck disable=SC2086
+VIRTUAL_ENV="$ORACLE/.venv" uv pip install --quiet $pinned \
+  "scikit-image~=0.26" "opt-einsum~=3.4.0" "pyfftw~=0.15.0" "matplotlib~=3.10" \
   "rawpy~=0.26.1" "exiv2~=0.18.1" "lensfunpy~=1.18.0" "OpenImageIO~=3.1.11"
 VIRTUAL_ENV="$ORACLE/.venv" uv pip install --quiet --no-deps -e "$ORACLE"
 
