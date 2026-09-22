@@ -23,3 +23,6 @@ __pycache__/
 # Local scratch
 /tmp/
 *.log
+
+# Parity oracle (regenerate with `make oracle`)
+Tools/parity/oracle/

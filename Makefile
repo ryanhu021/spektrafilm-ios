@@ -39,9 +39,17 @@ run: project ## Build and launch the app in the simulator
 	set -o pipefail; xcodebuild build -project $(PROJECT) -scheme $(SCHEME) \
 		-destination $(SIM) CODE_SIGNING_ALLOWED=NO | tail -20
 
+.PHONY: oracle
+oracle: ## Create the pinned Python oracle venv under Tools/parity/oracle
+	Tools/parity/setup_oracle.sh
+
+.PHONY: tables
+tables: ## Regenerate Sources/SpektraFilm/Generated from colour-science
+	Tools/parity/oracle/.venv/bin/python Tools/parity/extract_colour_tables.py
+
 .PHONY: goldens
 goldens: ## Regenerate parity goldens from the pinned Python oracle
-	Tools/parity/generate_goldens.sh
+	Tools/parity/oracle/.venv/bin/python Tools/parity/generate_goldens.py
 
 .PHONY: docs
 docs: ## Check documentation consistency
