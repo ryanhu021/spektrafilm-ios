@@ -1,0 +1,456 @@
+{
+  "colour_rgb_input": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_same_space_encode_display_p3": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_same_space_encode_prophoto_rgb": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_same_space_encode_srgb": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_input": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_display_p3_d50": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_display_p3_k75p": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_itu_r_bt2020_d50": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_itu_r_bt2020_k75p": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_prophoto_rgb_d50": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_prophoto_rgb_k75p": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_srgb_d50": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "colour_xyz_to_rgb_srgb_k75p": {
+    "shape": [
+      8,
+      8,
+      3
+    ],
+    "bytes": 1560,
+    "group": "colour_conversions",
+    "nan_count": 0
+  },
+  "filter_bandpass_active": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_bandpass_default": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_bandpass_partial": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_canon_lens": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_dichroic_custom": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_dichroic_durst": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "filters",
+    "nan_count": 13
+  },
+  "filter_dichroic_edmund": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "filters",
+    "nan_count": 3
+  },
+  "filter_dichroic_thorlabs": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "filter_schott_kg3": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "filters",
+    "nan_count": 0
+  },
+  "illuminant_spectra": {
+    "shape": [
+      9,
+      81
+    ],
+    "bytes": 5856,
+    "group": "illuminants",
+    "nan_count": 0
+  },
+  "illuminant_xy": {
+    "shape": [
+      9,
+      2
+    ],
+    "bytes": 168,
+    "group": "illuminants",
+    "nan_count": 0
+  },
+  "interp_axis_fujifilm_velvia_100": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_axis_kodak_portra_400": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_curves_fujifilm_velvia_100": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_curves_kodak_portra_400": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_fast_perchannel_axis": {
+    "shape": [
+      16,
+      16,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_fast_query": {
+    "shape": [
+      16,
+      16,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_fast_shared_axis": {
+    "shape": [
+      16,
+      16,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_log_exposure": {
+    "shape": [
+      256
+    ],
+    "bytes": 2064,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_npinterp_fujifilm_velvia_100": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "interp_npinterp_kodak_portra_400": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "interpolation",
+    "nan_count": 0
+  },
+  "observer_cmfs": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "observer",
+    "nan_count": 0
+  },
+  "observer_lms": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "observer",
+    "nan_count": 0
+  },
+  "transfer_aces2065_1_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_aces2065_1_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_adobe_rgb_1998_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 5
+  },
+  "transfer_adobe_rgb_1998_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 5
+  },
+  "transfer_dci_p3_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 5
+  },
+  "transfer_dci_p3_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 5
+  },
+  "transfer_display_p3_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_display_p3_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_itu_r_bt2020_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_itu_r_bt2020_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_prophoto_rgb_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_prophoto_rgb_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_srgb_decode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_srgb_encode": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "transfer_sweep_input": {
+    "shape": [
+      85
+    ],
+    "bytes": 696,
+    "group": "transfer_functions",
+    "nan_count": 0
+  }
+}
