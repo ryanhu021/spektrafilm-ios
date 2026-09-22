@@ -1,0 +1,73 @@
+# XcodeGen spec for the iOS app.
+#
+# The .xcodeproj is generated, not committed: an Xcode project file is unreviewable in a diff and
+# conflicts on every parallel change. `make project` regenerates it, and CI does the same before
+# building, so this file is the only thing to review.
+name: Spektrafilm
+options:
+  bundleIdPrefix: dev.ryanhu.spektrafilm
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  SpektraFilm:
+    # The engine package at the repository root. A local path rather than a version pin: the
+    # engine and the app ship together and are reviewed together.
+    path: ..
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: true
+    DEAD_CODE_STRIPPING: true
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: true
+
+targets:
+  Spektrafilm:
+    type: application
+    platform: iOS
+    sources:
+      - path: Spektrafilm
+    dependencies:
+      - package: SpektraFilm
+        product: SpektraFilm
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ryanhu.spektrafilm
+        PRODUCT_NAME: Spektrafilm
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.1.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Spektrafilm
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Required because the app reads photos the user picks for simulation.
+        NSPhotoLibraryUsageDescription:
+          Spektrafilm reads the photo you choose so it can run the film simulation on it.
+        NSPhotoLibraryAddUsageDescription:
+          Spektrafilm saves your finished render back to your photo library.
+
+schemes:
+  Spektrafilm:
+    build:
+      targets:
+        Spektrafilm: all
+    run:
+      config: Debug
+    archive:
+      config: Release

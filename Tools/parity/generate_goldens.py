@@ -3,7 +3,7 @@
 
 Every fixture is produced by the pinned oracle (see upstream_pin.json) and committed, so CI needs
 no Python. Re-running this is only correct after `make oracle`, and a changed fixture means the
-render changed — review the delta, do not just commit it.
+render changed, so review the delta rather than just committing it.
 
 Add a fixture by writing a `@fixture`-decorated function that returns one or more
 `(name, array)` pairs. Keep inputs small and deterministic: these files are in git.
@@ -135,7 +135,7 @@ def colour_conversions():
             yield f"colour_xyz_to_rgb_{slug}_{label.lower()}", np.asarray(rgb)
 
     # Upstream runs the output transfer function through RGB_to_RGB with input == output, which
-    # still multiplies by fromXYZ·(CAT·toXYZ) — near identity, but not identity.
+    # still multiplies by fromXYZ·(CAT·toXYZ), which is near identity but not identity.
     rgb = rng.uniform(0.0, 1.0, size=(8, 8, 3))
     yield "colour_rgb_input", rgb
     for cs in ["sRGB", "Display P3", "ProPhoto RGB"]:

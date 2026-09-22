@@ -126,7 +126,7 @@ public enum ProfileLibrary {
         }
     }
 
-    /// Slugs of every bundled profile, sorted — `list_profiles()`.
+    /// Slugs of every bundled profile, sorted, matching `list_profiles()`.
     public static let available: [String] = {
         guard
             let urls = Bundle.module.urls(
@@ -135,7 +135,7 @@ public enum ProfileLibrary {
         return urls.map { $0.deletingPathExtension().lastPathComponent }.sorted()
     }()
 
-    /// Profiles valid as the camera negative, i.e. `stage == .filming` — 20 of the 28.
+    /// Profiles valid as the camera negative, i.e. `stage == .filming`, which is 20 of the 28.
     ///
     /// Keyed on `stage`, not `support`: Kodak 2383 and 2393 are cine print *films*, so they carry
     /// `support: film` while belonging on the print side. Filtering by support would offer them as
@@ -144,7 +144,7 @@ public enum ProfileLibrary {
         get throws { try available.map { try load($0) }.filter { $0.info.stage == .filming } }
     }
 
-    /// Profiles valid as the print medium, i.e. `stage == .printing` — 6 papers plus the 2 cine
+    /// Profiles valid as the print medium, i.e. `stage == .printing`: 6 papers plus the 2 cine
     /// print films.
     public static var printMedia: [Profile] {
         get throws { try available.map { try load($0) }.filter { $0.info.stage == .printing } }

@@ -8,7 +8,7 @@ import Foundation
 ///
 /// Arrays are stored flattened with shapes derived from `wavelengths` and `logExposure`; see each
 /// property for its logical shape. Missing datasheet coverage is `null` in JSON and NaN here, and
-/// it must stay NaN — the reference reduces with `nanmin`/`nanmax` and relies on NaN propagating
+/// it must stay NaN, because the reference reduces with `nanmin`/`nanmax` and relies on it propagating
 /// through the density lookups.
 public struct Profile: Sendable, Equatable {
     public var metadata: ProfileMetadata

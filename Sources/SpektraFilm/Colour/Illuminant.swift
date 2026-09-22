@@ -6,7 +6,7 @@ import Foundation
 /// its mean over the 81 samples is 1, which is what makes exposure factors comparable between
 /// illuminants.
 public enum Illuminant: Sendable, Hashable {
-    /// A CIE standard illuminant tabulated in ``ColourTables`` — `"D50"`, `"D55"`, `"D65"`.
+    /// A CIE standard illuminant tabulated in ``ColourTables``: `"D50"`, `"D55"` or `"D65"`.
     case cie(String)
     /// colour-science's `Incandescent` light source, profile label `"T"`.
     case incandescent
@@ -14,7 +14,7 @@ public enum Illuminant: Sendable, Hashable {
     case kinoton75P
     /// Planckian radiator at the given temperature in kelvin, profile label `"BB<temp>"`.
     case blackbody(Double)
-    /// 3400 K halogen through Schott KG3 heat-absorbing glass — the default enlarger lamp.
+    /// 3400 K halogen through Schott KG3 heat-absorbing glass, the default enlarger lamp.
     case tungstenHalogenKG3
     /// As ``tungstenHalogenKG3``, additionally through the measured lens transmission.
     case tungstenHalogenKG3Lens

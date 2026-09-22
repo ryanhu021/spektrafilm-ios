@@ -6,7 +6,7 @@ import Foundation
 ///
 /// - ``npInterp(query:xp:fp:)`` reproduces `numpy.interp`, including its guess-threaded binary
 ///   search. The DIR-coupler stage calls it on an axis that is not sorted for positive (slide)
-///   stocks, where the search path — not just the interval — determines the answer.
+///   stocks, where the search path (not just the interval) determines the answer.
 /// - ``fastInterp(_:axis:values:)`` reproduces upstream's Numba kernel `fast_interp`, which
 ///   clamps to the endpoints and does a fresh `searchsorted` per sample. That one is
 ///   order-independent and is what the per-pixel density lookups use.
@@ -147,7 +147,9 @@ public enum Interpolation {
 
     /// Index of the first element strictly greater than `key`, i.e. `searchsorted(side: .right)`.
     @inlinable
-    static func upperBound(_ key: Double, _ arr: UnsafePointer<Double>, stride: Int, count: Int)
+    static func upperBound(
+        _ key: Double, _ arr: UnsafePointer<Double>, stride: Int, count: Int
+    )
         -> Int
     {
         var lo = 0

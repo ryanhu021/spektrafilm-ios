@@ -53,6 +53,7 @@ jobs:
             -scheme Spektrafilm \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/xcode \
             CODE_SIGNING_ALLOWED=NO \
             | tail -40
 
@@ -62,4 +63,4 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Check
-        run: Tools/check_docs.sh
+        run: Tools/check_docs.py

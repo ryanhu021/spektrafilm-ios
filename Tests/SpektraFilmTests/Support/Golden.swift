@@ -5,7 +5,7 @@ import Testing
 
 /// Reads a parity fixture produced by `Tools/parity/generate_goldens.py`.
 ///
-/// See `Tools/parity/spkg.py` for the layout. The reader is strict — a wrong magic, a truncated
+/// See `Tools/parity/spkg.py` for the layout. The reader is strict: a wrong magic, a truncated
 /// payload or a shape that does not match what the test asked for is a failure, not a silently
 /// empty array, because an empty array would make every comparison pass.
 struct Golden {
@@ -59,7 +59,7 @@ struct Golden {
         var description: String {
             switch self {
             case .missing(let name):
-                return "golden '\(name).spkg' is not in the test bundle — run `make goldens`"
+                return "golden '\(name).spkg' is not in the test bundle; run `make goldens`"
             case .malformed(let name, let why):
                 return "golden '\(name)' is malformed: \(why)"
             }
@@ -154,7 +154,7 @@ func expectParity(
 ) throws {
     let expected = try Golden(golden)
     let report = parity(actual, expected.values)
-    // Without this, a fixture that is entirely NaN — or a port that turned everything into NaN —
+    // Without this, a fixture that is entirely NaN (or a port that turned everything into NaN)
     // would compare zero elements and pass.
     #expect(
         report.count > 0,

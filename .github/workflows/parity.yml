@@ -1,0 +1,53 @@
+name: Parity oracle
+
+# Rebuilds the pinned Python oracle and checks that the committed generated tables and goldens
+# still match what it produces. Separate from CI because it installs NumPy, SciPy, Numba and
+# colour-science, which takes minutes. That is too slow for every push, and it can only fail for two
+# reasons, neither of which a normal commit causes:
+#
+#   1. Someone edited a generated file or a golden by hand instead of regenerating it.
+#   2. A dependency resolved to a new version whose numbers differ, which is exactly the drift this
+#      is here to catch before it silently changes a render.
+#
+# Upstream moving does NOT fail this job: the oracle is pinned to a commit.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
+jobs:
+  drift:
+    name: Generated tables and goldens are reproducible
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Build the pinned oracle
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          make oracle
+
+      - name: Generated tables are reproducible
+        run: Tools/parity/oracle/.venv/bin/python Tools/parity/extract_colour_tables.py --check
+
+      - name: Goldens are reproducible
+        run: |
+          make goldens
+          if ! git diff --quiet -- Tests/SpektraFilmTests/Goldens; then
+            echo "::error::Regenerating the goldens changed them. Review the render delta:"
+            git diff --stat -- Tests/SpektraFilmTests/Goldens
+            exit 1
+          fi
+          echo "goldens match the oracle"
+
+      - name: Tests still pass against the regenerated fixtures
+        run: swift test --parallel

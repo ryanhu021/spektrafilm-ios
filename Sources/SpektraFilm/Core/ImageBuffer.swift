@@ -61,7 +61,7 @@ public struct ImageBuffer: Sendable, Equatable {
     /// A contiguous band of rows, `[rows][width][channels]`.
     ///
     /// Spectral stages expand 3 channels to 81, so a full-resolution frame cannot be converted in
-    /// one allocation — 12 MP would need 7.8 GB. Per-pixel stages therefore run band by band; see
+    /// one allocation, since 12 MP would need 7.8 GB. Per-pixel stages run band by band; see
     /// ``mapPerPixel(bandRows:channelsOut:transform:)``.
     public func rowBand(from start: Int, count rows: Int) -> ImageBuffer {
         let lo = start * width * channels
@@ -80,7 +80,7 @@ public struct ImageBuffer: Sendable, Equatable {
     /// Applies a per-pixel transform in row bands, so intermediates stay bounded.
     ///
     /// Only valid for transforms where each output pixel depends solely on the co-located input
-    /// pixel — the spectral maps (`density → radiance → XYZ`, `film CMY → print exposure`) qualify,
+    /// pixel. The spectral maps (`density → radiance → XYZ`, `film CMY → print exposure`) qualify,
     /// spatial effects (blur, grain, coupler diffusion) do not.
     public func mapPerPixel(
         bandRows: Int,

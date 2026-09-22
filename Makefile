@@ -53,7 +53,7 @@ goldens: ## Regenerate parity goldens from the pinned Python oracle
 
 .PHONY: docs
 docs: ## Check documentation consistency
-	Tools/check_docs.sh
+	Tools/check_docs.py
 
 .PHONY: clean
 clean: ## Remove build products

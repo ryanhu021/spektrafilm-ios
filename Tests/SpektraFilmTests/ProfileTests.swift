@@ -4,7 +4,7 @@ import Testing
 
 /// Checks the bundled profiles load, validate, and preserve the values the pipeline reduces over.
 ///
-/// Not parity tests against goldens — the JSON is upstream's, byte for byte, so what needs proving
+/// Not parity tests against goldens. The JSON is upstream's, byte for byte, so what needs proving
 /// is that the Swift decoder reads it faithfully. The NaN cases are the interesting ones: profiles
 /// use JSON `null` for wavelengths the datasheet does not cover, and the reference relies on those
 /// staying NaN.
