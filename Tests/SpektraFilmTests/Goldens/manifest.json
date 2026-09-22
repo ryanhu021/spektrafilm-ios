@@ -129,6 +129,222 @@
     "group": "colour_conversions",
     "nan_count": 0
   },
+  "couplers_before_fujifilm_velvia_100_default": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_fujifilm_velvia_100_tuned": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_ektachrome_100_default": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_ektachrome_100_tuned": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_portra_400_default": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_portra_400_tuned": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_vision3_500t_default": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_before_kodak_vision3_500t_tuned": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_matrix_default": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "couplers_matrix_tuned": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "couplers",
+    "nan_count": 0
+  },
+  "density_curves_normalised_fujifilm_velvia_100": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_curves_normalised_kodak_ektachrome_100": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_curves_normalised_kodak_portra_400": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_curves_normalised_kodak_vision3_500t": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_fujifilm_velvia_100_gamma1": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_fujifilm_velvia_100_gamma_rgb": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_ektachrome_100_gamma1": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_ektachrome_100_gamma_rgb": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_portra_400_gamma1": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_portra_400_gamma_rgb": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_vision3_500t_gamma1": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_from_exposure_kodak_vision3_500t_gamma_rgb": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "density_log_raw_input": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
   "filter_bandpass_active": {
     "shape": [
       81
@@ -360,6 +576,119 @@
     "group": "interpolation",
     "nan_count": 0
   },
+  "npy_case_v1_f2_3d_values": {
+    "shape": [
+      2,
+      3,
+      4
+    ],
+    "bytes": 216,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_case_v1_f2_specials_values": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "npy_case_values",
+    "nan_count": 1
+  },
+  "npy_case_v1_f2_sweep_values": {
+    "shape": [
+      1089
+    ],
+    "bytes": 8728,
+    "group": "npy_case_values",
+    "nan_count": 39
+  },
+  "npy_case_v1_f4_1d_values": {
+    "shape": [
+      7
+    ],
+    "bytes": 72,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_case_v1_f8_2d_values": {
+    "shape": [
+      3,
+      4
+    ],
+    "bytes": 120,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_case_v1_f8_scalar_values": {
+    "shape": [
+      1
+    ],
+    "bytes": 24,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_case_v2_f2_3d_values": {
+    "shape": [
+      2,
+      3,
+      4
+    ],
+    "bytes": 216,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_case_v2_f8_2d_values": {
+    "shape": [
+      3,
+      4
+    ],
+    "bytes": 120,
+    "group": "npy_case_values",
+    "nan_count": 0
+  },
+  "npy_lut_axis0_walk": {
+    "shape": [
+      192
+    ],
+    "bytes": 1552,
+    "group": "npy_lut",
+    "nan_count": 0
+  },
+  "npy_lut_axis1_walk": {
+    "shape": [
+      192
+    ],
+    "bytes": 1552,
+    "group": "npy_lut",
+    "nan_count": 0
+  },
+  "npy_lut_block": {
+    "shape": [
+      4,
+      3,
+      81
+    ],
+    "bytes": 7800,
+    "group": "npy_lut",
+    "nan_count": 0
+  },
+  "npy_lut_corners": {
+    "shape": [
+      5,
+      81
+    ],
+    "bytes": 3264,
+    "group": "npy_lut",
+    "nan_count": 0
+  },
+  "npy_lut_extrema": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "npy_lut",
+    "nan_count": 0
+  },
   "observer_cmfs": {
     "shape": [
       81,
@@ -376,6 +705,278 @@
     ],
     "bytes": 1968,
     "group": "observer",
+    "nan_count": 0
+  },
+  "random_chi2_critical_1em3": {
+    "shape": [
+      128
+    ],
+    "bytes": 1040,
+    "group": "random_poisson_goodness_of_fit",
+    "nan_count": 0
+  },
+  "random_ks_critical_1em3": {
+    "shape": [
+      1
+    ],
+    "bytes": 24,
+    "group": "random_poisson_goodness_of_fit",
+    "nan_count": 0
+  },
+  "random_lognormal_log_params": {
+    "shape": [
+      10,
+      4
+    ],
+    "bytes": 344,
+    "group": "random_lognormal",
+    "nan_count": 0
+  },
+  "random_lognormal_moment_sd": {
+    "shape": [
+      6,
+      4
+    ],
+    "bytes": 216,
+    "group": "random_lognormal",
+    "nan_count": 0
+  },
+  "random_lognormal_moments": {
+    "shape": [
+      6,
+      4
+    ],
+    "bytes": 216,
+    "group": "random_lognormal",
+    "nan_count": 0
+  },
+  "random_lognormal_params_sampled": {
+    "shape": [
+      6,
+      2
+    ],
+    "bytes": 120,
+    "group": "random_lognormal",
+    "nan_count": 0
+  },
+  "random_normal_moment_sd": {
+    "shape": [
+      4
+    ],
+    "bytes": 48,
+    "group": "random_normal",
+    "nan_count": 0
+  },
+  "random_normal_moments": {
+    "shape": [
+      4
+    ],
+    "bytes": 48,
+    "group": "random_normal",
+    "nan_count": 0
+  },
+  "random_poisson_lambdas": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "random_poisson",
+    "nan_count": 0
+  },
+  "random_poisson_moment_sd": {
+    "shape": [
+      12,
+      4
+    ],
+    "bytes": 408,
+    "group": "random_poisson",
+    "nan_count": 0
+  },
+  "random_poisson_moments": {
+    "shape": [
+      12,
+      4
+    ],
+    "bytes": 408,
+    "group": "random_poisson",
+    "nan_count": 0
+  },
+  "random_poisson_pmf": {
+    "shape": [
+      4,
+      61
+    ],
+    "bytes": 1976,
+    "group": "random_poisson_goodness_of_fit",
+    "nan_count": 0
+  },
+  "random_poisson_pmf_lambdas": {
+    "shape": [
+      4
+    ],
+    "bytes": 48,
+    "group": "random_poisson_goodness_of_fit",
+    "nan_count": 0
+  },
+  "spectral_base_density": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "density_curves",
+    "nan_count": 20
+  },
+  "spectral_channel_density": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "density_curves",
+    "nan_count": 22
+  },
+  "spectral_density_cmy_input": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "spectral_density_with_base": {
+    "shape": [
+      12,
+      10,
+      81
+    ],
+    "bytes": 77784,
+    "group": "density_curves",
+    "nan_count": 2400
+  },
+  "spectral_density_without_base": {
+    "shape": [
+      12,
+      10,
+      81
+    ],
+    "bytes": 77784,
+    "group": "density_curves",
+    "nan_count": 960
+  },
+  "spectral_light_d50": {
+    "shape": [
+      12,
+      10,
+      81
+    ],
+    "bytes": 77784,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "spectral_xyz_d50": {
+    "shape": [
+      12,
+      10,
+      3
+    ],
+    "bytes": 2904,
+    "group": "density_curves",
+    "nan_count": 0
+  },
+  "transcendental_bracket_roots": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_brentq_roots": {
+    "shape": [
+      2,
+      10
+    ],
+    "bytes": 184,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_erf": {
+    "shape": [
+      1159
+    ],
+    "bytes": 9288,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_erfc": {
+    "shape": [
+      1159
+    ],
+    "bytes": 9288,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_gumbel_cdf": {
+    "shape": [
+      1159
+    ],
+    "bytes": 9288,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_morph_amplitudes": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_morph_centers": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_morph_offsets": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_morph_sigmas": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_normal_cdf": {
+    "shape": [
+      1159
+    ],
+    "bytes": 9288,
+    "group": "transcendental",
+    "nan_count": 0
+  },
+  "transcendental_sweep_input": {
+    "shape": [
+      1159
+    ],
+    "bytes": 9288,
+    "group": "transcendental",
     "nan_count": 0
   },
   "transfer_aces2065_1_decode": {
