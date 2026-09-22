@@ -110,3 +110,53 @@ def density_curves():
     normalisation = np.sum(illuminant * STANDARD_OBSERVER_CMFS[:, 1], axis=0)
     xyz = contract("ijk,kl->ijl", light, STANDARD_OBSERVER_CMFS[:]) / normalisation
     yield "spectral_xyz_d50", xyz
+
+
+@fixture
+def enlarger():
+    """The colour enlarger head: dichroic filtering in Kodak CC units."""
+    from spektrafilm.model.color_filters import (
+        color_enlarger,
+        custom_dichroic_filters,
+        durst_digital_light_dicrhoic_filters,
+        edmund_optics_dichroic_filters,
+        thorlabs_dichroic_filters,
+    )
+    from spektrafilm.model.illuminants import standard_illuminant
+    from spektrafilm.runtime.services.filter_enlarger_source import EnlargerService
+    from spektrafilm.runtime.params_schema import EnlargerParams
+
+    lamp = standard_illuminant("TH-KG3")
+    yield "enlarger_lamp_th_kg3", lamp
+
+    # Default neutral positions, then two off-neutral settings.
+    for label, cc in (
+        ("neutral", (0.0, 65.0, 55.0)),
+        ("open", (0.0, 0.0, 0.0)),
+        ("heavy", (20.0, 90.0, 80.0)),
+    ):
+        yield f"enlarger_cc_{label}", color_enlarger(lamp, filter_cc_values=cc)
+
+    # Every filter set, at the default neutral position, so a wrong table is caught.
+    for name, filters in (
+        ("custom", custom_dichroic_filters),
+        ("thorlabs", thorlabs_dichroic_filters),
+        ("edmund", edmund_optics_dichroic_filters),
+        ("durst", durst_digital_light_dicrhoic_filters),
+    ):
+        yield (
+            f"enlarger_set_{name}",
+            color_enlarger(lamp, filter_cc_values=(0.0, 65.0, 55.0), filters=filters),
+        )
+
+    # The service's three accessors, with shifts engaged so neutral and filtered differ.
+    params = EnlargerParams(
+        m_filter_shift=12.0,
+        y_filter_shift=-8.0,
+        preflash_m_filter_shift=5.0,
+        preflash_y_filter_shift=3.0,
+    )
+    service = EnlargerService(params)
+    yield "enlarger_service_filtered", service.enlarger_filtered_illuminant(lamp)
+    yield "enlarger_service_neutral", service.enlarger_neutral_illuminant(lamp)
+    yield "enlarger_service_preflash", service.preflash_filtered_illuminant(lamp)

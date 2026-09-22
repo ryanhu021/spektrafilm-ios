@@ -1,4 +1,103 @@
 {
+  "boundary_clamp_edge_n1": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_clamp_edge_n5": {
+    "shape": [
+      39
+    ],
+    "bytes": 328,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_clamp_edge_n8": {
+    "shape": [
+      60
+    ],
+    "bytes": 496,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_mirror_edge_shared_n1": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_mirror_edge_shared_n5": {
+    "shape": [
+      39
+    ],
+    "bytes": 328,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_mirror_edge_shared_n8": {
+    "shape": [
+      60
+    ],
+    "bytes": 496,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_ndimage_clamp_edge_n5": {
+    "shape": [
+      35,
+      5
+    ],
+    "bytes": 1424,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_ndimage_mirror_edge_shared_n5": {
+    "shape": [
+      35,
+      5
+    ],
+    "bytes": 1424,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_ndimage_reflect_edge_duplicated_n5": {
+    "shape": [
+      35,
+      5
+    ],
+    "bytes": 1424,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_reflect_edge_duplicated_n1": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_reflect_edge_duplicated_n5": {
+    "shape": [
+      39
+    ],
+    "bytes": 328,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
+  "boundary_reflect_edge_duplicated_n8": {
+    "shape": [
+      60
+    ],
+    "bytes": 496,
+    "group": "boundary_index",
+    "nan_count": 0
+  },
   "colour_rgb_input": {
     "shape": [
       8,
@@ -345,6 +444,94 @@
     "group": "density_curves",
     "nan_count": 0
   },
+  "enlarger_cc_heavy": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_cc_neutral": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_cc_open": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_lamp_th_kg3": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_service_filtered": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_service_neutral": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_service_preflash": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_set_custom": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
+  "enlarger_set_durst": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 5
+  },
+  "enlarger_set_edmund": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 1
+  },
+  "enlarger_set_thorlabs": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "enlarger",
+    "nan_count": 0
+  },
   "filter_bandpass_active": {
     "shape": [
       81
@@ -689,6 +876,187 @@
     "group": "npy_lut",
     "nan_count": 0
   },
+  "num_fmax": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_fmax_input": {
+    "shape": [
+      11,
+      2
+    ],
+    "bytes": 200,
+    "group": "numerics",
+    "nan_count": 4
+  },
+  "num_linspace_cases": {
+    "shape": [
+      6,
+      17
+    ],
+    "bytes": 840,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_linspace_log_exposure": {
+    "shape": [
+      256
+    ],
+    "bytes": 2064,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_linspace_open_cases": {
+    "shape": [
+      2,
+      16
+    ],
+    "bytes": 280,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_linspace_single": {
+    "shape": [
+      1
+    ],
+    "bytes": 24,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_log10_guard": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_log10_guard_input": {
+    "shape": [
+      11
+    ],
+    "bytes": 104,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_nan_max_axis0": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_nan_max_c200_channel_density": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_nan_mean_axis0": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_nan_mean_axis1": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_nan_mean_c200_channel_density": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_nan_mean_c200_per_wavelength": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "numerics",
+    "nan_count": 7
+  },
+  "num_nan_mean_flat": {
+    "shape": [
+      1
+    ],
+    "bytes": 24,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_nan_min_axis0": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_nan_min_c200_channel_density": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_nan_reduce_input": {
+    "shape": [
+      12,
+      3
+    ],
+    "bytes": 312,
+    "group": "numerics",
+    "nan_count": 16
+  },
+  "num_nan_to_num": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_nan_to_num_input": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "numerics",
+    "nan_count": 1
+  },
+  "num_spow": {
+    "shape": [
+      20
+    ],
+    "bytes": 176,
+    "group": "numerics",
+    "nan_count": 0
+  },
+  "num_spow_input": {
+    "shape": [
+      20,
+      2
+    ],
+    "bytes": 344,
+    "group": "numerics",
+    "nan_count": 0
+  },
   "observer_cmfs": {
     "shape": [
       81,
@@ -803,18 +1171,18 @@
   },
   "random_poisson_pmf": {
     "shape": [
-      4,
-      61
+      6,
+      73
     ],
-    "bytes": 1976,
+    "bytes": 3528,
     "group": "random_poisson_goodness_of_fit",
     "nan_count": 0
   },
   "random_poisson_pmf_lambdas": {
     "shape": [
-      4
+      6
     ],
-    "bytes": 48,
+    "bytes": 64,
     "group": "random_poisson_goodness_of_fit",
     "nan_count": 0
   },
@@ -883,6 +1251,54 @@
     ],
     "bytes": 2904,
     "group": "density_curves",
+    "nan_count": 0
+  },
+  "spectralshape_cmfs_column_sums": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "spectral_shape",
+    "nan_count": 0
+  },
+  "spectralshape_cmfs_times_probe": {
+    "shape": [
+      243
+    ],
+    "bytes": 1960,
+    "group": "spectral_shape",
+    "nan_count": 0
+  },
+  "spectralshape_cmfs_weighted_rows": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "spectral_shape",
+    "nan_count": 0
+  },
+  "spectralshape_contract_cmfs": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "spectral_shape",
+    "nan_count": 0
+  },
+  "spectralshape_wavelengths_m": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "spectral_shape",
+    "nan_count": 0
+  },
+  "spectralshape_wavelengths_nm": {
+    "shape": [
+      81
+    ],
+    "bytes": 664,
+    "group": "spectral_shape",
     "nan_count": 0
   },
   "transcendental_bracket_roots": {
