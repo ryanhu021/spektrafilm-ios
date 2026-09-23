@@ -4,6 +4,15 @@ import Metal
 
 /// Wrappers for ``MetalKernels/elementwise``, in place on a ``GPUFrame``.
 enum MetalElementwise {
+    /// The constants the transfer kernels read, in the order `transfer_encode_value` expects.
+    static var transferConstants: [Float] {
+        [
+            TransferFunction.bt2020Alpha, TransferFunction.bt2020Beta,
+            TransferFunction.bt2020DecodeThreshold, TransferFunction.sRGBDecodeThreshold,
+            TransferFunction.rommEt,
+        ].map(Float.init)
+    }
+
     static func scale(_ c: MetalContext, _ x: GPUFrame, by s: Double) throws {
         try unary(c, "scale", x, s)
     }
@@ -68,11 +77,7 @@ enum MetalElementwise {
     ) throws {
         guard function != .linear else { return }
         var code = UInt32(TransferFunction.allCases.firstIndex(of: function)!)
-        var constants = [
-            TransferFunction.bt2020Alpha, TransferFunction.bt2020Beta,
-            TransferFunction.bt2020DecodeThreshold, TransferFunction.sRGBDecodeThreshold,
-            TransferFunction.rommEt,
-        ].map(Float.init)
+        var constants = transferConstants
         var direction = UInt32(encode ? 1 : 0)
         var n = UInt32(x.count)
         try c.dispatch("transfer", count: x.count) { e in

@@ -61,6 +61,14 @@ public final class MetalContext: @unchecked Sendable {
         return buffer
     }
 
+    /// A float32 copy of a constant table, such as a LUT or a set of curves.
+    func buffer(from values: [Double]) throws -> MTLBuffer {
+        let out = try buffer(floats: values.count)
+        let pointer = out.contents().bindMemory(to: Float.self, capacity: max(1, values.count))
+        for (i, v) in values.enumerated() { pointer[i] = Float(v) }
+        return out
+    }
+
     /// An input and an output buffer of at least `floats` each, reused across calls. Allocating a
     /// fresh pair per call leaves the driver holding the old ones for a while, and the footprint
     /// grows. Hold ``stagingLock`` while using them.
