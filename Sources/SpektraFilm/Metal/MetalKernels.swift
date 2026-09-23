@@ -3,9 +3,18 @@
 /// Each kernel mirrors a CPU operator line for line in float32, so a difference between the two is
 /// rounding, never a different formula. The CPU operator each one mirrors is named above it.
 enum MetalKernels {
-    static let source = #"""
+    /// Every kernel, compiled as one library. Each operator family keeps its source in its own file
+    /// as an extension on this type.
+    static var source: String {
+        [header, spectral, elementwise].joined(separator: "\n")
+    }
+
+    static let header = #"""
         #include <metal_stdlib>
         using namespace metal;
+        """#
+
+    static let spectral = #"""
 
         // SpectralContraction.project: CMY density to a spectrum, lit by an illuminant, projected
         // onto three response columns. `table` holds, per wavelength, the three dye weights, the
