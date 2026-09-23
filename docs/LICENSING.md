@@ -10,9 +10,8 @@ engine ports upstream's `src/spektrafilm` package: the algorithms, the pipeline 
 numeric behaviour are upstream's, re-expressed in Swift. That makes it a derivative work, so it
 carries upstream's licence. Full text: [LICENSE](../LICENSE).
 
-In practice, anything that links this engine must also be GPL-3.0-compatible and ship its source. If
-that does not work for you, upstream is open to discussing alternatives, and that conversation is
-with Andrea.
+Anything that links this engine must also be GPL-3.0-compatible and ship its source. Upstream's
+README invites contact about alternative options; that conversation is with Andrea.
 
 ## Film and paper profiles: CC BY-SA 4.0
 
@@ -43,12 +42,11 @@ redistributed here on the same terms as the profiles. The `info.txt` files recor
 ## Attribution
 
 Upstream asks that user-visible credit read *"film modeling powered by spektrafilm"*. The app shows
-this in its About screen. Academic use should cite the upstream repository or its Zenodo DOI. See
+it in the render info sheet. Academic use should cite the upstream repository or its Zenodo DOI. See
 [`Tools/parity/upstream_CITATION.cff`](../Tools/parity/upstream_CITATION.cff), a verbatim copy of
 upstream's citation metadata.
 
 ## What is not derived from upstream
 
-The SwiftUI application layer, the Accelerate-backed numeric primitives, the golden-fixture parity
-harness and the CI configuration are original to this repository. They are GPL-3.0-only anyway,
-because they link the engine.
+The SwiftUI app, the parity harness and the CI configuration are original to this repository.
+They are GPL-3.0-only too, because they link the engine.

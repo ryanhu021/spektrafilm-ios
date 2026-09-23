@@ -271,9 +271,17 @@ private struct DiagnosticsSheet: View {
 
             Spacer()
 
-            Text("film modeling powered by spektrafilm")
-                .font(Safelight.readout(9))
-                .foregroundStyle(Safelight.amberDim)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("film modeling powered by spektrafilm")
+                // CC BY-SA 4.0 requires crediting the author and linking the source of the profiles.
+                Text("film and paper profiles by Andrea Volpato, CC BY-SA 4.0")
+                Link(
+                    "github.com/andreavolpato/spektrafilm",
+                    destination: URL(string: "https://github.com/andreavolpato/spektrafilm")!)
+            }
+            .font(Safelight.readout(9))
+            .foregroundStyle(Safelight.amberDim)
+            .tint(Safelight.amber)
         }
         .padding(Safelight.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

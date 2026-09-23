@@ -8,7 +8,7 @@ import Foundation
 ///
 /// Arrays are flattened, with shapes derived from `wavelengths` and `logExposure`. Each property
 /// documents its logical shape. Gaps in datasheet coverage are `null` in JSON and NaN here, and
-/// they have to stay NaN: the reference reduces with `nanmin` and `nanmax` and lets NaN travel
+/// they must stay NaN: the reference reduces with `nanmin` and `nanmax` and lets NaN propagate
 /// through the density lookups.
 public struct Profile: Sendable, Equatable {
     public var metadata: ProfileMetadata
@@ -38,10 +38,10 @@ public struct Profile: Sendable, Equatable {
     }
 }
 
-/// Redistribution terms and provenance, carried verbatim from the upstream JSON.
+/// Redistribution terms and provenance, copied verbatim from the upstream JSON.
 ///
-/// Each profile's `license` and `citation` are the attribution CC BY-SA 4.0 requires, and the app
-/// shows them, so they are decoded and kept.
+/// Each profile's `license` and `citation` are the attribution CC BY-SA 4.0 requires. The app
+/// credits them in its render info sheet.
 public struct ProfileMetadata: Sendable, Equatable, Codable {
     public var version: String?
     public var copyright: String?
@@ -225,9 +225,9 @@ public struct Hanatos2025SensitivityAdaptation: Sendable, Equatable {
     public var surfaceParams: [Double]
     /// Gaussian blur applied along the wavelength axis, sigma in array SAMPLES. 0 disables it.
     ///
-    /// Not nanometres. The reference's own comment says nm, and on the 5 nm grid that is wrong by a
-    /// factor of five, so a port that reads the comment instead of the code diverges on every render
-    /// with a non-zero blur.
+    /// Not nanometres. The reference's comment says nm, which is wrong by a factor of five on the
+    /// 5 nm grid. A port that follows the comment instead of the code diverges on every render with
+    /// a non-zero blur.
     public var spectralGaussianBlur: Double = 0
     public var referenceIlluminant: Illuminant
     public var applyWindow: Bool = true
