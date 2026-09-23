@@ -41,7 +41,7 @@ public struct Profile: Sendable, Equatable {
 /// Redistribution terms and provenance, copied verbatim from the upstream JSON.
 ///
 /// Each profile's `license` and `citation` are the attribution CC BY-SA 4.0 requires. The app
-/// credits them in its render info sheet.
+/// credits them in its Details sheet.
 public struct ProfileMetadata: Sendable, Equatable, Codable {
     public var version: String?
     public var copyright: String?

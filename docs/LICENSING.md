@@ -42,7 +42,7 @@ redistributed here on the same terms as the profiles. The `info.txt` files recor
 ## Attribution
 
 Upstream asks that user-visible credit read *"film modeling powered by spektrafilm"*. The app shows
-it in the render info sheet. Academic use should cite the upstream repository or its Zenodo DOI. See
+it in the Details sheet. Academic use should cite the upstream repository or its Zenodo DOI. See
 [`Tools/parity/upstream_CITATION.cff`](../Tools/parity/upstream_CITATION.cff), a verbatim copy of
 upstream's citation metadata.
 
