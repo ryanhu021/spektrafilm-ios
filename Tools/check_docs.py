@@ -135,7 +135,7 @@ def check_swift_paths() -> None:
             while block[-1].rstrip().endswith("\\") and i + len(block) < len(lines):
                 block.append(lines[i + len(block)])
             for token in " ".join(block).replace("\\", " ").split():
-                if token.startswith(("Sources", "Tests", "App")) or token == "Package.swift":
+                if token.startswith(("Sources", "Tests", "App", "Tools")) or token == "Package.swift":
                     lint_paths.add(token)
     for path in sorted(lint_paths):
         if not (REPO / path).exists():

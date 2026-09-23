@@ -1,0 +1,58 @@
+# Builds an unsigned .ipa for sideloading and attaches it to a GitHub release.
+#
+# There is no paid developer account, so nothing here signs. SideStore re-signs the app on the phone
+# with the user's own Apple ID, which is why the build turns code signing off entirely.
+#
+# Push a tag to release: `git tag v0.2.0 && git push origin v0.2.0`. The tag sets the marketing
+# version and the run number sets the build number.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    name: Unsigned ipa
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: make project
+      - name: Build for device
+        run: |
+          xcodebuild build -quiet \
+            -project App/SpektrafilmApp.xcodeproj \
+            -scheme Spektrafilm \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/xcode \
+            MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+      - name: Package
+        run: |
+          APP=.build/xcode/Build/Products/Release-iphoneos/SpektrafilmApp.app
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry Spektrafilm.ipa Payload
+          Tools/release/sidestore_source.py \
+            --app "$APP" \
+            --ipa Spektrafilm.ipa \
+            --download-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Spektrafilm.ipa" \
+            --notes "Spektrafilm ${GITHUB_REF_NAME}" \
+            --out sidestore-source.json
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" Spektrafilm.ipa sidestore-source.json \
+            --title "Spektrafilm ${GITHUB_REF_NAME}" \
+            --generate-notes

@@ -53,6 +53,8 @@ Tests/SpektraFilmTests/  Parity tests and their committed fixtures.
 App/                     iOS app. project.yml is the source of truth; the .xcodeproj is generated.
 Tools/parity/            Fixture generator, table extractor, oracle setup.
 Tools/memprofile/        Peak-memory and timing profiler.
+Tools/release/           SideStore source generator for the release workflow.
+Tools/icon/              Renders the app icon.
 ```
 
 ## Build and test
@@ -73,6 +75,24 @@ make run       # builds in release, installs and launches on a booted simulator
 ```
 
 `make help` lists every target.
+
+## Install on a phone
+
+Each `v*` tag builds an unsigned `.ipa` and attaches it to a
+[GitHub release](https://github.com/ryanhu021/spektrafilm-ios/releases). Install it with
+[SideStore](https://sidestore.io), which signs it with your own Apple ID, so no paid developer
+account is needed.
+
+1. On the phone, open the latest release in Safari and download `Spektrafilm.ipa` to Files. The
+   repository is private, so sign in to GitHub first.
+2. In SideStore, tap **+** on the My Apps tab and choose the file.
+
+A free Apple ID signs apps for 7 days; SideStore refreshes them in the background. If the repository
+becomes public, add `https://github.com/ryanhu021/spektrafilm-ios/releases/latest/download/sidestore-source.json`
+as a source in SideStore instead, and updates appear there.
+
+To release, tag and push: `git tag v0.2.0 && git push origin v0.2.0`. The tag sets the version and
+the workflow run number sets the build number.
 
 ## Parity
 
