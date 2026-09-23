@@ -4,7 +4,7 @@ import Testing
 
 /// Checks the memory ceiling that keeps a full-resolution export from being terminated.
 ///
-/// Peak footprint is about 148 MB per megapixel, measured in release. A 12 MP frame needs 1.7 GB,
+/// Peak footprint is about 125 MB per megapixel, measured in release. A 12 MP frame needs 1.47 GB,
 /// and iOS terminates a foreground app at roughly 1.4 GB. Set the ceiling too high and export
 /// crashes; set it too low and export shrinks the user's photo more than it needs to.
 @Suite("Render budget")

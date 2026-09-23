@@ -104,12 +104,14 @@ public enum TransferFunction: String, Sendable, CaseIterable {
 
     public func encode(_ buffer: inout ImageBuffer) {
         if self == .linear { return }
-        for i in buffer.values.indices { buffer.values[i] = encode(buffer.values[i]) }
+        let function = self
+        buffer.transformInPlace { function.encode($0) }
     }
 
     public func decode(_ buffer: inout ImageBuffer) {
         if self == .linear { return }
-        for i in buffer.values.indices { buffer.values[i] = decode(buffer.values[i]) }
+        let function = self
+        buffer.transformInPlace { function.decode($0) }
     }
 
     // MARK: - Constants

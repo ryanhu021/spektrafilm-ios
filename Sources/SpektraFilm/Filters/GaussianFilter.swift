@@ -108,33 +108,45 @@ public enum GaussianFilter {
         plane.withUnsafeBufferPointer { src in
             kernel.withUnsafeBufferPointer { kern in
                 vertical.withUnsafeMutableBufferPointer { mid in
-                    for i in 0..<n {
-                        let row = i * m
-                        for k in -radius...radius {
-                            let weight = kern[k + radius]
-                            let source = BoundaryIndex.reflectEdgeDuplicated(i + k, count: n) * m
-                            for j in 0..<m { mid[row + j] += src[source + j] * weight }
+                    let s = src.baseAddress!
+                    let w = kern.baseAddress!
+                    let v = mid.baseAddress!
+                    Parallel.forEachChunk(of: n, cost: m * (2 * radius + 1)) { rows in
+                        for i in rows {
+                            let row = i * m
+                            for k in -radius...radius {
+                                let weight = w[k + radius]
+                                let source =
+                                    BoundaryIndex.reflectEdgeDuplicated(i + k, count: n) * m
+                                for j in 0..<m { v[row + j] += s[source + j] * weight }
+                            }
                         }
                     }
                 }
                 vertical.withUnsafeBufferPointer { mid in
                     out.withUnsafeMutableBufferPointer { dst in
                         let interior = 2 * radius < m
-                        for i in 0..<n {
-                            let row = i * m
-                            for j in 0..<m {
-                                var sum = 0.0
-                                if interior && j >= radius && j < m - radius {
-                                    for k in -radius...radius {
-                                        sum += mid[row + j + k] * kern[k + radius]
+                        let v = mid.baseAddress!
+                        let w = kern.baseAddress!
+                        let d = dst.baseAddress!
+                        Parallel.forEachChunk(of: n, cost: m * (2 * radius + 1)) { rows in
+                            for i in rows {
+                                let row = i * m
+                                for j in 0..<m {
+                                    var sum = 0.0
+                                    if interior && j >= radius && j < m - radius {
+                                        for k in -radius...radius {
+                                            sum += v[row + j + k] * w[k + radius]
+                                        }
+                                    } else {
+                                        for k in -radius...radius {
+                                            let jj = BoundaryIndex.reflectEdgeDuplicated(
+                                                j + k, count: m)
+                                            sum += v[row + jj] * w[k + radius]
+                                        }
                                     }
-                                } else {
-                                    for k in -radius...radius {
-                                        let jj = BoundaryIndex.reflectEdgeDuplicated(j + k, count: m)
-                                        sum += mid[row + jj] * kern[k + radius]
-                                    }
+                                    d[row + j] = sum
                                 }
-                                dst[row + j] = sum
                             }
                         }
                     }
@@ -197,29 +209,33 @@ public enum GaussianFilter {
         _ input: [Double], into output: inout [Double], height n: Int, width m: Int,
         _ c: (b: Double, b1: Double, b2: Double, b3: Double)
     ) {
-        input.withUnsafeBufferPointer { src in
-            output.withUnsafeMutableBufferPointer { dst in
-                for i in 0..<n {
-                    let row = i * m
-                    var w1 = src[row]
-                    var w2 = w1
-                    var w3 = w1
-                    for j in 0..<m {
-                        let w = c.b * src[row + j] + c.b1 * w1 + c.b2 * w2 + c.b3 * w3
-                        dst[row + j] = w
-                        w3 = w2
-                        w2 = w1
-                        w1 = w
-                    }
-                    var y1 = dst[row + m - 1]
-                    var y2 = y1
-                    var y3 = y1
-                    for j in stride(from: m - 1, through: 0, by: -1) {
-                        let y = c.b * dst[row + j] + c.b1 * y1 + c.b2 * y2 + c.b3 * y3
-                        dst[row + j] = y
-                        y3 = y2
-                        y2 = y1
-                        y1 = y
+        input.withUnsafeBufferPointer { input in
+            output.withUnsafeMutableBufferPointer { output in
+                let src = input.baseAddress!
+                let dst = output.baseAddress!
+                Parallel.forEachChunk(of: n, cost: m * 2) { rows in
+                    for i in rows {
+                        let row = i * m
+                        var w1 = src[row]
+                        var w2 = w1
+                        var w3 = w1
+                        for j in 0..<m {
+                            let w = c.b * src[row + j] + c.b1 * w1 + c.b2 * w2 + c.b3 * w3
+                            dst[row + j] = w
+                            w3 = w2
+                            w2 = w1
+                            w1 = w
+                        }
+                        var y1 = dst[row + m - 1]
+                        var y2 = y1
+                        var y3 = y1
+                        for j in stride(from: m - 1, through: 0, by: -1) {
+                            let y = c.b * dst[row + j] + c.b1 * y1 + c.b2 * y2 + c.b3 * y3
+                            dst[row + j] = y
+                            y3 = y2
+                            y2 = y1
+                            y1 = y
+                        }
                     }
                 }
             }
@@ -227,51 +243,53 @@ public enum GaussianFilter {
     }
 
     /// `_iir_vertical`. Same recursion down and up the columns, carrying one state triple per column
-    /// so the inner loop walks a row contiguously.
+    /// so the inner loop walks a row contiguously. Columns are independent, so each chunk takes a
+    /// range of them through both passes.
     private static func iirVertical(
         _ input: [Double], into output: inout [Double], height n: Int, width m: Int,
         _ c: (b: Double, b1: Double, b2: Double, b3: Double)
     ) {
-        var s1 = [Double](repeating: 0, count: m)
-        var s2 = [Double](repeating: 0, count: m)
-        var s3 = [Double](repeating: 0, count: m)
-        input.withUnsafeBufferPointer { src in
-            output.withUnsafeMutableBufferPointer { dst in
-                s1.withUnsafeMutableBufferPointer { a in
-                    s2.withUnsafeMutableBufferPointer { b in
-                        s3.withUnsafeMutableBufferPointer { d in
-                            for j in 0..<m {
-                                a[j] = src[j]
-                                b[j] = src[j]
-                                d[j] = src[j]
+        var state = [Double](repeating: 0, count: m * 3)
+        input.withUnsafeBufferPointer { input in
+            output.withUnsafeMutableBufferPointer { output in
+                state.withUnsafeMutableBufferPointer { state in
+                    let src = input.baseAddress!
+                    let dst = output.baseAddress!
+                    let a = state.baseAddress!
+                    let b = a + m
+                    let d = a + 2 * m
+                    Parallel.forEachChunk(of: m, cost: n * 2) { columns in
+                        for j in columns {
+                            a[j] = src[j]
+                            b[j] = src[j]
+                            d[j] = src[j]
+                        }
+                        for i in 0..<n {
+                            let row = i * m
+                            for j in columns {
+                                let w =
+                                    c.b * src[row + j] + c.b1 * a[j] + c.b2 * b[j] + c.b3 * d[j]
+                                dst[row + j] = w
+                                d[j] = b[j]
+                                b[j] = a[j]
+                                a[j] = w
                             }
-                            for i in 0..<n {
-                                let row = i * m
-                                for j in 0..<m {
-                                    let w =
-                                        c.b * src[row + j] + c.b1 * a[j] + c.b2 * b[j] + c.b3 * d[j]
-                                    dst[row + j] = w
-                                    d[j] = b[j]
-                                    b[j] = a[j]
-                                    a[j] = w
-                                }
-                            }
-                            let last = (n - 1) * m
-                            for j in 0..<m {
-                                a[j] = dst[last + j]
-                                b[j] = dst[last + j]
-                                d[j] = dst[last + j]
-                            }
-                            for i in stride(from: n - 1, through: 0, by: -1) {
-                                let row = i * m
-                                for j in 0..<m {
-                                    let y =
-                                        c.b * dst[row + j] + c.b1 * a[j] + c.b2 * b[j] + c.b3 * d[j]
-                                    dst[row + j] = y
-                                    d[j] = b[j]
-                                    b[j] = a[j]
-                                    a[j] = y
-                                }
+                        }
+                        let last = (n - 1) * m
+                        for j in columns {
+                            a[j] = dst[last + j]
+                            b[j] = dst[last + j]
+                            d[j] = dst[last + j]
+                        }
+                        for i in stride(from: n - 1, through: 0, by: -1) {
+                            let row = i * m
+                            for j in columns {
+                                let y =
+                                    c.b * dst[row + j] + c.b1 * a[j] + c.b2 * b[j] + c.b3 * d[j]
+                                dst[row + j] = y
+                                d[j] = b[j]
+                                b[j] = a[j]
+                                a[j] = y
                             }
                         }
                     }

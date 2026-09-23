@@ -226,26 +226,28 @@ public enum Interpolation {
                             let d = dst.baseAddress!
                             let n = image.pixelCount
 
-                            for p in 0..<n {
-                                for c in 0..<3 {
-                                    let x = s[p * 3 + c]
-                                    let axBase = perChannelAxis ? a + c : a
-                                    let invBase = perChannelAxis ? iv + c : iv
-                                    let first = axBase[0]
-                                    let last = axBase[(count - 1) * axisStride]
-                                    if x.isNaN || x <= first {
-                                        d[p * 3 + c] = y[c]
-                                    } else if x >= last {
-                                        d[p * 3 + c] = y[(count - 1) * 3 + c]
-                                    } else {
-                                        let idx = upperBound(
-                                            x, axBase, stride: axisStride, count: count)
-                                        let low = idx - 1
-                                        let x0 = axBase[low * axisStride]
-                                        let t = (x - x0) * invBase[low * axisStride]
-                                        let y0 = y[low * 3 + c]
-                                        let y1 = y[(low + 1) * 3 + c]
-                                        d[p * 3 + c] = y0 + t * (y1 - y0)
+                            Parallel.forEachChunk(of: n, cost: 3) { pixels in
+                                for p in pixels {
+                                    for c in 0..<3 {
+                                        let x = s[p * 3 + c]
+                                        let axBase = perChannelAxis ? a + c : a
+                                        let invBase = perChannelAxis ? iv + c : iv
+                                        let first = axBase[0]
+                                        let last = axBase[(count - 1) * axisStride]
+                                        if x.isNaN || x <= first {
+                                            d[p * 3 + c] = y[c]
+                                        } else if x >= last {
+                                            d[p * 3 + c] = y[(count - 1) * 3 + c]
+                                        } else {
+                                            let idx = upperBound(
+                                                x, axBase, stride: axisStride, count: count)
+                                            let low = idx - 1
+                                            let x0 = axBase[low * axisStride]
+                                            let t = (x - x0) * invBase[low * axisStride]
+                                            let y0 = y[low * 3 + c]
+                                            let y1 = y[(low + 1) * 3 + c]
+                                            d[p * 3 + c] = y0 + t * (y1 - y0)
+                                        }
                                     }
                                 }
                             }

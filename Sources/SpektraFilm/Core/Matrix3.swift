@@ -120,13 +120,16 @@ public struct Matrix3: Sendable, Equatable {
         let g = m20, h = m21, i = m22
         buffer.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }
-            for k in stride(from: 0, to: buf.count, by: 3) {
-                let r = p[k]
-                let gg = p[k + 1]
-                let bb = p[k + 2]
-                p[k] = a * r + b * gg + c * bb
-                p[k + 1] = d * r + e * gg + f * bb
-                p[k + 2] = g * r + h * gg + i * bb
+            Parallel.forEachChunk(of: buf.count / 3) { pixels in
+                for pixel in pixels {
+                    let k = pixel * 3
+                    let r = p[k]
+                    let gg = p[k + 1]
+                    let bb = p[k + 2]
+                    p[k] = a * r + b * gg + c * bb
+                    p[k + 1] = d * r + e * gg + f * bb
+                    p[k + 2] = g * r + h * gg + i * bb
+                }
             }
         }
     }

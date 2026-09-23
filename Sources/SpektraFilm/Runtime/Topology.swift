@@ -20,7 +20,8 @@ public enum Tap: String, Sendable, CaseIterable {
 /// present in the state.
 ///
 /// Not `Sendable`: a node closes over the stage that runs it, and the stages hold caches and the
-/// references the print balance needs. A render is single-threaded end to end.
+/// references the print balance needs. Nodes run one at a time; the operators inside them split
+/// their loops across cores.
 public struct Node {
     public let reads: [Tap]
     public let writes: [Tap]

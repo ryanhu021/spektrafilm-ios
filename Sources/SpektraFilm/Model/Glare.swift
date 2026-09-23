@@ -48,13 +48,16 @@ public enum Glare {
         spatial: some SpatialFilter
     ) -> ImageBuffer {
         var field = ImageBuffer(height: height, width: width, channels: 1)
-        var source = Philox4x32(key: key(seed: seed))
+        let streamKey = key(seed: seed)
         field.values.withUnsafeMutableBufferPointer { buffer in
             guard let p = buffer.baseAddress else { return }
-            for i in 0..<buffer.count {
-                source.reset(counter: UInt64(i))
-                p[i] = Distributions.lognormalFromMeanStd(
-                    mean: amount, std: roughness * amount, &source)
+            Parallel.forEachChunk(of: buffer.count, cost: 4) { pixels in
+                var source = Philox4x32(key: streamKey)
+                for i in pixels {
+                    source.reset(counter: UInt64(i))
+                    p[i] = Distributions.lognormalFromMeanStd(
+                        mean: amount, std: roughness * amount, &source)
+                }
             }
         }
 

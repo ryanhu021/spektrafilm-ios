@@ -30,25 +30,31 @@ struct ChromaEnvelope: Sendable {
     init(
         lightnessGrid: [Double],
         chromaUpper: Double,
-        inGamut: (Double, Double, Double) -> Bool
+        inGamut: @Sendable (Double, Double, Double) -> Bool
     ) {
         let hueGrid = linspace(-Double.pi, Double.pi, count: Self.hueCount, endpoint: false)
-        var values = [Double](repeating: 0, count: lightnessGrid.count * hueGrid.count)
-        for (i, L) in lightnessGrid.enumerated() {
-            for (j, h) in hueGrid.enumerated() {
-                let cosH = cos(h)
-                let sinH = sin(h)
-                var lo = 0.0
-                var hi = chromaUpper
-                for _ in 0..<Self.bisections {
-                    let mid = (lo + hi) * 0.5
-                    if inGamut(L, mid * cosH, mid * sinH) {
-                        lo = mid
-                    } else {
-                        hi = mid
+        let hues = hueGrid.count
+        var values = [Double](repeating: 0, count: lightnessGrid.count * hues)
+        values.withUnsafeMutableBufferPointer { buffer in
+            let out = buffer.baseAddress!
+            Parallel.forEachChunk(of: buffer.count, cost: Self.bisections * 64) { cells in
+                for cell in cells {
+                    let L = lightnessGrid[cell / hues]
+                    let h = hueGrid[cell % hues]
+                    let cosH = cos(h)
+                    let sinH = sin(h)
+                    var lo = 0.0
+                    var hi = chromaUpper
+                    for _ in 0..<Self.bisections {
+                        let mid = (lo + hi) * 0.5
+                        if inGamut(L, mid * cosH, mid * sinH) {
+                            lo = mid
+                        } else {
+                            hi = mid
+                        }
                     }
+                    out[cell] = lo
                 }
-                values[i * hueGrid.count + j] = lo
             }
         }
         self.lightnessGrid = lightnessGrid
@@ -262,11 +268,14 @@ public struct OutputGamutCompressor: Sendable {
         if case .off = kind { return }
         image.values.withUnsafeMutableBufferPointer { buffer in
             guard let p = buffer.baseAddress else { return }
-            for k in stride(from: 0, to: buffer.count, by: 3) {
-                let out = apply((p[k], p[k + 1], p[k + 2]))
-                p[k] = out.0
-                p[k + 1] = out.1
-                p[k + 2] = out.2
+            Parallel.forEachChunk(of: buffer.count / 3, cost: 16) { pixels in
+                for pixel in pixels {
+                    let k = pixel * 3
+                    let out = apply((p[k], p[k + 1], p[k + 2]))
+                    p[k] = out.0
+                    p[k + 1] = out.1
+                    p[k + 2] = out.2
+                }
             }
         }
     }
@@ -379,7 +388,7 @@ public struct OutputGamutCompressor: Sendable {
         let whiteXYZ = xyToXYZUnitY(x: colourSpace.whitepoint.x, y: colourSpace.whitepoint.y)
         let viewing = CAM16ViewingConditions(whitepointXYZ: whiteXYZ)
 
-        func polarToXYZ(_ L: Double, _ a: Double, _ b: Double) -> (Double, Double, Double) {
+        @Sendable func polarToXYZ(_ L: Double, _ a: Double, _ b: Double) -> (Double, Double, Double) {
             switch space {
             case .oklch:
                 return Oklab.toXYZ((L, a, b))

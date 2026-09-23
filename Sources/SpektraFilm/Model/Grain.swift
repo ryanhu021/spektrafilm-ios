@@ -335,14 +335,16 @@ public enum Grain {
         var out = consume density
         out.values.withUnsafeMutableBufferPointer { buffer in
             guard let plane = buffer.baseAddress else { return }
-            var source = Philox4x32(key: key)
-            for i in 0..<buffer.count {
-                let p = probabilityOfDevelopment(density: plane[i], densityMax: densityMax)
-                let sat = saturation(probability: p, uniformity: uniformity)
-                source.reset(counter: UInt64(i))
-                let developed = Distributions.poisson(
-                    lambda: particlesPerPixel * p / sat, &source)
-                plane[i] = Double(developed) * odParticle * sat
+            Parallel.forEachChunk(of: buffer.count, cost: 8) { pixels in
+                var source = Philox4x32(key: key)
+                for i in pixels {
+                    let p = probabilityOfDevelopment(density: plane[i], densityMax: densityMax)
+                    let sat = saturation(probability: p, uniformity: uniformity)
+                    source.reset(counter: UInt64(i))
+                    let developed = Distributions.poisson(
+                        lambda: particlesPerPixel * p / sat, &source)
+                    plane[i] = Double(developed) * odParticle * sat
+                }
             }
         }
 
@@ -489,18 +491,21 @@ public enum Grain {
                             let first = a[0]
                             let last = a[steps - 1]
 
-                            for pixel in 0..<density.pixelCount {
-                                let value = s[pixel * 3 + channel]
-                                let x = positive ? -value : value
-                                if x.isNaN || x <= first {
-                                    d[pixel] = y[0]
-                                } else if x >= last {
-                                    d[pixel] = y[steps - 1]
-                                } else {
-                                    let low =
-                                        Interpolation.upperBound(x, a, stride: 1, count: steps) - 1
-                                    let t = (x - a[low]) * iv[low]
-                                    d[pixel] = y[low] + t * (y[low + 1] - y[low])
+                            Parallel.forEachChunk(of: density.pixelCount) { pixels in
+                                for pixel in pixels {
+                                    let value = s[pixel * 3 + channel]
+                                    let x = positive ? -value : value
+                                    if x.isNaN || x <= first {
+                                        d[pixel] = y[0]
+                                    } else if x >= last {
+                                        d[pixel] = y[steps - 1]
+                                    } else {
+                                        let low =
+                                            Interpolation.upperBound(
+                                                x, a, stride: 1, count: steps) - 1
+                                        let t = (x - a[low]) * iv[low]
+                                        d[pixel] = y[low] + t * (y[low + 1] - y[low])
+                                    }
                                 }
                             }
                         }

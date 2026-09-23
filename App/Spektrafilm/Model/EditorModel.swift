@@ -7,8 +7,8 @@ import SwiftUI
 
 /// The editor's state, and the scheduler that picks which render tier to run.
 ///
-/// A render costs 83 ms at scrub size and 343 ms at settle size, so neither can run per frame while a
-/// control moves. One task renders the latest parameters. Edits that arrive while it works collapse
+/// A render costs 19 ms at scrub size and 57 ms at settle size on an M4 Pro, and more on a phone, so
+/// neither can run per frame while a control moves. One task renders the latest parameters. Edits that arrive while it works collapse
 /// into a single follow-up render. Releasing the control asks for the larger size.
 ///
 /// Every finished render is shown, even if the parameters have moved on since it started. Discarding
@@ -153,7 +153,7 @@ final class EditorModel {
 
     /// Renders as large as this device allows and writes to the photo library.
     ///
-    /// About 2 s per megapixel. ``RenderBudget`` caps the size to fit in memory, and the saved state
+    /// ``RenderBudget`` caps the size to fit in memory, and the saved state
     /// reports when it did, so the user knows the export is smaller than the source.
     func export() async {
         guard let source, let params else { return }

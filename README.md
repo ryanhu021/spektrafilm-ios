@@ -53,7 +53,7 @@ Sources/SpektraFilm/     Engine. No third-party dependencies, builds for iOS and
 Tests/SpektraFilmTests/  Parity tests and their committed fixtures.
 App/                     iOS app. project.yml is the source of truth; the .xcodeproj is generated.
 Tools/parity/            Fixture generator, table extractor, oracle setup.
-Tools/memprofile/        Peak-memory profiler.
+Tools/memprofile/        Peak-memory and timing profiler.
 ```
 
 ## Build and test
@@ -100,32 +100,39 @@ A changed fixture means the render changed. Review the difference before committ
 
 ## Performance
 
-Measured in release on an M-series Mac. The engine runs float64 on one CPU core, with no GPU path.
+Measured in release on an M4 Pro (10 performance and 4 efficiency cores), Portra 400 onto Portra
+Endura, after one warm-up render. The engine runs float64 on the CPU with no GPU path. These are not
+phone measurements; a phone has fewer cores.
 
 | What | Time | Peak memory |
 |---|---|---|
-| Simulator construction, per film | 14 to 23 ms | |
-| 320 px preview, grain off | 83 ms | |
-| 640 px preview, grain off | 343 ms | |
-| 640 px with grain and spatial effects | 623 ms | |
-| 2 MP | 3.9 s | 250 MB |
-| 6 MP | 12.4 s | 738 MB |
-| 12 MP | 25.7 s | 1471 MB |
+| Simulator construction | 16 ms | |
+| 320 px preview, grain off | 19 ms | |
+| 640 px preview, grain off | 57 ms | |
+| 640 px with grain and spatial effects | 94 ms | |
+| 2 MP | 0.56 s | 250 MB |
+| 6 MP | 2.3 s | 739 MB |
+| 12 MP | 3.7 s | 1472 MB |
+
+The per-pixel, per-row and per-column loops run across cores. Each output value is computed the
+same way however the frame is split, so a render is bit-identical at any core count, and
+`ParallelTests` checks that.
 
 The app renders at 320 px while a control is being dragged, at 640 px when it is released, and at
 the largest size the device allows on export.
 
 Memory limits export size more than time does. iOS terminates a foreground app at roughly 1.4 GB,
 so `RenderBudget` reads the process's actual allowance, caps the export size to fit, and the app
-tells the user when it has downscaled. Peak footprint is 125 MB per megapixel: 6 MP fits with room,
-and 12 MP is close to the limit.
+tells the user when it has downscaled. Peak footprint is 123 to 125 MB per megapixel: 6 MP fits
+with room, and 12 MP is close to the limit.
 
 The peak depends on how many full frames are alive at once. Spectral upsampling, the coupler
 correction, grain and halation each work one channel plane at a time or reuse their input buffer,
 which keeps that number low.
 
-`Tools/memprofile` measures it. Take one measurement per process: `phys_footprint` is a high-water
-mark, so a second measurement in the same run reports the larger of the two.
+`Tools/memprofile` measures both memory and time. Take one measurement per process:
+`phys_footprint` is a high-water mark, so a second measurement in the same run reports the larger
+of the two.
 
 ## Licensing
 

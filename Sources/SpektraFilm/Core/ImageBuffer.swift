@@ -108,21 +108,28 @@ public struct ImageBuffer: Sendable, Equatable {
     /// Peak memory caps export size on iOS. The peak is set by how many full-frame buffers are live
     /// at once, not by how many are allocated over the run. A `map` that returns a new buffer holds
     /// two frames while it runs; this holds one.
+    ///
+    /// Runs across cores. `transform` is `@Sendable` so it cannot capture mutable state, which is
+    /// what makes the split invisible in the result.
     @inlinable
-    public mutating func transformInPlace(_ transform: (Double) -> Double) {
+    public mutating func transformInPlace(_ transform: @Sendable (Double) -> Double) {
         values.withUnsafeMutableBufferPointer { buffer in
             guard let p = buffer.baseAddress else { return }
-            for i in 0..<buffer.count { p[i] = transform(p[i]) }
+            Parallel.forEachChunk(of: buffer.count) { range in
+                for i in range { p[i] = transform(p[i]) }
+            }
         }
     }
 
     /// Applies `transform` per channel, reusing the storage. The closure receives the channel index.
     @inlinable
-    public mutating func transformInPlace(_ transform: (Int, Double) -> Double) {
+    public mutating func transformInPlace(_ transform: @Sendable (Int, Double) -> Double) {
         let channels = self.channels
         values.withUnsafeMutableBufferPointer { buffer in
             guard let p = buffer.baseAddress else { return }
-            for i in 0..<buffer.count { p[i] = transform(i % channels, p[i]) }
+            Parallel.forEachChunk(of: buffer.count) { range in
+                for i in range { p[i] = transform(i % channels, p[i]) }
+            }
         }
     }
 
@@ -146,7 +153,7 @@ public struct ImageBuffer: Sendable, Equatable {
     /// Lets a two-buffer blend finish with two live frames instead of three.
     @inlinable
     public mutating func combineInPlace(
-        with other: ImageBuffer, _ combine: (Double, Double) -> Double
+        with other: ImageBuffer, _ combine: @Sendable (Double, Double) -> Double
     ) {
         precondition(
             other.count == count, "combineInPlace needs matching shapes")
@@ -154,7 +161,9 @@ public struct ImageBuffer: Sendable, Equatable {
             guard let s = source.baseAddress else { return }
             values.withUnsafeMutableBufferPointer { buffer in
                 guard let p = buffer.baseAddress else { return }
-                for i in 0..<buffer.count { p[i] = combine(p[i], s[i]) }
+                Parallel.forEachChunk(of: buffer.count) { range in
+                    for i in range { p[i] = combine(p[i], s[i]) }
+                }
             }
         }
     }

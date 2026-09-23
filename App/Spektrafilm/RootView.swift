@@ -162,7 +162,7 @@ struct RootView: View {
                             .font(Safelight.display(16))
                             .foregroundStyle(Safelight.paper)
                         // The engine reports no progress, so there is no progress bar.
-                        Text("about 2 seconds per megapixel")
+                        Text("a few seconds at full size")
                             .safelightLabel()
                     case .saving:
                         Text("Saving").font(Safelight.display(16)).foregroundStyle(Safelight.paper)

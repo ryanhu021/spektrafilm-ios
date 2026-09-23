@@ -216,24 +216,26 @@ enum SpectralContraction {
                     let s = src.baseAddress!
                     let t = weights.baseAddress!
                     let d = dst.baseAddress!
-                    for p in 0..<cmy.pixelCount {
-                        let c = s[p * 3]
-                        let m = s[p * 3 + 1]
-                        let y = s[p * 3 + 2]
-                        var acc = (0.0, 0.0, 0.0)
-                        for l in 0..<wavelengths {
-                            let w = l * 8
-                            var density = c * t[w] + m * t[w + 1] + y * t[w + 2]
-                            density += t[w + 3]
-                            let transmitted = Foundation.pow(10.0, -density) * t[w + 4]
-                            let light = transmitted.isNaN ? 0 : transmitted
-                            acc.0 += light * t[w + 5]
-                            acc.1 += light * t[w + 6]
-                            acc.2 += light * t[w + 7]
+                    Parallel.forEachChunk(of: cmy.pixelCount, cost: wavelengths) { pixels in
+                        for p in pixels {
+                            let c = s[p * 3]
+                            let m = s[p * 3 + 1]
+                            let y = s[p * 3 + 2]
+                            var acc = (0.0, 0.0, 0.0)
+                            for l in 0..<wavelengths {
+                                let w = l * 8
+                                var density = c * t[w] + m * t[w + 1] + y * t[w + 2]
+                                density += t[w + 3]
+                                let transmitted = Foundation.pow(10.0, -density) * t[w + 4]
+                                let light = transmitted.isNaN ? 0 : transmitted
+                                acc.0 += light * t[w + 5]
+                                acc.1 += light * t[w + 6]
+                                acc.2 += light * t[w + 7]
+                            }
+                            d[p * 3] = acc.0 * scale
+                            d[p * 3 + 1] = acc.1 * scale
+                            d[p * 3 + 2] = acc.2 * scale
                         }
-                        d[p * 3] = acc.0 * scale
-                        d[p * 3 + 1] = acc.1 * scale
-                        d[p * 3 + 2] = acc.2 * scale
                     }
                 }
             }

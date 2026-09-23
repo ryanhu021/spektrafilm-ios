@@ -3,9 +3,9 @@ import SwiftUI
 
 /// The print on the easel.
 ///
-/// A render takes 83 to 623 ms depending on the tier, too slow to update every frame. A finished
-/// render appears slightly flat and soft and settles to full contrast over about 280 ms, the way a
-/// print comes up in the developer tray.
+/// A render takes 19 to 94 ms on an M4 Pro depending on the tier, and longer on a phone, so it
+/// cannot update every frame. A finished render appears slightly flat and soft and settles to full
+/// contrast over about 280 ms, the way a print comes up in the developer tray.
 struct PrintView: View {
     let image: CGImage?
     let isRendering: Bool

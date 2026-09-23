@@ -6,17 +6,17 @@ import SpektraFilm
 ///
 /// `Simulator` holds the per-film spectral LUT and the midgray references and is not `Sendable`, so
 /// only this actor touches it. The simulator is cached and rebuilt when the parameters change;
-/// construction costs about 20 ms, a quarter of a scrub render.
+/// construction costs about 16 ms, about as long as a scrub render.
 actor RenderService {
     /// Which of the three measured budgets a request is asking for.
     enum Quality: Sendable, Comparable {
-        /// 320 px, preview mode. Measured at 83 ms, so roughly 12 fps while a control is moving.
+        /// 320 px, preview mode, while a control is moving. 19 ms on an M4 Pro.
         case scrub
-        /// 640 px, preview mode. Measured at 343 ms, for when the control is released.
+        /// 640 px, preview mode, for when the control is released. 57 ms on an M4 Pro.
         case settle
-        /// 640 px with grain and the spatial effects. Measured at 623 ms.
+        /// 640 px with grain and the spatial effects. 94 ms on an M4 Pro.
         case proof
-        /// Everything on, at the largest size ``RenderBudget`` allows. About 2 s per megapixel.
+        /// Everything on, at the largest size ``RenderBudget`` allows.
         case full
 
         var longEdge: Int? {

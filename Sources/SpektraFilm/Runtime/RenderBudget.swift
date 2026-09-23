@@ -7,13 +7,13 @@ import os
 /// How large a frame this device can render.
 ///
 /// The engine is float64 and holds several full-frame buffers at once, so peak memory is about
-/// 125 MB per megapixel. Measured in release, one measurement per process:
+/// 125 MB per megapixel. Measured in release on an M4 Pro, one measurement per process:
 ///
 /// | Frame | Peak footprint | Time |
 /// |---|---|---|
-/// | 2 MP | 250 MB | 3.9 s |
-/// | 6 MP | 738 MB | 12.4 s |
-/// | 12 MP | 1471 MB | 25.7 s |
+/// | 2 MP | 250 MB | 0.56 s |
+/// | 6 MP | 739 MB | 2.3 s |
+/// | 12 MP | 1472 MB | 3.7 s |
 ///
 /// iOS terminates a foreground app that crosses its jetsam limit, roughly 1.4 GB on a 6 GB device.
 /// 6 MP fits with room to spare. 12 MP is at the limit, so the cap applies there.
