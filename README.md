@@ -14,9 +14,6 @@ The reference implementation is Python and NumPy, which does not run on iOS. Thi
 the reference's arithmetic and checks every stage against fixtures generated from it at one pinned
 upstream commit, so a render here should match a render there.
 
-There is also an [Android port](https://github.com/thetechgeekko/Spektrafilm-android), still in
-development. It was useful prior art, but the Python reference is the numeric source of truth.
-
 ## Status
 
 | Layer | State |
@@ -84,13 +81,16 @@ Each `v*` tag builds an unsigned `.ipa` and attaches it to a
 [SideStore](https://sidestore.io), which signs it with your own Apple ID, so no paid developer
 account is needed.
 
-1. On the phone, open the latest release in Safari and download `Spektrafilm.ipa` to Files. The
-   repository is private, so sign in to GitHub first.
-2. In SideStore, tap **+** on the My Apps tab and choose the file.
+In SideStore, add this source, then install Spektrafilm from it. New releases appear there as
+updates.
 
-A free Apple ID signs apps for 7 days; SideStore refreshes them in the background. If the repository
-becomes public, add `https://github.com/ryanhu021/spektrafilm-ios/releases/latest/download/sidestore-source.json`
-as a source in SideStore instead, and updates appear there.
+```
+https://github.com/ryanhu021/spektrafilm-ios/releases/latest/download/sidestore-source.json
+```
+
+Or download `Spektrafilm.ipa` from the latest release in Safari and open it with **+** on
+SideStore's My Apps tab. A free Apple ID signs apps for 7 days; SideStore refreshes them in the
+background.
 
 To release, tag and push: `git tag v0.2.0 && git push origin v0.2.0`. The tag sets the version and
 the workflow run number sets the build number.
@@ -100,7 +100,7 @@ the workflow run number sets the build number.
 The tests compare against fixtures produced by the reference implementation at upstream commit
 [`3bb2c2d`](https://github.com/andreavolpato/spektrafilm/commit/3bb2c2d2801ff68b92019cf1dbcbb133d60832bc).
 The fixtures are committed, so CI runs without Python. Tolerance is `max_abs <= 1e-4` and
-`rms <= 1e-5`, the same contract the Android port uses. Grain and glare draw random numbers and
+`rms <= 1e-5`. Grain and glare draw random numbers and
 cannot match bit for bit, so their tests check the statistics instead.
 
 The fixtures cover each operator on synthetic inputs, every stage boundary across four film, paper
