@@ -10,6 +10,8 @@ public protocol LUT2DSampler: Sendable {
     /// Samples one pixel at a time, so a caller that derives its coordinates from another buffer
     /// never has to materialise them as a frame.
     ///
+    /// `coordinate` is called concurrently for different pixels, so it must only read.
+    ///
     /// - Parameters:
     ///   - lut: `[gridX][gridY][channel]`, square in its two grid axes.
     ///   - destination: `[height][width][lut.channels]`, overwritten.
@@ -260,49 +262,52 @@ public enum LUTInterpolation {
         lut.values.withUnsafeBufferPointer { table in
             destination.values.withUnsafeMutableBufferPointer { destination in
                 let rowStride = size * channels
-                for index in 0..<pixelCount {
-                    let (x, y, gain) = coordinate(index)
-                    let (xBase, xFrac) = cubicCoordinateBaseFraction(x * scale, size: size)
-                    let (yBase, yFrac) = cubicCoordinateBaseFraction(y * scale, size: size)
-                    let wx = (
-                        mitchellWeight(xFrac + 1), mitchellWeight(xFrac),
-                        mitchellWeight(xFrac - 1), mitchellWeight(xFrac - 2)
-                    )
-                    let wy = (
-                        mitchellWeight(yFrac + 1), mitchellWeight(yFrac),
-                        mitchellWeight(yFrac - 1), mitchellWeight(yFrac - 2)
-                    )
-                    let rows = (
-                        safeIndex(xBase - 1, size: size) * rowStride,
-                        safeIndex(xBase, size: size) * rowStride,
-                        safeIndex(xBase + 1, size: size) * rowStride,
-                        safeIndex(xBase + 2, size: size) * rowStride
-                    )
-                    let columns = (
-                        safeIndex(yBase - 1, size: size) * channels,
-                        safeIndex(yBase, size: size) * channels,
-                        safeIndex(yBase + 1, size: size) * channels,
-                        safeIndex(yBase + 2, size: size) * channels
-                    )
-                    let base = index * channels
-                    for c in 0..<channels { destination[base + c] = 0 }
-                    var weightSum = 0.0
-                    for i in 0..<4 {
-                        let row = tupleElement(rows, i)
-                        let weightX = tupleElement(wx, i)
-                        for j in 0..<4 {
-                            let weight = weightX * tupleElement(wy, j)
-                            weightSum += weight
-                            let cell = row + tupleElement(columns, j)
-                            for c in 0..<channels {
-                                destination[base + c] += weight * table[cell + c]
+                Parallel.forEachChunk(of: pixelCount, cost: 16 * channels) { pixels in
+                    for index in pixels {
+                        let (x, y, gain) = coordinate(index)
+                        let (xBase, xFrac) = cubicCoordinateBaseFraction(x * scale, size: size)
+                        let (yBase, yFrac) = cubicCoordinateBaseFraction(y * scale, size: size)
+                        let wx = (
+                            mitchellWeight(xFrac + 1), mitchellWeight(xFrac),
+                            mitchellWeight(xFrac - 1), mitchellWeight(xFrac - 2)
+                        )
+                        let wy = (
+                            mitchellWeight(yFrac + 1), mitchellWeight(yFrac),
+                            mitchellWeight(yFrac - 1), mitchellWeight(yFrac - 2)
+                        )
+                        let rows = (
+                            safeIndex(xBase - 1, size: size) * rowStride,
+                            safeIndex(xBase, size: size) * rowStride,
+                            safeIndex(xBase + 1, size: size) * rowStride,
+                            safeIndex(xBase + 2, size: size) * rowStride
+                        )
+                        let columns = (
+                            safeIndex(yBase - 1, size: size) * channels,
+                            safeIndex(yBase, size: size) * channels,
+                            safeIndex(yBase + 1, size: size) * channels,
+                            safeIndex(yBase + 2, size: size) * channels
+                        )
+                        let base = index * channels
+                        for c in 0..<channels { destination[base + c] = 0 }
+                        var weightSum = 0.0
+                        for i in 0..<4 {
+                            let row = tupleElement(rows, i)
+                            let weightX = tupleElement(wx, i)
+                            for j in 0..<4 {
+                                let weight = weightX * tupleElement(wy, j)
+                                weightSum += weight
+                                let cell = row + tupleElement(columns, j)
+                                for c in 0..<channels {
+                                    destination[base + c] += weight * table[cell + c]
+                                }
                             }
                         }
+                        if weightSum != 0 {
+                            for c in 0..<channels { destination[base + c] /= weightSum }
+                        }
+                        for c in 0..<channels { destination[base + c] *= gain }
+
                     }
-                    if weightSum != 0 {
-                        for c in 0..<channels { destination[base + c] /= weightSum }
-                    }
-                    for c in 0..<channels { destination[base + c] *= gain }
                 }
             }
         }

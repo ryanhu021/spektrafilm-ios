@@ -102,10 +102,7 @@ public final class FilmingStage {
         var raw = try rgbToFilmRaw(image)
 
         let exposureGain = Foundation.pow(2.0, camera.exposureCompensationEV)
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] *= exposureGain }
-        }
+        raw.transformInPlace { $0 * exposureGain }
 
         let halation = filmRender.halation
         Diffusion.boostHighlights(
@@ -128,10 +125,7 @@ public final class FilmingStage {
         }
 
         let correction = try colourReference.filmingExposureCorrection()
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = log10Guard(p[i] * correction) }
-        }
+        raw.transformInPlace { log10Guard($0 * correction) }
         return raw
     }
 

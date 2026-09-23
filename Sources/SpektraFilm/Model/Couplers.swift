@@ -129,15 +129,18 @@ public enum Couplers {
         var correction = consume density
         correction.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }
-            for i in stride(from: 0, to: buf.count, by: 3) {
-                var r = positive ? densityMax[0] - p[i] : p[i]
-                var g = positive ? densityMax[1] - p[i + 1] : p[i + 1]
-                var b = positive ? densityMax[2] - p[i + 2] : p[i + 2]
-                r += highExposureShift * r * r
-                g += highExposureShift * g * g
-                b += highExposureShift * b * b
-                for m in 0..<3 {
-                    p[i + m] = r * matrix[0, m] + g * matrix[1, m] + b * matrix[2, m]
+            Parallel.forEachChunk(of: buf.count / 3, cost: 4) { pixels in
+                for pixel in pixels {
+                    let i = pixel * 3
+                    var r = positive ? densityMax[0] - p[i] : p[i]
+                    var g = positive ? densityMax[1] - p[i + 1] : p[i + 1]
+                    var b = positive ? densityMax[2] - p[i + 2] : p[i + 2]
+                    r += highExposureShift * r * r
+                    g += highExposureShift * g * g
+                    b += highExposureShift * b * b
+                    for m in 0..<3 {
+                        p[i + m] = r * matrix[0, m] + g * matrix[1, m] + b * matrix[2, m]
+                    }
                 }
             }
         }

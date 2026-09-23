@@ -135,11 +135,19 @@ public struct Hanatos2025RawConverter: Sendable {
         var tc = ImageBuffer(height: rgb.height, width: rgb.width, channels: 2)
         var brightness = [Double](repeating: 0, count: rgb.pixelCount)
         rgb.values.withUnsafeBufferPointer { source in
-            for pixel in 0..<rgb.pixelCount {
-                let value = tcPixel(source, pixel)
-                tc.values[pixel * 2] = value.x
-                tc.values[pixel * 2 + 1] = value.y
-                brightness[pixel] = value.brightness
+            tc.values.withUnsafeMutableBufferPointer { tcBuffer in
+                brightness.withUnsafeMutableBufferPointer { brightnessBuffer in
+                    let t = tcBuffer.baseAddress!
+                    let b = brightnessBuffer.baseAddress!
+                    Parallel.forEachChunk(of: rgb.pixelCount, cost: 8) { pixels in
+                        for pixel in pixels {
+                            let value = tcPixel(source, pixel)
+                            t[pixel * 2] = value.x
+                            t[pixel * 2 + 1] = value.y
+                            b[pixel] = value.brightness
+                        }
+                    }
+                }
             }
         }
         return (tc, brightness)
