@@ -108,8 +108,9 @@ actor RenderService {
 
     private func simulator(for params: RuntimePhotoParams) throws -> Simulator {
         if let simulator, simulatorParams == params { return simulator }
-        // Auto-exposure meters on a downsampled preview, so the resampler is not optional.
-        let built = try Simulator(params, resampler: SkimageResampler())
+        // Auto-exposure meters on a downsampled preview, so the resampler is not optional. The Metal
+        // backend meets the same parity tolerance as the CPU, and falls back to it without a GPU.
+        let built = try Simulator(params, resampler: SkimageResampler(), backend: .metal)
         simulator = built
         simulatorParams = params
         return built
