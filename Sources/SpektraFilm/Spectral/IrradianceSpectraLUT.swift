@@ -14,7 +14,7 @@ import Foundation
 public struct IrradianceSpectraLUT: Sendable {
     /// Bundle-relative location of the `.npy`.
     public static let resourceName = "irradiance_xy_tc"
-    public static let resourceSubdirectory = "Resources/luts/spectral_upsampling"
+    public static let resourceSubdirectory = "Data/luts/spectral_upsampling"
 
     public let array: NumpyArray
 

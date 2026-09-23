@@ -8,7 +8,7 @@ files and their expected values cannot drift. Regenerate them together:
 
     generate_goldens.py npy_case_files npy_case_values npy_lut
 
-`npy_lut` samples `Sources/SpektraFilm/Resources/luts/spectral_upsampling/irradiance_xy_tc.npy`,
+`npy_lut` samples `Sources/SpektraFilm/Data/luts/spectral_upsampling/irradiance_xy_tc.npy`,
 the 192x192x81 float16 table the engine loads at runtime. Every value in it is finite, and widening
 a finite float16 to float64 is lossless, so the Swift side is gated at tolerance 0.
 """
@@ -24,7 +24,7 @@ from fixture_registry import fixture, sidecar
 
 REPO = Path(__file__).resolve().parents[3]
 GOLDENS = REPO / "Tests" / "SpektraFilmTests" / "Goldens"
-LUT = REPO / "Sources" / "SpektraFilm" / "Resources" / "luts" / "spectral_upsampling" / "irradiance_xy_tc.npy"
+LUT = REPO / "Sources" / "SpektraFilm" / "Data" / "luts" / "spectral_upsampling" / "irradiance_xy_tc.npy"
 
 # float16 corners of the representable range, so a file covers the subnormal and NaN paths of the
 # widening instead of a hand-written Swift constant.

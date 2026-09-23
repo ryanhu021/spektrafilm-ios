@@ -57,7 +57,7 @@ def check_links() -> None:
 
 def check_profiles() -> None:
     """Prose that states a profile count agrees with the bundled JSON."""
-    profiles = list((REPO / "Sources/SpektraFilm/Resources/profiles").glob("*.json"))
+    profiles = list((REPO / "Sources/SpektraFilm/Data/profiles").glob("*.json"))
     note("bundled profiles", str(len(profiles)))
     stated = re.compile(r"\b(\d+)\s+(?:upstream\s+)?(?:measured\s+)?(?:film|profiles)\b")
     for doc in markdown_files():

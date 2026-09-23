@@ -48,7 +48,7 @@ Sources/SpektraFilm/     Engine. No third-party dependencies, builds for iOS and
   Colour/                Colourspaces, transfer functions, illuminants, observers.
   Profiles/              Profile types and the bundled-profile loader.
   Generated/             Tables extracted from colour-science. Do not edit by hand.
-  Resources/             28 film and paper profiles, the spectral LUT, filter curves.
+  Data/                  28 film and paper profiles, the spectral LUT, filter curves.
 Tests/SpektraFilmTests/  Parity tests and their committed fixtures.
 App/                     iOS app. project.yml is the source of truth; the .xcodeproj is generated.
 Tools/parity/            Fixture generator, table extractor, oracle setup.

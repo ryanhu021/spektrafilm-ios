@@ -169,7 +169,7 @@ public struct NumpyArray: Sendable {
 /// Reads NumPy `.npy` files, format versions 1.0 and 2.0.
 ///
 /// Format: <https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html>. The engine
-/// needs it for `Resources/luts/spectral_upsampling/irradiance_xy_tc.npy`, the spectral-upsampling
+/// needs it for `Data/luts/spectral_upsampling/irradiance_xy_tc.npy`, the spectral-upsampling
 /// LUT, and for any large parity fixture that is cheaper to ship as `.npy` than as text.
 public enum NumpyArrayReader {
 
@@ -183,7 +183,7 @@ public enum NumpyArrayReader {
     /// Memory-maps a `.npy` file from the package bundle.
     ///
     /// `subdirectory` is relative to the bundle root, as in
-    /// `bundled("irradiance_xy_tc", subdirectory: "Resources/luts/spectral_upsampling")`.
+    /// `bundled("irradiance_xy_tc", subdirectory: "Data/luts/spectral_upsampling")`.
     public static func bundled(_ name: String, subdirectory: String) throws -> NumpyArray {
         let path = "\(subdirectory)/\(name).npy"
         guard

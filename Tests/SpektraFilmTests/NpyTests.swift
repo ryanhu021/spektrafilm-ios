@@ -16,7 +16,7 @@ import Testing
 @Suite("NumPy array reader")
 struct NpyTests {
 
-    static let lutSubdirectory = "Resources/luts/spectral_upsampling"
+    static let lutSubdirectory = "Data/luts/spectral_upsampling"
 
     // MARK: - Helpers
 

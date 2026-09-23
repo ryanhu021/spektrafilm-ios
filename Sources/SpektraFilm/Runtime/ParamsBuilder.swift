@@ -206,9 +206,9 @@ public final class NeutralPrintFilters: @unchecked Sendable {
         guard
             let url = Bundle.module.url(
                 forResource: "neutral_print_filters", withExtension: "json",
-                subdirectory: "Resources/filters")
+                subdirectory: "Data/filters")
         else {
-            throw SpektraError.missingResource("Resources/filters/neutral_print_filters.json")
+            throw SpektraError.missingResource("Data/filters/neutral_print_filters.json")
         }
         let decoded: [String: [String: [String: [Double]]]]
         do {

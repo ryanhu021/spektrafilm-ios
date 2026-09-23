@@ -47,6 +47,9 @@ jobs:
         run: make project
       # -quiet keeps warnings and errors in full. Piping through tail would drop the middle of the
       # log, which is where a compile diagnostic lands.
+      #
+      # Signing stays on. A simulator build signs ad hoc, needing no identity or profile, and turning
+      # it off once hid a resource bundle that codesign rejected outright.
       - name: Build for simulator
         run: |
           xcodebuild build -quiet \
@@ -54,8 +57,7 @@ jobs:
             -scheme Spektrafilm \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath .build/xcode \
-            CODE_SIGNING_ALLOWED=NO
+            -derivedDataPath .build/xcode
 
   docs:
     name: Docs consistency

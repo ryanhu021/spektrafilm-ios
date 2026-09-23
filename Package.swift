@@ -13,7 +13,12 @@ let package = Package(
     targets: [
         .target(
             name: "SpektraFilm",
-            resources: [.copy("Resources")],
+            // The directory is called Data, not Resources. `.copy` preserves the name inside the
+            // generated SpektraFilm_SpektraFilm.bundle, and a directory called Resources sitting
+            // next to that bundle's Info.plist makes codesign read it as a macOS-style bundle and
+            // reject it: "bundle format unrecognized, invalid, or unsuitable". CI passes
+            // CODE_SIGNING_ALLOWED=NO, so only a signed build sees it.
+            resources: [.copy("Data")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(

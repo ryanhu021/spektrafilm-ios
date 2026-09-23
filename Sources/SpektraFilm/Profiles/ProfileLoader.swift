@@ -103,7 +103,7 @@ extension Profile: Decodable {
 public enum ProfileLibrary {
 
     /// Where the profiles live inside the package bundle.
-    static let subdirectory = "Resources/profiles"
+    static let subdirectory = "Data/profiles"
 
     private static let cache = Cache()
 
