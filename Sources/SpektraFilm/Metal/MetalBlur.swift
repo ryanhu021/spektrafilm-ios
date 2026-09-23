@@ -68,20 +68,34 @@ enum MetalBlur {
         _ c: MetalContext, _ input: GPUFrame, into out: GPUFrame, channel: Int, sigma: Double,
         truncate: Double, scratch: GPUFrame
     ) throws {
+        try blur(
+            c, from: input, channel: channel, to: out, channel: channel, sigma: sigma,
+            truncate: truncate, scratch: scratch)
+    }
+
+    /// One channel of `input` blurred into one channel of `out`, through `scratch`, a
+    /// single-channel frame of the same size.
+    static func blur(
+        _ c: MetalContext, from input: GPUFrame, channel source: Int, to out: GPUFrame,
+        channel destination: Int, sigma: Double, truncate: Double = GaussianFilter.defaultTruncate,
+        scratch: GPUFrame
+    ) throws {
         let h = UInt32(input.height)
         let w = UInt32(input.width)
-        let stride = UInt32(input.channels)
-        let ch = UInt32(channel)
+        let inStride = UInt32(input.channels)
+        let outStride = UInt32(out.channels)
+        let sc = UInt32(source)
+        let dc = UInt32(destination)
         var toScratch = Plane(
-            height: h, width: w, srcStride: stride, srcOffset: ch, dstStride: 1, dstOffset: 0)
+            height: h, width: w, srcStride: inStride, srcOffset: sc, dstStride: 1, dstOffset: 0)
         var toOut = Plane(
-            height: h, width: w, srcStride: 1, srcOffset: 0, dstStride: stride, dstOffset: ch)
+            height: h, width: w, srcStride: 1, srcOffset: 0, dstStride: outStride, dstOffset: dc)
         let planeSize = MemoryLayout<Plane>.stride
 
         if sigma <= 0 {
             var direct = Plane(
-                height: h, width: w, srcStride: stride, srcOffset: ch, dstStride: stride,
-                dstOffset: ch)
+                height: h, width: w, srcStride: inStride, srcOffset: sc, dstStride: outStride,
+                dstOffset: dc)
             try c.dispatch("copy_channel", count: input.pixelCount) { e in
                 e.setBuffer(input.buffer, offset: 0, index: 0)
                 e.setBuffer(out.buffer, offset: 0, index: 1)
@@ -128,6 +142,38 @@ enum MetalBlur {
             e.setBytes(&weights, length: weights.count * 4, index: 2)
             e.setBytes(&r, length: 4, index: 3)
             e.setBytes(&toOut, length: planeSize, index: 4)
+        }
+    }
+
+    /// Single-channel working planes, reused across an operator's channels so its scratch memory
+    /// is a few planes, whatever the frame's channel count.
+    final class Planes {
+        let result: GPUFrame
+        let accumulator: GPUFrame
+        let component: GPUFrame
+        let scratch: GPUFrame
+
+        init(_ c: MetalContext, like frame: GPUFrame) throws {
+            result = try GPUFrame(c, height: frame.height, width: frame.width, channels: 1)
+            accumulator = try GPUFrame(c, height: frame.height, width: frame.width, channels: 1)
+            component = try GPUFrame(c, height: frame.height, width: frame.width, channels: 1)
+            scratch = try GPUFrame(c, height: frame.height, width: frame.width, channels: 1)
+        }
+    }
+
+    /// ``ExponentialFilter/filterPlane`` of one channel of `input`, into `planes.accumulator`.
+    /// Uses `planes.component` and `planes.scratch`.
+    static func exponential(
+        _ c: MetalContext, from input: GPUFrame, channel: Int, decay: Double, planes: Planes,
+        mixture: ExponentialFilter.MixtureSize = .three
+    ) throws {
+        let acc = planes.accumulator
+        memset(acc.buffer.contents(), 0, acc.count * MemoryLayout<Float>.stride)
+        for (amplitude, ratio) in ExponentialFilter.fit(mixture) {
+            try blur(
+                c, from: input, channel: channel, to: planes.component, channel: 0,
+                sigma: ratio * decay, scratch: planes.scratch)
+            try axpy(c, acc, planes.component, weight: amplitude)
         }
     }
 }

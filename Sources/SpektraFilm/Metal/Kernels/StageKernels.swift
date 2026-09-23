@@ -70,6 +70,17 @@ extension MetalKernels {
             dst[i] = v;
         }
 
+        // Couplers.diffuseInPlace for one channel: (1 - w) * core + w * tail, written into it.
+        kernel void mix_into_channel(
+            device float *dst [[buffer(0)]], device const float *core [[buffer(1)]],
+            device const float *tail [[buffer(2)]], constant uint &channel [[buffer(3)]],
+            constant float &w [[buffer(4)]], constant uint &pixels [[buffer(5)]],
+            uint p [[thread_position_in_grid]])
+        {
+            if (p >= pixels) { return; }
+            dst[p * 3 + channel] = (1.0f - w) * core[p] + w * tail[p];
+        }
+
         // Couplers.correctedLogExposure, the per-pixel part: silver from density, the high-exposure
         // shift, then the inhibition matrix. In place; m is row-major, donor by receiver.
         kernel void coupler_inhibitor(

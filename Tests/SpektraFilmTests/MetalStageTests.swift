@@ -44,7 +44,8 @@ struct MetalStageTests {
         let input = Self.image(scale: 2.0)
         let cpu = Diffusion.applyHalation(input, params, pixelSizeMicrons: pixelSize)
         let frame = try GPUFrame(c, uploading: input)
-        try MetalStage.halation(c, frame, params, pixelSizeMicrons: pixelSize)
+        try MetalStage.halation(
+            c, frame, params, pixelSizeMicrons: pixelSize, planes: MetalBlur.Planes(c, like: frame))
         let worst = Self.worstRelative(frame.download().values, cpu.values)
         // Measured at 2.7e-7 to 2.8e-7.
         #expect(worst < 1e-6, "worst relative difference \(worst)")
@@ -79,11 +80,11 @@ struct MetalStageTests {
             gamma: (gamma, gamma, gamma))
         let gpuDensity = try GPUFrame(c, height: raw.height, width: raw.width, channels: 3)
         try MetalFilm.interpolate(c, raw, into: gpuDensity, table: table)
-        let gpu = try MetalStage.couplerCorrection(
+        try MetalStage.couplerCorrection(
             c, density: gpuDensity, logRaw: raw, setup: setup,
             tailWeight: params.filmRender.dirCouplers.diffusionTailWeight, positive: false,
-            before: before
-        ).download()
+            before: before, planes: MetalBlur.Planes(c, like: gpuDensity))
+        let gpu = gpuDensity.download()
         let worst = zip(gpu.values, cpu.values).map { abs($0 - $1) }.max()!
         // Measured at 2.3e-7 to 2.6e-7, with and without the spatial diffusion.
         #expect(worst < 1e-5, "worst density difference \(worst)")

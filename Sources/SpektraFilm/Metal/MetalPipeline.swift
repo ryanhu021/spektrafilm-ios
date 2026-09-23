@@ -20,6 +20,7 @@ final class MetalPipeline {
     private let lutSize: Int
     private let filmCurves: [Double]
     private let filmTable: MetalFilm.CurveTable
+    private let compressor: OutputGamutCompressor
 
     /// Whether every operator these parameters reach has a Metal path. The FFT diffusion filters
     /// and the non-default upsampling do not, and those renders stay on the CPU.
@@ -56,6 +57,8 @@ final class MetalPipeline {
         filmTable = try MetalFilm.CurveTable(
             context, curves: filmCurves, logExposure: data.logExposure,
             gamma: (gamma, gamma, gamma))
+        compressor = try OutputGamutCompressor(
+            spec: params.io.outputGamutCompress, colourSpace: scanning.outputColourSpace)
     }
 
     /// Runs from `rgb_pre` to `collect`, adding each stage's wall-clock time to `timings` under
@@ -72,30 +75,42 @@ final class MetalPipeline {
             return try body()
         }
 
-        var frame = try timed("filming.expose") { try expose(GPUFrame(c, uploading: rgbPre)) }
-        if collect == .logExposureFilm { return frame.download() }
+        // Each stage takes the only reference to its input, so a consumed frame is freed before
+        // the next one is allocated. Peak memory is what caps export size.
+        var frame: GPUFrame? = try timed("filming.expose") { try expose(rgbPre) }
+        if collect == .logExposureFilm { return frame!.download() }
 
-        frame = try timed("filming.develop") { try developFilm(frame) }
-        if collect == .cmyFilm { return frame.download() }
+        frame = try timed("filming.develop") { try developFilm(taking: &frame) }
+        if collect == .cmyFilm { return frame!.download() }
 
         if params.io.scanFilm {
-            return try timed("scanning.scan_film") { try scan(frame) }.download()
+            return try timed("scanning.scan_film") { try scan(taking: &frame) }.download()
         }
 
-        frame = try timed("printing.expose") { try exposePrint(frame) }
-        if collect == .logExposurePrint { return frame.download() }
+        frame = try timed("printing.expose") { try exposePrint(taking: &frame) }
+        if collect == .logExposurePrint { return frame!.download() }
 
-        frame = try timed("printing.develop") { try developPrint(frame) }
-        if collect == .cmyPrint { return frame.download() }
+        frame = try timed("printing.develop") { try developPrint(frame!) }
+        if collect == .cmyPrint { return frame!.download() }
 
-        return try timed("scanning.scan_print") { try scan(frame) }.download()
+        return try timed("scanning.scan_print") { try scan(taking: &frame) }.download()
+    }
+
+    /// Moves the frame out of `slot`, leaving it empty.
+    private func take(_ slot: inout GPUFrame?) -> GPUFrame {
+        defer { slot = nil }
+        return slot!
     }
 
     // MARK: - Filming
 
     /// ``FilmingStage/expose(_:)``.
-    private func expose(_ rgb: GPUFrame) throws -> GPUFrame {
-        var raw = try MetalFilm.rgbToRaw(c, rgb, converter: converter, lut: lut, lutSize: lutSize)
+    private func expose(_ rgbPre: ImageBuffer) throws -> GPUFrame {
+        var raw: GPUFrame
+        do {
+            let rgb = try GPUFrame(c, uploading: rgbPre)
+            raw = try MetalFilm.rgbToRaw(c, rgb, converter: converter, lut: lut, lutSize: lutSize)
+        }
         try MetalElementwise.scale(c, raw, by: pow(2.0, params.camera.exposureCompensationEV))
 
         let halation = params.filmRender.halation
@@ -109,7 +124,11 @@ final class MetalPipeline {
                 raw = try MetalBlur.gaussian(
                     c, raw, sigmaPerChannel: [Double](repeating: lensBlur / pixelSize, count: 3))
             }
-            try MetalStage.halation(c, raw, halation, pixelSizeMicrons: pixelSize)
+            if halation.active {
+                try MetalStage.halation(
+                    c, raw, halation, pixelSizeMicrons: pixelSize,
+                    planes: MetalBlur.Planes(c, like: raw))
+            }
         }
 
         let correction = try filming.colourReference.filmingExposureCorrection()
@@ -118,24 +137,31 @@ final class MetalPipeline {
     }
 
     /// ``Develop/film``: the density curves, the coupler correction and grain.
-    private func developFilm(_ logRaw: GPUFrame) throws -> GPUFrame {
+    private func developFilm(taking slot: inout GPUFrame?) throws -> GPUFrame {
         let data = params.film.data
-        var density = try GPUFrame(c, height: logRaw.height, width: logRaw.width, channels: 3)
-        try MetalFilm.interpolate(c, logRaw, into: density, table: filmTable)
+        let density: GPUFrame
+        do {
+            // The log exposure is last read by the coupler correction, so it is freed before grain.
+            let logRaw = take(&slot)
+            density = try GPUFrame(c, height: logRaw.height, width: logRaw.width, channels: 3)
+            try MetalFilm.interpolate(c, logRaw, into: density, table: filmTable)
 
-        let couplers = params.filmRender.dirCouplers
-        if couplers.active {
-            let setup = Couplers.CorrectionSetup(
-                pixelSizeMicrons: resizing.pixelSizeMicrons, logExposure: data.logExposure,
-                curves: filmCurves, params: couplers, positive: params.film.isPositive)
-            let gamma = params.filmRender.densityCurveGamma
-            let before = try MetalFilm.CurveTable(
-                c, curves: setup.curvesBefore, logExposure: data.logExposure,
-                gamma: (gamma, gamma, gamma))
-            density = try MetalStage.couplerCorrection(
-                c, density: density, logRaw: logRaw, setup: setup,
-                tailWeight: couplers.diffusionTailWeight, positive: params.film.isPositive,
-                before: before)
+            let couplers = params.filmRender.dirCouplers
+            if couplers.active {
+                let setup = Couplers.CorrectionSetup(
+                    pixelSizeMicrons: resizing.pixelSizeMicrons, logExposure: data.logExposure,
+                    curves: filmCurves, params: couplers, positive: params.film.isPositive)
+                let gamma = params.filmRender.densityCurveGamma
+                let before = try MetalFilm.CurveTable(
+                    c, curves: setup.curvesBefore, logExposure: data.logExposure,
+                    gamma: (gamma, gamma, gamma))
+                try MetalStage.couplerCorrection(
+                    c, density: density, logRaw: logRaw, setup: setup,
+                    tailWeight: couplers.diffusionTailWeight, positive: params.film.isPositive,
+                    before: before,
+                    planes: setup.diffusionSizePixels > 0
+                        ? MetalBlur.Planes(c, like: density) : nil)
+            }
         }
 
         guard let pixelSize = resizing.pixelSizeMicrons else { return density }
@@ -153,11 +179,11 @@ final class MetalPipeline {
     // MARK: - Printing
 
     /// ``PrintingStage/expose(_:)``.
-    private func exposePrint(_ cmyFilm: GPUFrame) throws -> GPUFrame {
+    private func exposePrint(taking slot: inout GPUFrame?) throws -> GPUFrame {
         printing.prepareColourReferences()
         let illuminant = printing.enlarger.filteredIlluminant(printing.lampSpectrum)
         let raw = try MetalSpectralContraction.project(
-            c, frame: cmyFilm, channelDensity: params.film.data.channelDensity,
+            c, frame: take(&slot), channelDensity: params.film.data.channelDensity,
             baseDensity: params.film.data.baseDensity, illuminant: illuminant,
             response: printing.paperSensitivity)
         try MetalElementwise.affine3(
@@ -184,10 +210,10 @@ final class MetalPipeline {
     // MARK: - Scanning
 
     /// ``ScanningStage/scan(_:)``.
-    private func scan(_ density: GPUFrame) throws -> GPUFrame {
+    private func scan(taking slot: inout GPUFrame?) throws -> GPUFrame {
         let s = scanning
         let xyz = try MetalSpectralContraction.project(
-            c, frame: density, channelDensity: s.channelDensity, baseDensity: s.baseDensity,
+            c, frame: take(&slot), channelDensity: s.channelDensity, baseDensity: s.baseDensity,
             illuminant: s.scanIlluminant, response: Observer.cmfs, scale: 1.0 / s.normalisation)
         try MetalElementwise.scaleLog10Guard(c, xyz)
         try MetalElementwise.exp10Scale(c, xyz)
@@ -266,12 +292,10 @@ final class MetalPipeline {
         }
     }
 
-    /// Output gamut compression on the CPU until its Metal port lands.
+    /// ``OutputGamutCompressor/apply(to:)``, in place.
     private func compress(_ rgb: GPUFrame) throws -> GPUFrame {
-        var image = rgb.download()
-        try OutputGamutCompression.compress(
-            &image, spec: params.io.outputGamutCompress, colourSpace: scanning.outputColourSpace)
-        return try GPUFrame(c, uploading: image)
+        try MetalGamut.apply(c, compressor, to: rgb)
+        return rgb
     }
 }
 #endif

@@ -65,15 +65,16 @@ enum MetalStage {
         }
     }
 
-    /// ``Diffusion/applyHalation(_:_:pixelSizeMicrons:)``, in place, one channel at a time.
+    /// ``Diffusion/applyHalation(_:_:pixelSizeMicrons:)``, in place, one channel at a time
+    /// through `planes`.
     static func halation(
-        _ c: MetalContext, _ x: GPUFrame, _ halation: HalationParams, pixelSizeMicrons: Double
+        _ c: MetalContext, _ x: GPUFrame, _ halation: HalationParams, pixelSizeMicrons: Double,
+        planes: MetalBlur.Planes
     ) throws {
         guard halation.active else { return }
         precondition(x.channels == 3)
         let triple = { (t: (Double, Double, Double)) in [t.0, t.1, t.2] }
-        let pixels = x.pixelCount
-        let plane = try GPUFrame(c, height: x.height, width: x.width, channels: 1)
+        var pixels = UInt32(x.pixelCount)
 
         let amount = halation.scatterAmount
         let tailWeight = triple(halation.scatterTailWeight)
@@ -85,21 +86,21 @@ enum MetalStage {
         }
         if amount > 0 && (coreSigma.contains { $0 > 0 } || tailLambda.contains { $0 > 0 }) {
             for channel in 0..<3 {
-                try copyChannel(c, x, channel: channel, into: plane)
-                let tail = try MetalBlur.exponential(
-                    c, plane, decayPerChannel: [Swift.max(tailLambda[channel], 1e-6)])
-                let core = try MetalBlur.gaussian(
-                    c, plane, sigmaPerChannel: [Swift.max(coreSigma[channel], 1e-6)])
+                try MetalBlur.exponential(
+                    c, from: x, channel: channel, decay: Swift.max(tailLambda[channel], 1e-6),
+                    planes: planes)
+                try MetalBlur.blur(
+                    c, from: x, channel: channel, to: planes.result, channel: 0,
+                    sigma: Swift.max(coreSigma[channel], 1e-6), scratch: planes.scratch)
                 var ch = UInt32(channel)
                 var k = SIMD2<Float>(Float(amount), Float(tailWeight[channel]))
-                var n = UInt32(pixels)
-                try c.dispatch("halation_scatter", count: pixels) { e in
+                try c.dispatch("halation_scatter", count: x.pixelCount) { e in
                     e.setBuffer(x.buffer, offset: 0, index: 0)
-                    e.setBuffer(core.buffer, offset: 0, index: 1)
-                    e.setBuffer(tail.buffer, offset: 0, index: 2)
+                    e.setBuffer(planes.result.buffer, offset: 0, index: 1)
+                    e.setBuffer(planes.accumulator.buffer, offset: 0, index: 2)
                     e.setBytes(&ch, length: 4, index: 3)
                     e.setBytes(&k, length: 8, index: 4)
-                    e.setBytes(&n, length: 4, index: 5)
+                    e.setBytes(&pixels, length: 4, index: 5)
                 }
             }
         }
@@ -116,37 +117,38 @@ enum MetalStage {
         let decayTotal = decay.reduce(0, +)
         for i in decay.indices { decay[i] /= decayTotal }
 
-        let accumulated = try GPUFrame(c, height: x.height, width: x.width, channels: 1)
+        let accumulated = planes.accumulator
         for channel in 0..<3 {
-            try copyChannel(c, x, channel: channel, into: plane)
-            memset(accumulated.buffer.contents(), 0, pixels * MemoryLayout<Float>.stride)
+            memset(accumulated.buffer.contents(), 0, accumulated.count * MemoryLayout<Float>.stride)
             for k in 1...bounces {
-                let component = try MetalBlur.gaussian(
-                    c, plane,
-                    sigmaPerChannel: [Swift.max(firstSigma[channel] * Double(k).squareRoot(), 1e-6)])
-                try MetalBlur.axpy(c, accumulated, component, weight: decay[k - 1])
+                try MetalBlur.blur(
+                    c, from: x, channel: channel, to: planes.component, channel: 0,
+                    sigma: Swift.max(firstSigma[channel] * Double(k).squareRoot(), 1e-6),
+                    scratch: planes.scratch)
+                try MetalBlur.axpy(c, accumulated, planes.component, weight: decay[k - 1])
             }
             var ch = UInt32(channel)
             var s = Float(strength[channel])
             var renormalise = UInt32(halation.halationRenormalize ? 1 : 0)
-            var n = UInt32(pixels)
-            try c.dispatch("halation_bounce", count: pixels) { e in
+            try c.dispatch("halation_bounce", count: x.pixelCount) { e in
                 e.setBuffer(x.buffer, offset: 0, index: 0)
                 e.setBuffer(accumulated.buffer, offset: 0, index: 1)
                 e.setBytes(&ch, length: 4, index: 2)
                 e.setBytes(&s, length: 4, index: 3)
                 e.setBytes(&renormalise, length: 4, index: 4)
-                e.setBytes(&n, length: 4, index: 5)
+                e.setBytes(&pixels, length: 4, index: 5)
             }
         }
     }
 
     /// ``Couplers/applyDensityCorrection``: the corrected log exposure, looked up again on the
-    /// curves before couplers. Returns the new density; `density` is written over.
+    /// curves before couplers. Works in place on `density`, one channel at a time through
+    /// `planes` for the spatial diffusion.
     static func couplerCorrection(
         _ c: MetalContext, density: GPUFrame, logRaw: GPUFrame, setup: Couplers.CorrectionSetup,
-        tailWeight: Double, positive: Bool, before: MetalFilm.CurveTable
-    ) throws -> GPUFrame {
+        tailWeight: Double, positive: Bool, before: MetalFilm.CurveTable,
+        planes: MetalBlur.Planes?
+    ) throws {
         let m = setup.matrix
         var matrix = [m.m00, m.m01, m.m02, m.m10, m.m11, m.m12, m.m20, m.m21, m.m22]
             .map(Float.init)
@@ -164,22 +166,31 @@ enum MetalStage {
             e.setBytes(&pixels, length: 4, index: 5)
         }
 
-        var inhibitor = density
-        if setup.diffusionSizePixels > 0 {
-            // Couplers.diffuseInPlace: the Gaussian core and the exponential tail, blended.
-            let sigma = setup.diffusionSizePixels
-            let decay = setup.diffusionTailPixels
-            let tail = try MetalBlur.exponential(
-                c, inhibitor, decayPerChannel: [Double](repeating: decay, count: 3))
-            let core = try MetalBlur.gaussian(
-                c, inhibitor, sigmaPerChannel: [Double](repeating: sigma, count: 3))
-            try MetalElementwise.mix(c, core, tail, weight: tailWeight)
-            inhibitor = core
+        if setup.diffusionSizePixels > 0, let planes {
+            // Couplers.diffuseInPlace: per channel, the Gaussian core and the exponential tail,
+            // blended and written back.
+            for channel in 0..<3 {
+                try MetalBlur.exponential(
+                    c, from: density, channel: channel, decay: setup.diffusionTailPixels,
+                    planes: planes)
+                try MetalBlur.blur(
+                    c, from: density, channel: channel, to: planes.result, channel: 0,
+                    sigma: setup.diffusionSizePixels, scratch: planes.scratch)
+                var ch = UInt32(channel)
+                var w = Float(tailWeight)
+                try c.dispatch("mix_into_channel", count: density.pixelCount) { e in
+                    e.setBuffer(density.buffer, offset: 0, index: 0)
+                    e.setBuffer(planes.result.buffer, offset: 0, index: 1)
+                    e.setBuffer(planes.accumulator.buffer, offset: 0, index: 2)
+                    e.setBytes(&ch, length: 4, index: 3)
+                    e.setBytes(&w, length: 4, index: 4)
+                    e.setBytes(&pixels, length: 4, index: 5)
+                }
+            }
         }
         // raw - inhibitor, then the lookup on the curves before couplers.
-        try MetalElementwise.reverseSubtract(c, inhibitor, logRaw)
-        try MetalFilm.interpolate(c, inhibitor, into: inhibitor, table: before)
-        return inhibitor
+        try MetalElementwise.reverseSubtract(c, density, logRaw)
+        try MetalFilm.interpolate(c, density, into: density, table: before)
     }
 
     static func copyChannel(
