@@ -59,6 +59,28 @@ RGB_CASES = np.array([
 
 PERCEPTUAL = ("oklch", "oklrab", "jzazbz", "cam16ucs")
 
+# Non-finite pixels and chromaticities. Nothing upstream should produce them, and they are pinned
+# because the reference does not simply propagate them: colour-science's sdiv turns a NaN quotient
+# into 0 and hue_quadrature overwrites a NaN hue angle with 0, so several of these come back as
+# numbers on the reference side. A port that propagates NaN instead disagrees here.
+# The three NaN rows carry distinct finite channels so the aces_rgc path can tell a NaN-propagating
+# maximum from one that drops it: np.max propagates, and the pixel then passes through untouched.
+NONFINITE_RGB = np.array([
+    [np.nan, 0.3, 0.7],
+    [0.9, np.nan, 0.1],
+    [0.8, 0.2, np.nan],
+    [np.inf, 0.2, 0.2],
+    [-np.inf, 0.2, 0.2],
+    [0.4, 0.5, 0.6],
+])
+
+NONFINITE_XY = np.array([
+    [np.nan, 0.4],
+    [0.4, np.nan],
+    [np.inf, 0.3],
+    [0.35, 0.36],
+])
+
 
 def _xy_grid(n: int = 40) -> np.ndarray:
     """A square of chromaticities spanning the locus and a margin outside it."""
@@ -91,7 +113,7 @@ def xyz_input() -> np.ndarray:
 
 
 def realizable_input() -> np.ndarray:
-    """Linear sRGB from chromaticities inside the locus at Y in (0, 2] — what the sim produces."""
+    """Linear sRGB from chromaticities inside the locus at Y in (0, 2], what the sim produces."""
     import colour
 
     from spektrafilm.utils import gamut_compression as gc
@@ -169,8 +191,9 @@ def gamut_locus():
     grid = np.stack([x.ravel(), y.ravel()], axis=-1)
     path = MplPath(locus)
     yield "gamut_point_in_polygon", path.contains_points(grid).astype(np.float64)
-    # Vertices and edge midpoints both read as outside; a port that counts the boundary as inside
-    # changes the envelope's last bisection step.
+    # Points exactly on the polygon. matplotlib calls 28 of the 131 vertices and edge midpoints
+    # inside; the even-odd crossing rule the port uses calls 51, and the two disagree on 49. The
+    # bisection that builds the envelope never lands on an edge, so the tables still match.
     midpoints = 0.5 * (locus[:-1] + locus[1:])
     yield (
         "gamut_point_in_polygon_boundary",
@@ -202,6 +225,15 @@ def gamut_compress_xy():
     # Inactive is exact identity.
     spec = InputGamutCompressSpec(active=False)
     yield "gamut_xy_inactive", gc.compress_xy(xy, np.asarray(WHITE_E), spec)
+
+    yield "gamut_nonfinite_xy_input", NONFINITE_XY
+    for algorithm in ("xy", "oklch"):
+        spec = InputGamutCompressSpec(algorithm=algorithm, knee=DEFAULT_KNEE)
+        with np.errstate(all="ignore"):
+            yield (
+                f"gamut_nonfinite_xy_{algorithm}",
+                gc.compress_xy(NONFINITE_XY, np.asarray(WHITE_E), spec),
+            )
 
 
 @fixture
@@ -331,6 +363,19 @@ def gamut_compress_rgb():
         "gamut_negative_cam16ucs",
         gc.compress_rgb(negative, OutputGamutCompressSpec(), output_color_space="sRGB"),
     )
+
+    yield "gamut_nonfinite_input", NONFINITE_RGB
+    for algorithm in ("aces_rgc",) + PERCEPTUAL:
+        space = None if algorithm == "aces_rgc" else "sRGB"
+        with np.errstate(all="ignore"):
+            yield (
+                f"gamut_nonfinite_{algorithm}",
+                gc.compress_rgb(
+                    NONFINITE_RGB,
+                    OutputGamutCompressSpec(algorithm=algorithm),
+                    output_color_space=space,
+                ),
+            )
 
 
 @fixture

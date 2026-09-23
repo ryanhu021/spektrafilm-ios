@@ -223,7 +223,11 @@ public struct ProfileData: Sendable, Equatable {
 public struct Hanatos2025SensitivityAdaptation: Sendable, Equatable {
     public var windowParams: [Double]
     public var surfaceParams: [Double]
-    /// Gaussian blur applied to the spectra, sigma in nm. 0 disables it.
+    /// Gaussian blur applied along the wavelength axis, sigma in array SAMPLES. 0 disables it.
+    ///
+    /// Not nanometres. The reference's own comment says nm, and on the 5 nm grid that is wrong by a
+    /// factor of five, so a port that reads the comment instead of the code diverges on every render
+    /// with a non-zero blur.
     public var spectralGaussianBlur: Double = 0
     public var referenceIlluminant: Illuminant
     public var applyWindow: Bool = true

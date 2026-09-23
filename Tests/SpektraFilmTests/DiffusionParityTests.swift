@@ -340,6 +340,41 @@ struct DiffusionParityTests {
         #expect(redMoved > 1e-3, "red should have moved; largest change \(redMoved)")
     }
 
+    /// The scatter guard is "core or tail", so zeroing one of the two sizes still runs the pass with
+    /// the zeroed term floored to 1e-6, an exact identity at that width. An "and" guard would skip
+    /// the pass and return the input untouched.
+    @Test("halation runs the scatter pass when only one of the two sizes is zero")
+    func halationScatterSizeGuard() {
+        let hdr = ImageBuffer(
+            height: 2, width: 3, channels: 3,
+            values: (0..<18).map { 0.1 + Double($0) * 0.37 })
+        var params = HalationParams()
+        // Pass 2 off, so only the scatter pass can move a value.
+        params.halationStrength = (0.0, 0.0, 0.0)
+
+        var coreOnly = params
+        coreOnly.scatterTailMicrons = (0.0, 0.0, 0.0)
+        var tailOnly = params
+        tailOnly.scatterCoreMicrons = (0.0, 0.0, 0.0)
+
+        for (label, one) in [("tail zeroed", coreOnly), ("core zeroed", tailOnly)] {
+            let result = Diffusion.applyHalation(hdr, one, pixelSizeMicrons: Self.pixelSize4000)
+            var moved = 0.0
+            for i in result.values.indices {
+                moved = max(moved, abs(result.values[i] - hdr.values[i]))
+            }
+            #expect(moved > 1e-6, "\(label): the scatter pass should still run; largest change \(moved)")
+        }
+
+        // Both sizes zero is the only case the guard rejects, and then the input comes back whole.
+        var neither = params
+        neither.scatterCoreMicrons = (0.0, 0.0, 0.0)
+        neither.scatterTailMicrons = (0.0, 0.0, 0.0)
+        #expect(
+            Diffusion.applyHalation(hdr, neither, pixelSizeMicrons: Self.pixelSize4000).values
+                == hdr.values)
+    }
+
     @Test("halation skips pass 2 when every channel's strength is zero")
     func halationNoBounce() throws {
         let hdr = try image("diffusion_hdr_64x96x3")
@@ -504,6 +539,25 @@ struct DiffusionParityTests {
         // The clip actually fires for cinebloom's red channel.
         let cinebloom = Diffusion.haloChannelWeights(uniform, warmth: 0.85)
         #expect(cinebloom[0][0] == 0.0, "cinebloom red's innermost weight should clip to zero")
+    }
+
+    /// The effective warmth is the family base plus the user knob, and only then clamped to
+    /// [-1.5, 1.5]. Cinebloom's base of 0.85 plus the GUI maximum of 1.5 reaches 2.35, so the clamp
+    /// is reachable from the shipped parameter range and every golden sits inside it.
+    @Test("the halo warmth is clamped to plus or minus 1.5 after the family base is added")
+    func haloWarmthClamp() {
+        let uniform = [Double](repeating: 1.0 / 3.0, count: 3)
+        let atLimit = Diffusion.haloChannelWeights(uniform, warmth: 1.5)
+        for warmth in [2.35, 4.0, 1e6] {
+            #expect(
+                Diffusion.haloChannelWeights(uniform, warmth: warmth) == atLimit,
+                "warmth \(warmth) should behave exactly like 1.5")
+        }
+        let atNegativeLimit = Diffusion.haloChannelWeights(uniform, warmth: -1.5)
+        #expect(Diffusion.haloChannelWeights(uniform, warmth: -2.65) == atNegativeLimit)
+        // Without the clamp the row would keep moving, so the check above is not vacuous.
+        #expect(atLimit != Diffusion.haloChannelWeights(uniform, warmth: 0.85))
+        #expect(atLimit != atNegativeLimit)
     }
 
     @Test("the analytic radial profile matches")

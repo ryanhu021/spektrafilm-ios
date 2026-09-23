@@ -123,11 +123,38 @@ struct SpectralParityTests {
     }
 
     @Test func triToQuadUsesTheUnclampedXForY() {
-        // With x = 1.2 the guard fires and y / 1e-10 clips to 1; clamping x to 1 first would give
-        // the same, so use a case where the two differ: x slightly below 1 keeps a finite ratio.
         let tc = ChromaticityCoordinates.triToQuad(x: 0.999999, y: 0.5)
         #expect(tc.y == 1.0)
         #expect(abs(tc.x - 1.000000000057511e-12) < 1e-24)
+
+        // The two only differ for x < 0, where 1 - x exceeds 1 and clipping x to 0 first would give
+        // the larger ratio y instead of y / (1 - x). Oracle values from `_tri2quad`.
+        let negative: [(Double, Double, Double)] = [
+            (-2.0, 0.5, 0.16666666666666666),
+            (-0.25, 0.9, 0.72),
+            (-3.0, 0.05, 0.0125),
+        ]
+        for (x, y, expected) in negative {
+            let quad = ChromaticityCoordinates.triToQuad(x: x, y: y)
+            // (1 - x)^2 > 1 for every negative x, so the x coordinate saturates and only y carries
+            // the distinction.
+            #expect(quad.x == 1.0)
+            #expect(abs(quad.y - expected) < 1e-15)
+        }
+    }
+
+    @Test func negativeChromaticityXIsReachableFromOrdinaryInput() throws {
+        // ProPhoto RGB (-0.2, 0.1, 1.0) is a saturated blue outside the input space, with a perfectly
+        // finite b = 0.828. Its CIE x is -0.122, which is the branch above. Oracle: _rgb_to_tc_b.
+        let rgb = ImageBuffer(height: 1, width: 1, channels: 3, values: [-0.2, 0.1, 1.0])
+        let (tc, brightness) = SpectralUpsampling.rgbToTCB(
+            rgb: rgb,
+            colourSpace: try ColourSpace.named("ProPhoto RGB"),
+            applyCCTFDecoding: false,
+            referenceIlluminant: try Illuminant(label: "D55"))
+        #expect(abs(brightness[0] - 0.82823140170069209) < 1e-12)
+        #expect(tc[0, 0, 0] == 1.0)
+        #expect(abs(tc[0, 0, 1] - 0.01450835255853076) < 1e-12)
     }
 
     @Test func triToQuadDropsNaNInTheGuard() {
@@ -490,10 +517,19 @@ struct SpectralParityTests {
         #expect(fraction == 0.25)
     }
 
-    @Test func coordinateBaseFractionGuardsNaN() {
-        // Int(Double.nan) traps in Swift where Numba produced a garbage index. A NaN chromaticity
-        // only ever arrives with b == 0, so the fetched value is multiplied away either way.
-        #expect(LUTInterpolation.cubicCoordinateBaseFraction(.nan, size: 192) == (0, 0))
+    @Test func coordinateBaseFractionGuardsNaN() throws {
+        // Int(Double.nan) traps in Swift where Numba produced a garbage index. The fraction stays NaN
+        // so every Mitchell weight is 0, which is what makes the fetch return exactly 0, as the
+        // oracle does.
+        let (base, fraction) = LUTInterpolation.cubicCoordinateBaseFraction(.nan, size: 192)
+        #expect(base == 0)
+        #expect(fraction.isNaN)
+
+        let fetched = LUTInterpolation.applyLUTCubic2D(
+            lut: try Self.portraTCLUT(),
+            coordinates: ImageBuffer(height: 1, width: 2, channels: 2, values: [.nan, 0.5, 0.5, .nan]))
+        // apply_lut_cubic_2d on the same LUT and coordinates, measured in the oracle.
+        #expect(fetched.values == [0, 0, 0, 0, 0, 0])
     }
 
     @Test func safeIndexMirrorsWholeSample() {

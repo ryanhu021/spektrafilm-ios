@@ -544,7 +544,7 @@ public enum Diffusion {
             let dy = y - centreY
             for x in 0..<kernelWidth {
                 let dx = x - centreX
-                radius[y * kernelWidth + x] = Double(abs(dx) + abs(dy))
+                radius[y * kernelWidth + x] = Double(dx * dx + dy * dy).squareRoot()
             }
         }
 

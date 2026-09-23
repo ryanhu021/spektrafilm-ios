@@ -1386,6 +1386,87 @@
     "group": "gamut_compress_rgb",
     "nan_count": 0
   },
+  "gamut_nonfinite_aces_rgc": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 7
+  },
+  "gamut_nonfinite_cam16ucs": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_nonfinite_input": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 3
+  },
+  "gamut_nonfinite_jzazbz": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 15
+  },
+  "gamut_nonfinite_oklch": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 15
+  },
+  "gamut_nonfinite_oklrab": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "gamut_compress_rgb",
+    "nan_count": 15
+  },
+  "gamut_nonfinite_xy_input": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "gamut_compress_xy",
+    "nan_count": 2
+  },
+  "gamut_nonfinite_xy_oklch": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "gamut_compress_xy",
+    "nan_count": 6
+  },
+  "gamut_nonfinite_xy_xy": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "gamut_compress_xy",
+    "nan_count": 6
+  },
   "gamut_oklab_forward": {
     "shape": [
       518,

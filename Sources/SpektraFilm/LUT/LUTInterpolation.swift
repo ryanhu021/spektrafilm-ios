@@ -144,6 +144,11 @@ public enum LUTInterpolation {
 
     /// `linear_interp_lut_at_2d`: bilinear with clamp-to-edge, reached only when the LUT has fewer
     /// than two samples per axis.
+    ///
+    /// A NaN coordinate maps to 0 here, so the single cell is returned. The reference is undefined
+    /// for that input: `int(np.floor(nan))` again, and its bilinear weights come out NaN where the
+    /// cubic kernel's come out 0. The path is unreachable from the engine anyway, because the only 2D
+    /// LUT in the pipeline is 192 x 192.
     @inlinable
     public static func linearInterpLUT2D(
         lut: ImageBuffer, x: Double, y: Double, into out: inout [Double]

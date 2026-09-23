@@ -238,19 +238,29 @@ struct GrainDerivedParameterTests {
     }
 
     /// The fractions are what make the final `-= density_min` balance, so they get their own check.
+    ///
+    /// Run twice, the second time with a `density_min` whose three entries differ. The shipped
+    /// default is `(0.03, 0.03, 0.03)`, and under a uniform triple a `density_min[sublayer]` typo
+    /// reads the same number as `density_min[channel]`, so nothing else in this file separates them.
     @Test("each channel's sublayer fractions sum to one")
     func fractionsSumToOne() throws {
         let stock = try GrainStock()
-        let derived = stock.layered(GrainParams(), pixelSizeMicrons: pixelSize)
-        for channel in 0..<3 {
-            var fractionSum = 0.0
-            var minimumSum = 0.0
-            for sublayer in 0..<3 {
-                fractionSum += derived.densityMaxFractions[sublayer * 3 + channel]
-                minimumSum += derived.densityMinLayers[sublayer * 3 + channel]
+        var uneven = GrainParams()
+        uneven.densityMin = (0.03, 0.06, 0.04)
+        for params in [GrainParams(), uneven] {
+            let derived = stock.layered(params, pixelSizeMicrons: pixelSize)
+            for channel in 0..<3 {
+                var fractionSum = 0.0
+                var minimumSum = 0.0
+                for sublayer in 0..<3 {
+                    fractionSum += derived.densityMaxFractions[sublayer * 3 + channel]
+                    minimumSum += derived.densityMinLayers[sublayer * 3 + channel]
+                }
+                #expect(
+                    abs(fractionSum - 1.0) <= 1e-15,
+                    "channel \(channel) fractions sum \(fractionSum)")
+                #expect(abs(minimumSum - derived.densityMin[channel]) <= 1e-17)
             }
-            #expect(abs(fractionSum - 1.0) <= 1e-15, "channel \(channel) fractions sum \(fractionSum)")
-            #expect(abs(minimumSum - derived.densityMin[channel]) <= 1e-17)
         }
     }
 
@@ -897,6 +907,29 @@ struct GrainBlurTests {
         }
     }
 
+    /// `layer_particle_model` gates the dye-cloud blur on `blur_particle > 0`, on the parameter and
+    /// not on the sigma it produces. Driven through synthetic `density_max` and
+    /// `n_particles_per_pixel` so `od_particle` is 1 and the sigma equals the parameter, which puts
+    /// 0.2 above the kernel's radius-0 boundary. A `> 0.4` gate would skip it.
+    @Test("the dye-cloud gate admits any positive blur_dye_clouds_um")
+    func dyeCloudGateIsAboveZero() throws {
+        let plane = ImageBuffer(height: 24, width: 24, channels: 1, repeating: 0.5)
+        func render(_ blurDyeClouds: Double, filter: some SpatialFilter) -> [Double] {
+            Grain.layerParticleModel(
+                plane, densityMax: 1.0, particlesPerPixel: 1.0, uniformity: 0.97,
+                key: PhiloxKey(seed: 2, channel: 0, sublayer: 0), blurDyeClouds: blurDyeClouds,
+                spatial: filter
+            ).values
+        }
+        #expect(FIRGaussianFilter.kernel(sigma: 0.2).count == 3, "0.2 has to be past radius 0")
+        #expect(
+            render(0.2, filter: FIRGaussianFilter()) != render(0.2, filter: NoSpatialFilter()),
+            "blur_dye_clouds_um 0.2 never reached the filter")
+        #expect(
+            render(0, filter: FIRGaussianFilter()) == render(0, filter: NoSpatialFilter()),
+            "blur_dye_clouds_um 0 reached the filter")
+    }
+
     /// `blur_dye_clouds_um` is dimensionless: it multiplies `sqrt(od_particle)` to give a sigma in
     /// pixels. The physical sigma is therefore resolution invariant and the pixel sigma is not, so
     /// which sublayers the stage touches depends on output resolution.
@@ -962,6 +995,96 @@ struct GrainMicroStructureTests {
                 spatial: NoSpatialFilter())
         }
         #expect(render((0.2, 30)).values == render((0, 0)).values)
+    }
+
+    /// Both thresholds are bare literals in `add_micro_structure`, and everything else here drives
+    /// them from far away on one side or the other. These pin them.
+    ///
+    /// `pixel_size_um = 1`, so `sigma = micro_structure[1] * 0.001` and
+    /// `blur_px = micro_structure[0]`. Sigma 0.05 exactly is shut and 0.050001 is open; blur 0.4
+    /// exactly is shut and 0.400001 is open.
+    @Test("the two micro-structure thresholds are exactly 0.05 and 0.4")
+    func gateThresholds() throws {
+        let image = ImageBuffer(height: 12, width: 13, channels: 3, repeating: 1.0)
+        func clumped(_ micro: (Double, Double), filter: some SpatialFilter) -> [Double] {
+            Grain.addMicroStructure(
+                image, microStructure: micro, pixelSizeMicrons: 1.0, seed: 8, spatial: filter
+            ).values
+        }
+
+        #expect(
+            clumped((0, 50), filter: NoSpatialFilter()) == image.values,
+            "sigma 0.05 opened the clumping gate, which needs > 0.05")
+        #expect(
+            clumped((0, 50.001), filter: NoSpatialFilter()) != image.values,
+            "sigma 0.050001 left the clumping gate shut")
+
+        // Sigma 1.0 either side of the blur threshold, so the field itself is identical and only the
+        // filter call differs.
+        #expect(
+            clumped((0.4, 1000), filter: FIRGaussianFilter())
+                == clumped((0.4, 1000), filter: NoSpatialFilter()),
+            "blur_px 0.4 reached the filter, which needs > 0.4")
+        #expect(FIRGaussianFilter.kernel(sigma: 0.400001).count == 3)
+        #expect(
+            clumped((0.400001, 1000), filter: FIRGaussianFilter())
+                != clumped((0.400001, 1000), filter: NoSpatialFilter()),
+            "blur_px 0.400001 never reached the filter")
+    }
+
+    /// `apply_grain_to_density_layers` multiplies the clumping field in *before* it subtracts
+    /// `density_min`, so the fog floor is modulated too and the variance carries a
+    /// `(mean + density_min)^2` term rather than a `mean^2` one.
+    ///
+    /// At the shipped `density_min` of 0.03 the two orderings differ by about 0.3 percent in the
+    /// standard deviation, which no calibrated gate can separate. `density_min = 0.5` against an
+    /// input density of 0.2 puts them 3.2x apart. The blur is left off so the field stays i.i.d. and
+    /// the variance has a closed form.
+    @Test("the clumping field multiplies before density_min is subtracted")
+    func clumpingMultipliesBeforeTheSubtraction() throws {
+        let stock = try GrainStock()
+        let side = 128
+        let density = 0.2
+        var params = quietParams()
+        params.densityMin = (0.5, 0.5, 0.5)
+        params.microStructure = (0.0, 3000.0)
+        let derived = stock.layered(params, pixelSizeMicrons: pixelSize)
+        #expect(abs(derived.microStructureSigma - 3.0 / 8.75) < 1e-15)
+        #expect(derived.microStructureBlurPixels == 0, "the blur has to stay off")
+
+        let out = Grain.apply(
+            flatDensity(density, side: side), pixelSizeMicrons: pixelSize, params: params,
+            densityCurves: stock.curves, densityCurvesLayers: stock.layers,
+            positive: stock.positive, seed: 23, spatial: NoSpatialFilter())
+        let split = Grain.sublayerDensities(
+            flatDensity(density, side: 1), densityCurves: stock.curves,
+            densityCurvesLayers: stock.layers, positive: stock.positive)
+        let clumpingVariance = derived.microStructureSigma * derived.microStructureSigma
+
+        for c in 0..<3 {
+            let grain = derived.closedFormMoments(
+                sublayerDensities: Array(split[c].values[0..<3]), channel: c)
+            let beforeSubtraction = grain.mean + derived.densityMin[c]
+            let expected =
+                beforeSubtraction * beforeSubtraction * clumpingVariance
+                + grain.variance * (1.0 + clumpingVariance)
+            // What the same formula gives if the subtraction happened first.
+            let ifSwapped =
+                grain.mean * grain.mean * clumpingVariance
+                + grain.variance * (1.0 + clumpingVariance)
+            let measured = SampleMoments(channel(out, c)).standardDeviation
+            let n = Double(out.pixelCount)
+            let sdSE = 3.0 * expected.squareRoot() / (2.0 * n).squareRoot()
+            // The gate has to reject the other ordering by a wide margin, or it proves nothing.
+            #expect(
+                abs(ifSwapped.squareRoot() - expected.squareRoot()) > 15.0 * sdSE,
+                Comment(
+                    rawValue: "channel \(c): the two orderings are \(expected / ifSwapped)x apart "
+                        + "in variance, which this gate cannot separate"))
+            expectStatistic(
+                measured, closedForm: expected.squareRoot(), samplingSD: sdSE,
+                "clumping order channel \(c) sd")
+        }
     }
 
     /// The clumping field is unit-mean by construction, so the stage preserves the mean before the
@@ -1209,6 +1332,50 @@ struct GlareTests {
         #expect(field(seed: 2) == field(seed: 2))
         #expect(field(seed: 2) != field(seed: 3))
     }
+
+    /// Glare and grain run off the same seed on the default render path, so their streams have to be
+    /// distinct. They were not: `PhiloxKey(seed:)` is channel 0 and sublayer 0, which is also grain's
+    /// red channel, first particle sublayer, and both index by the linear pixel. The two fields came
+    /// out correlated at r = -0.139 over 65536 pixels, where the sampling scale is 0.004.
+    @Test("the glare stream is not one of grain's")
+    func streamDoesNotCollideWithGrain() throws {
+        // `subLayerCount` is unbounded, so grain's particle streams can reach any small sublayer.
+        for channel in 0..<4 {
+            for sublayer in 0..<4096 {
+                #expect(
+                    Glare.key(seed: 0) != PhiloxKey(seed: 0, channel: channel, sublayer: sublayer))
+            }
+        }
+
+        let stock = try GrainStock()
+        let derived = stock.layered(quietParams(), pixelSizeMicrons: pixelSize)
+        let side = 256
+        let field = Glare.randomAmount(
+            amount: 0.03, roughness: 0.7, blur: 0, height: side, width: side, seed: 0,
+            spatial: NoSpatialFilter()
+        ).values
+        let grain = Grain.layerParticleModel(
+            ImageBuffer(height: side, width: side, channels: 1, repeating: 0.8),
+            densityMax: derived.densityMaxLayers[0],
+            particlesPerPixel: derived.particlesPerPixel[0], uniformity: derived.uniformity[0],
+            key: PhiloxKey(seed: 0, channel: 0, sublayer: 0), spatial: NoSpatialFilter()
+        ).values
+
+        let n = Double(field.count)
+        let meanField = field.reduce(0, +) / n
+        let meanGrain = grain.reduce(0, +) / n
+        var covariance = 0.0
+        var varianceField = 0.0
+        var varianceGrain = 0.0
+        for i in field.indices {
+            covariance += (field[i] - meanField) * (grain[i] - meanGrain)
+            varianceField += (field[i] - meanField) * (field[i] - meanField)
+            varianceGrain += (grain[i] - meanGrain) * (grain[i] - meanGrain)
+        }
+        let r = covariance / (varianceField * varianceGrain).squareRoot()
+        // 5 / sqrt(n) for two independent fields.
+        #expect(abs(r) <= 5.0 / n.squareRoot(), "r(glare, grain) = \(r)")
+    }
 }
 
 // MARK: - Filter erasure
@@ -1225,37 +1392,4 @@ private struct AnySpatialFilter: SpatialFilter {
 
     func gaussian(_ image: ImageBuffer, sigma: Double) -> ImageBuffer { blur(image, sigma) }
     func exponential(_ image: ImageBuffer, decay: Double) -> ImageBuffer { self.decay(image, decay) }
-}
-
-// MARK: - ZZ REVIEW PERF PROBE (temporary)
-
-@Suite("ZZ perf probe")
-struct ZZPerfProbe {
-    @Test("perf")
-    func perf() throws {
-        let stock = try GrainStock()
-        let params = GrainParams()
-        for side in [1000] {
-            let input = flatDensity(0.8, side: side)
-            let t0 = Date()
-            let out = Grain.apply(
-                input, pixelSizeMicrons: 8.75, params: params, densityCurves: stock.curves,
-                densityCurvesLayers: stock.layers, positive: stock.positive, seed: 1,
-                spatial: FastSpatialFilter())
-            let dt = Date().timeIntervalSince(t0)
-            print(
-                "PERF layered \(side)x\(side) = \(dt) s, \(dt / Double(side * side) * 1e9) ns/pixel,"
-                    + " check \(out.values[0])")
-        }
-        var single = GrainParams()
-        single.sublayersActive = false
-        let input = flatDensity(0.8, side: 1000)
-        let t1 = Date()
-        _ = Grain.apply(
-            input, pixelSizeMicrons: 8.75, params: single, densityCurves: stock.curves,
-            densityCurvesLayers: stock.layers, positive: stock.positive, seed: 1,
-            spatial: FastSpatialFilter())
-        let dt1 = Date().timeIntervalSince(t1)
-        print("PERF single 1000x1000 = \(dt1) s, \(dt1 / 1e6 * 1e9) ns/pixel")
-    }
 }

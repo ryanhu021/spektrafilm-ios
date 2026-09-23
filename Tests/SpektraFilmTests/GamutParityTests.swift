@@ -436,7 +436,38 @@ struct GamutParityTests {
             spec: OutputGamutCompressSpec(), colourSpace: .sRGB)
         let out = mapTriples(input, compressor.apply)
         #expect(out.count == input.count)
-        try expectParity(out, matches: "gamut_negative_cam16ucs", maxAbsolute: 1e-3, rootMeanSquare: 1e-4)
+        // Measured agreement on this path is 6.3e-15, so the gate sits near the measurement.
+        try expectParity(
+            out, matches: "gamut_negative_cam16ucs", maxAbsolute: 1e-12, rootMeanSquare: 1e-13)
+    }
+
+    /// Non-finite pixels, which the simulation does not produce and the reference does not simply
+    /// propagate. `sdiv` turns a NaN quotient into 0 inside the CAM16 lightness correlate, so the
+    /// reference emits numbers where a plain division would leave NaN. ``expectParity`` fails on a
+    /// NaN appearing or disappearing, which is the point of this test.
+    @Test(
+        "non-finite pixels match the reference on every algorithm",
+        arguments: ["aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs"])
+    func nonFinitePixels(name: String) throws {
+        let input = try Golden("gamut_nonfinite_input").values
+        var spec = OutputGamutCompressSpec()
+        spec.algorithm = OutputGamutCompressSpec.Algorithm(rawValue: name)!
+        let compressor = try OutputGamutCompressor(
+            spec: spec, colourSpace: name == "aces_rgc" ? nil : .sRGB)
+        try expectParity(mapTriples(input, compressor.apply), matches: "gamut_nonfinite_\(name)")
+    }
+
+    /// The radial path's passthrough mask is `dist < 1e-9`, so a NaN distance takes the compute path
+    /// and both components come back NaN. A `dist >= 1e-9` guard would keep the finite component.
+    @Test(
+        "non-finite chromaticities match on both input algorithms",
+        arguments: [InputGamutCompressSpec.Algorithm.xy, .oklch])
+    func nonFiniteChromaticities(algorithm: InputGamutCompressSpec.Algorithm) throws {
+        let input = try Golden("gamut_nonfinite_xy_input").values
+        var spec = InputGamutCompressSpec()
+        spec.algorithm = algorithm
+        let actual = InputGamutCompression.compress(input, white: Self.whiteE, spec: spec)
+        try expectParity(actual, matches: "gamut_nonfinite_xy_\(algorithm.rawValue)")
     }
 
     @Test("the buffer path matches the per-pixel path")

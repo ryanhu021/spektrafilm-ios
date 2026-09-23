@@ -115,10 +115,9 @@ public enum InputGamutCompression {
         let deltaY = xy.y - white.y
         // `np.linalg.norm`, which is sqrt of the sum of squares rather than `hypot`.
         let distance = (deltaX * deltaX + deltaY * deltaY).squareRoot()
-        // The reference passes through on `dist < 1e-9` and computes everywhere else, so a NaN
-        // distance takes the compute path and comes back NaN in both components. Spelled as a
-        // negated `<` for that reason: `distance >= 1e-9` would send NaN to the passthrough and keep
-        // the finite component.
+        // The reference's passthrough mask is `dist < 1e-9`, so a NaN distance takes the compute
+        // path and both components come back NaN. A `distance >= 1e-9` guard would pass a NaN
+        // chromaticity through and keep its finite component.
         guard !(distance < 1e-9) else { return xy }
         let safeDistance = npFmax(distance, 1e-12)
         let directionX = deltaX / safeDistance

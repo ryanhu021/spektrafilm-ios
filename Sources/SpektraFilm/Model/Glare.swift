@@ -14,9 +14,22 @@ import Foundation
 /// fixed by the seed and independent of how the frame is split up.
 public enum Glare {
 
-    /// Stream the glare field draws from. Channel and sublayer are both zero: the field is 2D and
-    /// shared across the three XYZ channels.
-    static func key(seed: UInt64) -> PhiloxKey { PhiloxKey(seed: seed) }
+    /// Sublayer slot the glare field reserves, chosen at the top of ``PhiloxKey``'s 16-bit range so
+    /// no grain stream can reach it.
+    ///
+    /// Grain's particle streams take sublayer `0 ..< max(3, subLayerCount)` and its clumping field
+    /// takes 3, and `subLayerCount` has no upper bound, so no small index is safe. Sharing a stream
+    /// is not harmless: with `PhiloxKey(seed:)`, which is channel 0 and sublayer 0, the glare field
+    /// drew from the same Philox words as the red channel's first particle sublayer at the same
+    /// pixel index, and the two came out correlated at r = -0.139 over 65536 pixels against a
+    /// sampling scale of 0.004. The reference draws them from unrelated generators.
+    static let stream = 0xFFFF
+
+    /// Stream the glare field draws from. Channel is zero: the field is 2D and shared across the
+    /// three XYZ channels.
+    static func key(seed: UInt64) -> PhiloxKey {
+        PhiloxKey(seed: seed, channel: 0, sublayer: stream)
+    }
 
     /// `compute_random_glare_amount`.
     ///

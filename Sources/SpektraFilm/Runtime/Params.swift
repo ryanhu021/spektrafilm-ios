@@ -453,6 +453,16 @@ public struct RuntimePhotoParams: Sendable, Equatable {
         _ = try Illuminant(label: film.info.viewingIlluminant)
         _ = try Illuminant(label: print.info.viewingIlluminant)
         try io.inputGamutCompress.validate()
+
+        // The coarse 3D enlarger and scanner LUTs are not ported. They replace the per-pixel
+        // spectral map with an interpolated cube, which the reference itself calls an approximation,
+        // and they default off. Reject them rather than accepting the flag and ignoring it.
+        if settings.useEnlargerLUT {
+            throw SpektraError.unsupportedSetting("settings.use_enlarger_lut", value: "true")
+        }
+        if settings.useScannerLUT {
+            throw SpektraError.unsupportedSetting("settings.use_scanner_lut", value: "true")
+        }
         guard film.info.stage == .filming else {
             throw SpektraError.invalidProfile(
                 film.info.stock, reason: "cannot act as the negative, stage is \(film.info.stage)")

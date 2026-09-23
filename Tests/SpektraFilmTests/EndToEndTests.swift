@@ -121,6 +121,22 @@ struct EndToEndTests {
         #expect(first.values == second.values)
     }
 
+    /// Settings that are declared but not implemented must fail loudly. Both default off, so the
+    /// default render is unaffected, but accepting the flag and ignoring it would mean a caller asks
+    /// for the LUT path and silently gets the direct one.
+    @Test("the unported 3D LUT settings are rejected")
+    func unportedLUTSettings() throws {
+        for mutate in [
+            { (p: inout RuntimePhotoParams) in p.settings.useEnlargerLUT = true },
+            { (p: inout RuntimePhotoParams) in p.settings.useScannerLUT = true },
+        ] {
+            var params = try RuntimePhotoParams.make(
+                film: "kodak_portra_400", print: "kodak_portra_endura")
+            mutate(&params)
+            #expect(throws: (any Error).self) { try Simulator(params) }
+        }
+    }
+
     @Test("timings are recorded for every node that fired")
     func timings() throws {
         var params = try RuntimePhotoParams.make(
