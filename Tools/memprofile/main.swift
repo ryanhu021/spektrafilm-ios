@@ -81,7 +81,9 @@ let width = Int(Double(height) * 4.0 / 3.0)
 
 var params = try RuntimePhotoParams.make(
     film: "kodak_portra_400", print: "kodak_portra_endura")
-params.camera.autoExposure = false
+// Off unless asked for, so a measurement is of the render itself. SPK_AUTOEXPOSURE=1 turns it on,
+// as the app has it, which adds the metering preview's downsample to preprocessing.
+params.camera.autoExposure = ProcessInfo.processInfo.environment["SPK_AUTOEXPOSURE"] != nil
 
 // Toggles for bisecting which operator owns the footprint.
 if ProcessInfo.processInfo.environment["SPK_NO_HALATION"] != nil {

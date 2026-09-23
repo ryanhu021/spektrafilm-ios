@@ -27,20 +27,91 @@ public struct SkimageResampler: Resampler {
         let outHeight = max(1, Int(halfToEven(Double(image.height) * factor)))
         let outWidth = max(1, Int(halfToEven(Double(image.width) * factor)))
 
-        var working = image
         // Anti-alias first, per axis, skipping any axis that is not shrinking. The channel axis never
         // shrinks, so channels never mix.
         let heightFactor = Double(image.height) / Double(outHeight)
         let widthFactor = Double(image.width) / Double(outWidth)
         let antiAliasing = outHeight < image.height || outWidth < image.width
-        if antiAliasing {
-            let sigmaY = max(0, (heightFactor - 1) / 2)
-            let sigmaX = max(0, (widthFactor - 1) / 2)
-            if sigmaY > 1e-15 { working = Self.gaussianRows(working, sigma: sigmaY) }
-            if sigmaX > 1e-15 { working = Self.gaussianColumns(working, sigma: sigmaX) }
+        let sigmaY = antiAliasing ? max(0, (heightFactor - 1) / 2) : 0
+        let sigmaX = antiAliasing ? max(0, (widthFactor - 1) / 2) : 0
+
+        return image.values.withUnsafeBufferPointer { source in
+            let s = source.baseAddress!
+            let w = image.width
+            let ch = image.channels
+            return Self.sampled(
+                height: image.height, width: w, channels: ch, outHeight: outHeight,
+                outWidth: outWidth, sigmaY: sigmaY, sigmaX: sigmaX
+            ) { y, x, c in s[(y * w + x) * ch + c] }
+        }
+    }
+
+    /// The anti-aliased nearest-neighbour zoom, evaluated only at the samples the zoom keeps.
+    ///
+    /// Filtering the whole frame and then sampling it gives the same bits: every kept value is the
+    /// same sum of the same products in the same order, rows pass first, then columns. At 12 MP
+    /// into a 256 px preview that is about 49 000 kept pixels of 12 million, and the full passes
+    /// took 5 s. `value` reads the source; it is called concurrently for different samples.
+    static func sampled(
+        height: Int, width: Int, channels: Int, outHeight: Int, outWidth: Int, sigmaY: Double,
+        sigmaX: Double, value: (Int, Int, Int) -> Double
+    ) -> ImageBuffer {
+        let tapsY = sigmaY > 1e-15 ? kernel(sigma: sigmaY) : [1.0]
+        let tapsX = sigmaX > 1e-15 ? kernel(sigma: sigmaX) : [1.0]
+        let filterRows = sigmaY > 1e-15
+        let filterColumns = sigmaX > 1e-15
+        let radiusY = tapsY.count / 2
+        let radiusX = tapsX.count / 2
+        let scaleY = Double(height) / Double(outHeight)
+        let scaleX = Double(width) / Double(outWidth)
+        let rows = (0..<outHeight).map { y in
+            let cy = (Double(y) + 0.5) * scaleY - 0.5
+            return BoundaryIndex.mirrorEdgeShared(Int((cy + 0.5).rounded(.down)), count: height)
+        }
+        let columns = (0..<outWidth).map { x in
+            let cx = (Double(x) + 0.5) * scaleX - 0.5
+            return BoundaryIndex.mirrorEdgeShared(Int((cx + 0.5).rounded(.down)), count: width)
         }
 
-        return Self.zoomNearest(working, outHeight: outHeight, outWidth: outWidth)
+        var out = ImageBuffer(height: outHeight, width: outWidth, channels: channels)
+        out.values.withUnsafeMutableBufferPointer { destination in
+            let d = destination.baseAddress!
+            Parallel.forEachChunk(of: outHeight, cost: outWidth * tapsX.count * tapsY.count) {
+                outRows in
+                for oy in outRows {
+                    let sy = rows[oy]
+                    for ox in 0..<outWidth {
+                        let sx = columns[ox]
+                        for c in 0..<channels {
+                            // The rows pass at one column: gaussianRows' sum.
+                            func rowsPass(_ x: Int) -> Double {
+                                guard filterRows else { return value(sy, x, c) }
+                                var total = 0.0
+                                for (j, tap) in tapsY.enumerated() {
+                                    let y = BoundaryIndex.mirrorEdgeShared(
+                                        sy + j - radiusY, count: height)
+                                    total += tap * value(y, x, c)
+                                }
+                                return total
+                            }
+                            var result: Double
+                            if filterColumns {
+                                result = 0.0
+                                for (k, tap) in tapsX.enumerated() {
+                                    let x = BoundaryIndex.mirrorEdgeShared(
+                                        sx + k - radiusX, count: width)
+                                    result += tap * rowsPass(x)
+                                }
+                            } else {
+                                result = rowsPass(sx)
+                            }
+                            d[(oy * outWidth + ox) * channels + c] = result
+                        }
+                    }
+                }
+            }
+        }
+        return out
     }
 
     /// `np.round`: halves go to the nearest even integer.

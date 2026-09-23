@@ -60,4 +60,28 @@ struct ResampleParityTests {
             try SkimageResampler().rescale(input, factor: 2.0, order: 3)
         }
     }
+    /// Evaluating only the kept samples must give the same bits as filtering the whole frame and
+    /// then sampling it, on odd sizes and uneven factors in each axis.
+    @Test(
+        "sampling only the kept pixels equals filtering the whole frame",
+        arguments: [(97, 131, 0.3), (240, 64, 0.11), (50, 400, 0.5)])
+    func sparseEqualsFull(height: Int, width: Int, factor: Double) throws {
+        var values = [Double](repeating: 0, count: height * width * 3)
+        for i in values.indices { values[i] = Double((i * 7919) % 1000) / 1000.0 }
+        let image = ImageBuffer(height: height, width: width, channels: 3, values: values)
+        let sparse = try SkimageResampler().rescale(image, factor: factor, order: 0)
+
+        let outHeight = Int((Double(height) * factor).rounded(.toNearestOrEven))
+        let outWidth = Int((Double(width) * factor).rounded(.toNearestOrEven))
+        var full = image
+        let sigmaY = max(0, (Double(height) / Double(outHeight) - 1) / 2)
+        let sigmaX = max(0, (Double(width) / Double(outWidth) - 1) / 2)
+        if sigmaY > 1e-15 { full = SkimageResampler.gaussianRows(full, sigma: sigmaY) }
+        if sigmaX > 1e-15 { full = SkimageResampler.gaussianColumns(full, sigma: sigmaX) }
+        full = SkimageResampler.zoomNearest(full, outHeight: outHeight, outWidth: outWidth)
+
+        #expect(sparse.height == full.height && sparse.width == full.width)
+        let differing = zip(sparse.values, full.values).filter { $0.bitPattern != $1.bitPattern }
+        #expect(differing.isEmpty, "\(differing.count) values differ")
+    }
 }
