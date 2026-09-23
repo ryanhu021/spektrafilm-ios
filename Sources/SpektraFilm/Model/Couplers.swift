@@ -218,46 +218,68 @@ public enum Couplers {
         spatial: some SpatialFilter
     ) -> ImageBuffer {
         guard params.active else { return density }
-
-        var matrix = inhibitionMatrix(params)
-        matrix = Matrix3(
-            matrix.m00 * params.amount, matrix.m01 * params.amount, matrix.m02 * params.amount,
-            matrix.m10 * params.amount, matrix.m11 * params.amount, matrix.m12 * params.amount,
-            matrix.m20 * params.amount, matrix.m21 * params.amount, matrix.m22 * params.amount
-        )
-
-        let curvesBefore = curvesBeforeCouplers(
-            curves: curves, logExposure: logExposure, matrix: matrix, positive: positive)
-
-        var maxima = [Double](repeating: -Double.infinity, count: 3)
-        for i in 0..<logExposure.count {
-            for c in 0..<3 {
-                let v = curves[i * 3 + c]
-                if !v.isNaN { maxima[c] = max(maxima[c], v) }
-            }
-        }
-
-        var sizePixels = 0.0
-        var tailPixels = 0.0
-        if params.diffusionSizeMicrons > 0, let pixelSizeMicrons {
-            sizePixels = params.diffusionSizeMicrons / pixelSizeMicrons
-            tailPixels = params.diffusionTailMicrons / pixelSizeMicrons
-        }
+        let setup = CorrectionSetup(
+            pixelSizeMicrons: pixelSizeMicrons, logExposure: logExposure, curves: curves,
+            params: params, positive: positive)
 
         let corrected = correctedLogExposure(
             logRaw: logRaw,
             density: consume density,
-            densityMax: maxima,
-            matrix: matrix,
-            diffusionSizePixels: sizePixels,
-            diffusionTailSizePixels: tailPixels,
+            densityMax: setup.densityMax,
+            matrix: setup.matrix,
+            diffusionSizePixels: setup.diffusionSizePixels,
+            diffusionTailSizePixels: setup.diffusionTailPixels,
             diffusionTailWeight: params.diffusionTailWeight,
             positive: positive,
             spatial: spatial
         )
 
         return DensityCurves.densityFromLogExposure(
-            logExposure: corrected, curves: curvesBefore, axis: logExposure,
+            logExposure: corrected, curves: setup.curvesBefore, axis: logExposure,
             gammaFactor: gammaFactor)
+    }
+
+    /// Everything ``applyDensityCorrection`` computes before it reads a pixel, shared with the
+    /// Metal backend so both correct with the same constants.
+    struct CorrectionSetup {
+        /// The inhibition matrix, scaled by `amount`.
+        let matrix: Matrix3
+        let curvesBefore: [Double]
+        /// Each channel's maximum density on the curves, NaN skipped.
+        let densityMax: [Double]
+        let diffusionSizePixels: Double
+        let diffusionTailPixels: Double
+
+        init(
+            pixelSizeMicrons: Double?, logExposure: [Double], curves: [Double],
+            params: DirCouplersParams, positive: Bool
+        ) {
+            let m = inhibitionMatrix(params)
+            let a = params.amount
+            matrix = Matrix3(
+                m.m00 * a, m.m01 * a, m.m02 * a,
+                m.m10 * a, m.m11 * a, m.m12 * a,
+                m.m20 * a, m.m21 * a, m.m22 * a
+            )
+            curvesBefore = curvesBeforeCouplers(
+                curves: curves, logExposure: logExposure, matrix: matrix, positive: positive)
+
+            var maxima = [Double](repeating: -Double.infinity, count: 3)
+            for i in 0..<logExposure.count {
+                for c in 0..<3 {
+                    let v = curves[i * 3 + c]
+                    if !v.isNaN { maxima[c] = max(maxima[c], v) }
+                }
+            }
+            densityMax = maxima
+
+            if params.diffusionSizeMicrons > 0, let pixelSizeMicrons {
+                diffusionSizePixels = params.diffusionSizeMicrons / pixelSizeMicrons
+                diffusionTailPixels = params.diffusionTailMicrons / pixelSizeMicrons
+            } else {
+                diffusionSizePixels = 0
+                diffusionTailPixels = 0
+            }
+        }
     }
 }
