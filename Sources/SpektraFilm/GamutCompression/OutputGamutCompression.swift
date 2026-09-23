@@ -2,17 +2,17 @@ import Foundation
 
 // MARK: - Chroma envelope
 
-/// `C_max(L, h)`: the largest chroma at each lightness and hue whose reconstruction still lands
-/// inside the target gamut, on a 64 x 720 grid.
+/// `C_max(L, h)`: the largest chroma at each lightness and hue whose reconstruction is still inside
+/// the target gamut, on a 64 x 720 grid.
 ///
 /// Shared by both sides of the subsystem. The output compressors build one per
 /// `(perceptual space, output colour space)` against the RGB primaries cube; the input compressor's
 /// `oklch` algorithm builds one against the visible spectral locus.
 ///
-/// The builder is a fixed 18-step bisection with no convergence test, so the table is exactly as
-/// coarse as the reference's: the last step's resolution is `chromaUpper / 2^18`, which is 5.7e-4 for
-/// CAM16-UCS. That quantisation alone costs about 1.8e-5 of output RGB, a fifth of the parity
-/// budget, which is why the bisection is reproduced step for step instead of replaced by a solver.
+/// The builder is a fixed 18-step bisection with no convergence test, so the table is as coarse as
+/// the reference's. The last step's resolution is `chromaUpper / 2^18`, 5.7e-4 for CAM16-UCS. That
+/// quantisation alone costs about 1.8e-5 of output RGB, a fifth of the parity budget, so the
+/// bisection is reproduced step for step. Replacing it with a solver would break parity.
 struct ChromaEnvelope: Sendable {
     static let hueCount = 720
     static let lightnessCount = 64
@@ -59,11 +59,11 @@ struct ChromaEnvelope: Sendable {
     /// Bilinear lookup with `L` clamped to the grid and `h` wrapped.
     ///
     /// `h = +π`, the top of `atan2`'s range, gives a hue index of 720.00000000000819 and so wraps onto
-    /// the `-π` column. That is correct and must not be clamped.
+    /// the `-π` column. This is correct. Do not clamp it.
     ///
-    /// A non-finite `L` or `h` returns 0. CAM16 produces NaN lightness for negative-luminance pixels,
-    /// and NumPy's `floor(nan).astype(int)` lands on `INT_MIN` and then clips to 0, while a Swift
-    /// `Int` conversion would trap. The output is garbage either way; the port must not crash.
+    /// A non-finite `L` or `h` returns 0. CAM16 produces NaN lightness for negative-luminance pixels.
+    /// NumPy's `floor(nan).astype(int)` gives `INT_MIN` and then clips to 0, while a Swift `Int`
+    /// conversion would trap. The output is garbage either way, but the port must not crash.
     func lookup(_ L: Double, _ h: Double) -> Double {
         guard L.isFinite, h.isFinite else { return 0 }
         let nL = lightnessGrid.count
@@ -98,13 +98,13 @@ struct ChromaEnvelope: Sendable {
 // MARK: - Spec surface
 
 extension OutputGamutCompressSpec {
-    /// `algorithm != .off`. A computed property on the output spec, where the input spec carries a
+    /// `algorithm != .off`. A computed property on the output spec, where the input spec has a
     /// stored `active` flag.
     public var active: Bool { algorithm != .off }
 
     /// The three knee checks, applied to `knee` and to `lightnessCompression` when it is set.
     ///
-    /// The reference never checks `limit > threshold`; neither does this. See ``reinhardKnee``.
+    /// The reference never checks `limit > threshold`, and neither does this. See ``reinhardKnee``.
     public func validate() throws {
         try Self.validate(knee, label: "knee")
         if let lightnessCompression { try Self.validate(lightnessCompression, label: "lightness") }
@@ -163,17 +163,17 @@ enum PerceptualSpace: String, Sendable, CaseIterable {
 /// Output gamut compression: reduces perceptual chroma against the output primaries cube, and rolls
 /// above-white lightness back down into `[0, white]`.
 ///
-/// Built once per render, because everything that depends only on the spec and the output colour
-/// space is hoisted: the `C_max` envelope, the CAM16 viewing conditions, the perceptual lightness of
+/// Built once per render. Everything that depends only on the spec and the output colour space is
+/// hoisted into it: the `C_max` envelope, the CAM16 viewing conditions, the perceptual lightness of
 /// white, and both conversion matrices.
 ///
 /// Containment is not exact. Measured over 2048 physically realizable pixels spanning
 /// `[-14.4, 96.9]` in linear sRGB, `cam16ucs` (the default) brings everything into
 /// `[1.8e-5, 0.99998]`, while `oklch` reaches 1.00148, `oklrab` 1.00110, `jzazbz` 1.00675, and
-/// `aces_rgc` leaves the amplitude alone at 96.9. The reference has no clamp and neither does this; a
-/// clamp would be a parity failure and would hide the overshoot from whoever writes the file.
+/// `aces_rgc` leaves the amplitude alone at 96.9. The reference has no clamp, and neither does this.
+/// A clamp would fail parity and would hide the overshoot from whoever writes the file.
 public struct OutputGamutCompressor: Sendable {
-    /// JzAzBz needs absolute luminance. Linear RGB 1.0 is anchored at SDR diffuse white.
+    /// JzAzBz needs absolute luminance. Linear RGB 1.0 maps to SDR diffuse white.
     public static let jzazbzWhiteLuminance = 100.0
 
     enum Kind: Sendable {
@@ -203,7 +203,7 @@ public struct OutputGamutCompressor: Sendable {
         switch spec.algorithm {
         case .off, .acesRGC:
             kind = spec.algorithm == .off ? .off : .acesRGC
-            // The reference applies neither knee's lightness half on these paths.
+            // The reference skips lightness compression on these paths.
             lightnessCompression = nil
             envelope = nil
             lightnessWhite = 1.0
@@ -280,9 +280,9 @@ public struct OutputGamutCompressor: Sendable {
     /// path also skips the lightness knee, following the reference, so `aces_rgc` alone does not keep
     /// the output inside `[0, 1]`.
     ///
-    /// Divergence from the published RGC worth knowing: the standard carries per-channel limits and
-    /// thresholds (`limCyan`, `limMagenta`, `limYellow`), and the reference collapses them to one
-    /// triple applied to all three channels. The knee formula is the standard's.
+    /// Divergence from the published RGC: the standard has per-channel limits and thresholds
+    /// (`limCyan`, `limMagenta`, `limYellow`). The reference collapses them to one triple applied to
+    /// all three channels. The knee formula is the standard's.
     func acesRGC(_ rgb: (Double, Double, Double)) -> (Double, Double, Double) {
         let ach = Self.achromatic(rgb)
         // Matches the reference's `where(ach > 1e-12, compressed, rgb)`, including for a NaN channel,
@@ -305,7 +305,7 @@ public struct OutputGamutCompressor: Sendable {
     /// The shared shape of `oklch`, `oklrab`, `jzazbz` and `cam16ucs`.
     ///
     /// The lightness knee runs before the chroma step so the `C_max` lookup happens at the corrected
-    /// lightness, which is what makes the cube bound tight. Chroma and hue come from the *pre-knee*
+    /// lightness, which makes the cube bound tight. Chroma and hue come from the *pre-knee*
     /// `a, b`: the lightness knee never rescales them.
     func perceptual(
         _ rgb: (Double, Double, Double), _ space: PerceptualSpace
@@ -334,8 +334,8 @@ public struct OutputGamutCompressor: Sendable {
 
         let chroma = hypot(a, b)
         let hue = atan2(b, a)
-        // oklrab indexes the envelope by the rebased lightness; the reconstructed triple still
-        // carries L.
+        // oklrab indexes the envelope by the rebased lightness. The reconstructed triple still
+        // uses L.
         let index = space == .oklrab ? Oklab.lightnessLr(lightness) : lightness
         let maximum = npFmax(envelope.lookup(index, hue), 1e-9)
         let compressed = reinhardKnee(chroma / maximum, knee) * maximum
@@ -401,9 +401,9 @@ public struct OutputGamutCompressor: Sendable {
             chromaUpper: configuration.chromaUpper
         ) { L, a, b in
             let rgb = toRGB.apply(polarToXYZ(L, a, b))
-            // The 1e-6 slack is the reference's, and it is load-bearing: several colourspaces ship
-            // forward and inverse matrices that are not exact inverses (4e-5 for sRGB), and without
-            // the slack the largest in-gamut chroma comes out conservative.
+            // The 1e-6 slack is the reference's, and it matters. Several colourspaces ship forward
+            // and inverse matrices that are not exact inverses (4e-5 for sRGB). Without the slack
+            // the largest in-gamut chroma comes out conservative.
             return rgb.0 >= -1e-6 && rgb.0 <= 1.0 + 1e-6 && rgb.1 >= -1e-6 && rgb.1 <= 1.0 + 1e-6
                 && rgb.2 >= -1e-6 && rgb.2 <= 1.0 + 1e-6
         }

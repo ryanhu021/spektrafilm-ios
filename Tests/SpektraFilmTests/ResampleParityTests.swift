@@ -4,9 +4,8 @@ import Testing
 
 /// Checks the resampler against skimage.
 ///
-/// This sits on the default render path even though nothing in the parameter surface mentions
-/// resampling: auto-exposure is on by default and meters on a 256 px preview, so every render with a
-/// photo larger than that goes through here.
+/// The resampler is on the default render path, though no parameter mentions it: auto-exposure is
+/// on by default and meters on a 256 px preview, so every render of a larger photo uses it.
 @Suite("Resampling parity")
 struct ResampleParityTests {
 
@@ -24,8 +23,8 @@ struct ResampleParityTests {
         try expectParity(out.values, matches: "resample_order0_\(size)_\(factor.1)")
     }
 
-    /// The whole metering path: downsample, then measure. The EV is what reaches the render as a
-    /// gain, so an error here scales every pixel.
+    /// The whole metering path: downsample, then measure. The EV reaches the render as a gain, so
+    /// an error here scales every pixel.
     @Test("the metered EV after the preview downsample")
     func meteredEV() throws {
         let preview = try Golden("resample_preview_input").imageBuffer()
@@ -40,8 +39,8 @@ struct ResampleParityTests {
         try expectParity([ev], matches: "resample_preview_ev")
     }
 
-    /// Anti-aliasing is the easy thing to miss, so assert it is actually happening: a nearest pick
-    /// with no prefilter would reproduce input samples exactly.
+    /// Anti-aliasing is easy to omit, so check that it runs: a nearest pick with no prefilter would
+    /// reproduce input samples exactly.
     @Test("the nearest-neighbour path really is prefiltered")
     func antiAliasingRuns() throws {
         let input = try Golden("resample_input_square_64").imageBuffer()

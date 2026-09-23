@@ -12,8 +12,8 @@ Layout, little-endian throughout:
     ..  pad to a multiple of 8
     ..  8*count   float64 values, C order
 
-float64 only. The reference computes in float64, and a fixture that quietly narrowed to float32
-would shift the goldens under the 1e-4 gate.
+float64 only. The reference computes in float64, and a fixture silently narrowed to float32 would
+shift the goldens under the 1e-4 gate.
 """
 
 from __future__ import annotations

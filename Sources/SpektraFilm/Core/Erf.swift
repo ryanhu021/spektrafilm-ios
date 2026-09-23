@@ -58,8 +58,8 @@ public enum Erf {
 
     /// `color_filters.compute_band_pass_filter`, the camera's UV and IR cut, over the 81-sample grid.
     ///
-    /// Two erf sigmoids multiplied, which is why it lives with them. The IR arm negates its width
-    /// internally, so the tuple's `width` stays positive at every call site.
+    /// The product of two erf sigmoids, so it lives here. The IR arm negates its width internally,
+    /// so the tuple's `width` stays positive at every call site.
     ///
     /// Each arm is `1 - amplitude` at full block and 1 at full pass, so amplitude 0 yields an
     /// all-ones filter and `filming._rgb_to_film_raw` skips the whole block. That caller also

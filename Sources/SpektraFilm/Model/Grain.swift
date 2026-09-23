@@ -10,26 +10,26 @@ import Foundation
 /// default: the channel density is split into three emulsion sublayers, each sublayer gets its own
 /// particle population and its own particle size, and the three are summed.
 ///
-/// What the reference does that this does not:
+/// Not ported from the reference:
 ///
 /// - The two-stage `Poisson(N / sat)` then `Binomial(K, p)` draw. Poisson thinning makes that
-///   exactly `Poisson(N * p / sat)`, so one draw per pixel replaces two and no binomial sampler is
-///   needed. Distributionally identical, verified by the closed-form moment gates.
+///   exactly `Poisson(N * p / sat)`, so this makes one draw per pixel and needs no binomial
+///   sampler. Distributionally identical, verified by the closed-form moment gates.
 /// - `use_fast_stats`. Upstream's Numba kernels replace both draws with normal approximations that
 ///   erase the skewness, and their thread-local RNG state makes the result depend on the thread
-///   count. Not a behaviour to reproduce, so there is no knob for it.
+///   count. Not ported.
 /// - `method='gamma_beta'` and the `fixed_seed` argument. Both dead upstream, and `fixed_seed` is
 ///   inverted relative to its name.
 public enum Grain {
 
     /// The clip `np.clip(density / density_max, 1e-6, 1 - 1e-6)` applies to the development
-    /// probability. A density of -0.5, -0.01 and 0.0 all land on the floor and produce the same
+    /// probability. Densities of -0.5, -0.01 and 0.0 all clip to the floor and produce the same
     /// output plane.
     public static let probabilityFloor = 1e-6
     public static let probabilityCeiling = 1.0 - 1e-6
 
     /// The factor in `sat = 1 - p * u * (1 - 1e-6)`, which keeps `sat` above zero at `p = 1 - 1e-6,
-    /// u = 1`. It bottoms out near 2e-6, which is what drives lambda to 1.2e8.
+    /// u = 1`. Its minimum there is near 2e-6, which drives lambda to 1.2e8.
     public static let saturationScale = 1.0 - 1e-6
 
     /// The layered path's sublayer count is hardcoded upstream and is not `n_sub_layers`.
@@ -43,7 +43,8 @@ public enum Grain {
 
     /// Everything `apply_grain_to_density` computes before the first random draw.
     ///
-    /// Pure arithmetic over the profile and the parameters, so it is gated exactly.
+    /// Pure arithmetic over the profile and the parameters, so the parity test compares it at full
+    /// precision.
     public struct SingleLayerParameters: Sendable, Equatable {
         /// `nanmax(density_curves, axis=0)`, the usable range above base and fog.
         public let densityMaxCurves: [Double]
@@ -53,7 +54,7 @@ public enum Grain {
         public let pixelArea: Double
         /// `particle_area_um2 * particle_scale`, per channel.
         public let particleArea: [Double]
-        /// Already divided by ``subLayerCount``, as the reference divides it.
+        /// Already divided by ``subLayerCount``, as in the reference.
         public let particlesPerPixel: [Double]
         public let uniformity: [Double]
         public let subLayerCount: Int
@@ -72,7 +73,8 @@ public enum Grain {
             densityMax = (0..<3).map { densityMaxCurves[$0] + minimum[$0] }
             pixelArea = pixel
             particleArea = area
-            // The reference only divides when the count exceeds 1, which is the same number.
+            // The reference divides only when the count exceeds 1. Dividing by 1 gives the same
+            // number.
             particlesPerPixel = (0..<3).map { pixel / area[$0] / Double(count) }
             uniformity = tupleToArray(params.uniformity)
             subLayerCount = count
@@ -112,12 +114,12 @@ public enum Grain {
         /// Sum over sublayers, per channel. Upstream's comment calls this `[sublayers, rgb]`; it is
         /// three values, one per channel.
         public let densityMaxTotal: [Double]
-        /// Each sublayer's share of its channel's total. Columns sum to 1 exactly, which is what
-        /// balances the final `-= density_min`.
+        /// Each sublayer's share of its channel's total. Columns sum to 1 exactly, so the final
+        /// `-= density_min` balances.
         public let densityMaxFractions: [Double]
         public let densityMinLayers: [Double]
-        /// `density_max_layers_raw + density_min_layers`. The reference rebinds the same name, and
-        /// this is the value the saturation point uses.
+        /// `density_max_layers_raw + density_min_layers`. The reference rebinds
+        /// `density_max_layers` to this value, and the saturation point uses it.
         public let densityMaxLayers: [Double]
         public let densityMin: [Double]
         public let pixelSizeMicrons: Double
@@ -259,7 +261,7 @@ public enum Grain {
     ///
     /// The populations that make it up are independent, so their cumulants add. The second, third
     /// and fourth cumulants are the variance, the third central moment and the fourth minus
-    /// `3 * variance^2`, which is what the standardised shape needs.
+    /// `3 * variance^2`. The skewness and excess kurtosis are standardised from these.
     public struct ParticleMoments: Sendable, Equatable {
         public let mean: Double
         public let variance: Double
@@ -286,8 +288,8 @@ public enum Grain {
 
     /// `clip(density / density_max, 1e-6, 1 - 1e-6)`.
     ///
-    /// NaN survives, as it does in NumPy: every comparison against it is false, so neither bound
-    /// takes effect and the lambda downstream is NaN, which the Poisson sampler turns into 0.
+    /// NaN passes through, as in NumPy, where every comparison against it is false and neither
+    /// bound applies. The lambda downstream is then NaN, which the Poisson sampler turns into 0.
     @inlinable
     public static func probabilityOfDevelopment(density: Double, densityMax: Double) -> Double {
         let ratio = density / densityMax
@@ -313,11 +315,11 @@ public enum Grain {
     ///   - density: a single-channel plane, with the fog floor already added.
     ///   - key: identifies the stream. The reference reseeds NumPy's global generator at the start
     ///     of every call with `[0, 1, 2][channel] + 10 * sublayer`, so the nine streams are
-    ///     independent and the loop order does not matter. Here that schedule is carried by the
-    ///     key's `channel` and `sublayer` fields instead, and the counter is the linear pixel index,
-    ///     so the result is also independent of how the plane is split across threads.
-    ///   - blurDyeClouds: `blur_dye_clouds_um`, dimensionless. Gated on the parameter, not on the
-    ///     sigma it produces, which is what the reference does.
+    ///     independent and the loop order does not matter. Here the key's `channel` and `sublayer`
+    ///     fields encode that schedule, and the counter is the linear pixel index, so the result is
+    ///     also independent of how the plane is split across threads.
+    ///   - blurDyeClouds: `blur_dye_clouds_um`, dimensionless. As in the reference, the blur checks
+    ///     this parameter, not the sigma it produces.
     public static func layerParticleModel(
         _ density: consuming ImageBuffer,
         densityMax: Double,
@@ -355,13 +357,13 @@ public enum Grain {
     /// `add_micro_structure`: a unit-mean lognormal clumping field, optionally blurred, multiplied
     /// into the grain.
     ///
-    /// With default parameters neither gate opens at any realistic resolution. `sigma > 0.05` needs
-    /// a pixel pitch under 0.6 um, which is a 35 mm frame at 58333 px wide, and `blur_px > 0.4`
-    /// needs under 0.5 um. Ported because the thresholds depend on output resolution, not because
-    /// production renders reach them.
+    /// With default parameters neither threshold is crossed at any realistic resolution.
+    /// `sigma > 0.05` needs a pixel pitch under 0.6 um, which is a 35 mm frame at 58333 px wide,
+    /// and `blur_px > 0.4` needs under 0.5 um. Ported because the thresholds depend on output
+    /// resolution; production renders do not reach them.
     ///
-    /// The field has shape `[H, W, 3]`, so each channel gets its own realisation. Mean preserving
-    /// before the blur and after it.
+    /// The field has shape `[H, W, 3]`, so each channel gets its own realisation. It is mean
+    /// preserving both before and after the blur.
     public static func addMicroStructure(
         _ image: consuming ImageBuffer,
         microStructure: (Double, Double),
@@ -403,16 +405,16 @@ public enum Grain {
 
     /// `density_curves.interp_density_cmy_layers`, the contract the layered path depends on.
     ///
-    /// - Returns: one buffer per RGB channel, each carrying that channel's three sublayer densities
-    ///   in its three channel slots. Upstream's `[H, W, sublayer, channel]` array, transposed into
-    ///   the layout the sampler wants.
+    /// - Returns: one buffer per RGB channel, each holding that channel's three sublayer densities
+    ///   in its three channel slots. This is upstream's `[H, W, sublayer, channel]` array,
+    ///   transposed into the layout the sampler wants.
     ///
-    /// For positive stocks both the query and the axis are negated so the axis ascends; the
+    /// For positive stocks the query and the axis are both negated so the axis ascends. The
     /// sublayer values are not negated.
     ///
-    /// Lives here rather than in ``DensityCurves`` because only the layered grain path splits a
-    /// density into sublayers. The render path does not call this, since the nine planes together
-    /// are three full frames; it takes them one at a time from
+    /// Lives in `Grain` because only the layered grain path splits a density into sublayers. The
+    /// render path does not call this: the nine planes together are three full frames, so it takes
+    /// them one at a time from
     /// ``sublayerPlane(_:channel:sublayer:densityCurves:densityCurvesLayers:positive:)``. This is
     /// the shape the reference returns and the shape the parity tests compare.
     public static func sublayerDensities(
@@ -446,9 +448,9 @@ public enum Grain {
 
     /// One `(channel, sublayer)` plane of interpolated sublayer density.
     ///
-    /// The nine planes are three full frames when materialised together, which is what
-    /// ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` hands back. The grain
-    /// loop needs one at a time, so it interpolates them one at a time.
+    /// ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` returns all nine planes
+    /// at once, three full frames. The grain loop needs one at a time, so it interpolates them one
+    /// at a time.
     ///
     /// Arithmetic copied from ``Interpolation/fastInterp(_:axis:values:)``'s shared-axis path, down
     /// to the reciprocal interval widths and the clamp to the endpoint values, so the two agree bit
@@ -517,13 +519,13 @@ public enum Grain {
     ///   - densityCurves: already fog-normalised by `develop`, `[exposure][cmy]` flattened.
     ///   - densityCurvesLayers: the raw profile array, `[exposure][sublayer][channel]` flattened.
     ///     Not normalised.
-    ///   - seed: selects the grain realisation. ``GrainParams`` has no seed field upstream, where
-    ///     the seeds are hardcoded, so it is passed separately.
+    ///   - seed: selects the grain realisation. Upstream hardcodes the seeds and ``GrainParams``
+    ///     has no seed field, so it is passed separately.
     ///
-    /// Returns the input unchanged when grain is off or bypassed, matching the reference, which
-    /// returns the same object.
+    /// Returns the input unchanged when grain is off or bypassed. The reference returns the same
+    /// object.
     ///
-    /// Consumes `density`. A caller that still needs it gets a copy, and pays a frame for it.
+    /// Consumes `density`. A caller that keeps its own reference forces a full-frame copy.
     public static func apply(
         _ density: consuming ImageBuffer,
         pixelSizeMicrons: Double,
@@ -630,13 +632,13 @@ public enum Grain {
     /// `apply_grain_to_density`: one particle population per channel, applied to the total channel
     /// density.
     ///
-    /// The reference mutates its argument with `density_cmy += density_min`. This copies instead,
-    /// and no behaviour depends on the mutation: in production the array is a temporary from the
-    /// coupler stage, and the reference's own tests defend by passing a copy.
+    /// The reference mutates its argument with `density_cmy += density_min`. This copies instead.
+    /// No behaviour depends on the mutation: in production the array is a temporary from the
+    /// coupler stage, and the reference's own tests pass a copy.
     ///
-    /// `n_sub_layers` repeats and averages. Each repeat sees the full channel density with
-    /// `N / n_sub_layers` particles, so the mean and variance do not move; only the skewness and
-    /// the cost do.
+    /// The draw is repeated `n_sub_layers` times and averaged. Each repeat sees the full channel
+    /// density with `N / n_sub_layers` particles. A sum of independent Poissons is Poisson, so the
+    /// output distribution is the same for every `n_sub_layers`; only the cost changes.
     public static func applyToDensity(
         _ density: ImageBuffer,
         derived: SingleLayerParameters,
@@ -671,7 +673,7 @@ public enum Grain {
             }
         }
 
-        // The gate here is `> 0.4`, and the layered path's is `> 0`. Keep the asymmetry.
+        // The threshold here is `> 0.4`, and the layered path's is `> 0`. Keep the asymmetry.
         if derived.blurSigmaPixels > 0.4 {
             out = spatial.gaussian(out, sigma: derived.blurSigmaPixels)
         }
@@ -680,9 +682,9 @@ public enum Grain {
 
     /// `apply_grain_to_density_layers`, the production path.
     ///
-    /// No division by a sublayer count: the split is carried by `density_max_fractions`, whose
-    /// columns sum to 1, so `sum(density_min_layers)` over sublayers is `density_min` and the final
-    /// subtraction balances.
+    /// There is no division by a sublayer count. `density_max_fractions` splits the density, and
+    /// its columns sum to 1, so `sum(density_min_layers)` over sublayers is `density_min` and the
+    /// final subtraction balances.
     ///
     /// - Parameter layers: one buffer per RGB channel, three sublayers deep, as
     ///   ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` returns. ``apply``

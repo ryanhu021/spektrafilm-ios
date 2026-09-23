@@ -4,10 +4,10 @@ import Testing
 
 /// Checks both interpolators against NumPy.
 ///
-/// The non-monotonic case is the one that bites. `compute_density_curves_before_dir_couplers`
+/// The non-monotonic case is the hard one. `compute_density_curves_before_dir_couplers`
 /// interpolates over `log_exposure - couplers_amount_curves`, which steps backwards for positive
 /// stocks. NumPy's answer there depends on its guess-threaded search path, so a plain bisection
-/// quietly renders slide film differently.
+/// renders slide film differently.
 @Suite("Interpolation parity")
 struct InterpolationParityTests {
 
@@ -102,7 +102,7 @@ struct InterpolationParityTests {
     }
 
     /// Upstream stores a reciprocal of zero for a repeated x, so the weight is zero and the lower
-    /// y comes back instead of a division by zero.
+    /// y comes back, with no division by zero.
     @Test("fast_interp survives repeated axis values")
     func fastInterpRepeatedAxis() {
         let axis = [0.0, 1.0, 1.0, 2.0]
@@ -128,9 +128,8 @@ struct InterpolationParityTests {
         try expectParity(out, matches: "interp_npinterp_single_point")
     }
 
-    /// fast_interp left-clamps a NaN query to `values[0, channel]`. The note on
-    /// ``Interpolation/fastInterp(_:axis:values:)`` explains why: it falls out of Numba's
-    /// `fastmath`, so it is worth pinning.
+    /// fast_interp left-clamps a NaN query to `values[0, channel]`, a side effect of Numba's
+    /// `fastmath`. The note on ``Interpolation/fastInterp(_:axis:values:)`` explains it.
     @Test("fast_interp left-clamps a NaN query the way the oracle does")
     func fastInterpNaN() throws {
         let axis = try Golden("interp_fast_nan_axis").values
@@ -148,8 +147,8 @@ struct InterpolationParityTests {
         #expect(out == [10, 10, 15, 15])
     }
 
-    /// NumPy linear-scans arrays shorter than five samples instead of using the guess machinery.
-    /// Both paths have to agree where they overlap.
+    /// NumPy scans arrays shorter than five samples linearly, and uses its guess-threaded search
+    /// for longer ones. Both paths must agree where they overlap.
     @Test("np.interp short-array path agrees with the general path")
     func npInterpShortArrays() {
         for count in 2...8 {

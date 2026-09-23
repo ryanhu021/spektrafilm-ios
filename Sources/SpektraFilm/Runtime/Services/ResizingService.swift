@@ -3,10 +3,10 @@ import Foundation
 /// Resamples an image by a scale factor.
 ///
 /// Declared as a protocol because the reference uses `skimage.transform.rescale`, whose behaviour is
-/// four stages deep and has its own parity notes (the output clip uses the whole array's min and max
-/// rather than per channel, which moves order-3 upscale pixels by 3.7e-4 against a 1e-4 gate). The
-/// default render path never resamples: `crop` is off, `upscaleFactor` is 1, and auto-exposure only
-/// downsamples when the image is larger than its preview bound.
+/// four stages deep and has its own parity notes. For example, its output clip uses the whole
+/// array's min and max rather than per-channel ones, which moves order-3 upscale pixels by 3.7e-4
+/// against a 1e-4 gate. The default render path never resamples: `crop` is off, `upscaleFactor` is
+/// 1, and auto-exposure only downsamples when the image is larger than its preview bound.
 public protocol Resampler: Sendable {
     /// `skimage.transform.rescale(image, factor, channel_axis: 2, order: order)`.
     ///
@@ -16,8 +16,8 @@ public protocol Resampler: Sendable {
 
 /// Refuses to resample.
 ///
-/// Lets the pipeline run its default path before the resampler lands, and fails loudly instead of
-/// silently skipping a scale the caller asked for.
+/// Lets the pipeline run its default path without a resampler. Any factor other than 1 throws, so a
+/// scale the caller asked for is never skipped without an error.
 public struct UnavailableResampler: Resampler {
     public init() {}
 
@@ -64,7 +64,7 @@ public final class ResizingService {
         return result
     }
 
-    /// `small_preview`. Auto-exposure meters on this, not on the full frame.
+    /// `small_preview`. Auto-exposure meters on this.
     ///
     /// Nearest neighbour, matching the reference's `order=0`.
     public func smallPreview(_ image: ImageBuffer, maxSize: Int = 256) throws -> ImageBuffer {

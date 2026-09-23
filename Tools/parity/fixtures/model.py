@@ -195,8 +195,8 @@ def autoexposure():
     ])
 
 
-# Per-stage taps, and the end-to-end render. These are the fixtures that say the stages are wired
-# in the right order, as opposed to each being individually correct.
+# Per-stage taps, and the end-to-end render. These fixtures check that the stages are wired
+# together in the right order.
 TAPS = ["rgb_pre", "log_e_film", "cmy_film", "log_e_print", "cmy_print", "rgb_out"]
 
 # lut_mode makes the pipeline a deterministic per-pixel transform, so these fixtures are stable and
@@ -275,7 +275,7 @@ def develop_full():
         before = interpolate_exposure_to_density(log_raw, normalised, log_exposure, 1.0)
         yield f"develop_{stock}_precoupler", before
 
-        # The coupler correction on its own, which is the step with no fixture until now.
+        # The coupler correction on its own.
         yield (
             f"develop_{stock}_coupled",
             apply_density_correction_dir_couplers(
@@ -372,7 +372,7 @@ def resample():
     from skimage.transform import rescale
 
     rng = np.random.default_rng(31337)
-    # Small deliberately: these live in git, and the arithmetic does not depend on the size.
+    # Small because these live in git, and the arithmetic does not depend on the size.
     for label, h, w in [("80x53", 53, 80), ("odd_53x97", 53, 97), ("square_64", 64, 64)]:
         image = np.ascontiguousarray(rng.uniform(0.0, 1.5, size=(h, w, 3)))
         yield f"resample_input_{label}", image
@@ -383,13 +383,13 @@ def resample():
                 rescale(image, factor, channel_axis=2, order=0),
             )
 
-    # The exact call ResizingService.small_preview makes on a 640 px preview.
-    # The same 0.4 factor small_preview hits on a 640 px preview, at a size git can hold.
+    # The 0.4 factor ResizingService.small_preview applies to a 640 px preview, at a size git can
+    # hold.
     preview = np.ascontiguousarray(rng.uniform(0.0, 1.2, size=(107, 160, 3)))
     yield "resample_preview_input", preview
     yield "resample_preview_256", rescale(preview, 64 / 160, channel_axis=2, order=0)
 
-    # And the metered EV that comes out of it, which is what actually reaches the render.
+    # And the metered EV that comes out of it, which is what reaches the render.
     from spektrafilm.utils.autoexposure import measure_autoexposure_ev
     small = rescale(preview, 64 / 160, channel_axis=2, order=0)
     yield "resample_preview_ev", np.array([
@@ -401,10 +401,10 @@ def resample():
 def real_photograph():
     """A real photograph rendered end to end, at a size git can hold.
 
-    The synthetic ramps and patches elsewhere cover the arithmetic. This covers the thing a user
-    actually sees: a photograph with skin, foliage, specular highlights and deep shadow, through four
-    film and paper combinations. Errors that only show on real subject matter, like a hue shift in the
-    midtones or crushed shadows, surface here and nowhere else.
+    The synthetic ramps and patches elsewhere cover the arithmetic. This covers what a user sees: a
+    photograph with skin, foliage, specular highlights and deep shadow, through four film and paper
+    combinations. Errors that appear only on real subject matter, like a hue shift in the midtones
+    or crushed shadows, are caught here and nowhere else.
     """
     import OpenImageIO as oiio
 

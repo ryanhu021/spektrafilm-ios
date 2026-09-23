@@ -10,7 +10,7 @@ import Foundation
 /// functions with known roots it returns bit-identical results at both `xtol = 2e-12` and
 /// `xtol = 1e-10`, with matching iteration counts.
 ///
-/// Nothing here throws. Per ``SpektraError``'s contract numeric trouble is reported in the return
+/// Nothing here throws. Per ``SpektraError``'s contract numeric problems are reported in the return
 /// value: a bracket that does not straddle a sign change is `nil` (SciPy raises `ValueError`), an
 /// exhausted iteration budget is ``Root/converged`` false with the last iterate (SciPy raises
 /// `RuntimeError`), and a NaN residual is `nil` at an endpoint or ``Root/converged`` false mid-solve
@@ -118,7 +118,7 @@ public enum RootFind {
     /// yield a zero offset without solving, and dropping either changes the shipped render.
     ///
     /// - Returns: `nil` when no bracket straddles a sign change, or when ``brentq`` does not
-    ///   converge on the one that does; the morph reads either as a zero offset and carries on.
+    ///   converge on the one that does. The morph treats either as a zero offset.
     public static func expandingBracketRoot(
         lower: Double = -0.25,
         upper: Double = 0.25,
@@ -135,8 +135,8 @@ public enum RootFind {
         for _ in 0..<doublings {
             if rLo == 0.0 { return lo }
             if rHi == 0.0 { return hi }
-            // The reference's product test, kept as a product: for residuals below ~1e-160 it
-            // underflows to ±0.0 and declines a bracket that a sign-bit test would accept.
+            // The reference's product test. Keep it a product: for residuals below ~1e-160 it
+            // underflows to ±0.0 and rejects a bracket that a sign-bit test would accept.
             if rLo * rHi < 0.0 {
                 let root = brentq(
                     lower: lo,

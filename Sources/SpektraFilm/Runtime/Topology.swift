@@ -20,8 +20,7 @@ public enum Tap: String, Sendable, CaseIterable {
 /// present in the state.
 ///
 /// Not `Sendable`: a node closes over the stage that runs it, and the stages hold caches and the
-/// references the print balance needs. One render is single-threaded, and parallelism lives inside
-/// the operators.
+/// references the print balance needs. A render is single-threaded end to end.
 public struct Node {
     public let reads: [Tap]
     public let writes: [Tap]
@@ -40,8 +39,8 @@ public struct Node {
         self.run = run
     }
 
-    /// Convenience for the single-input, single-output case, which is every node the pipeline
-    /// currently declares.
+    /// Convenience for the single-input, single-output case. Every node the pipeline declares uses
+    /// it.
     public init(
         from input: Tap,
         to output: Tap,
@@ -57,10 +56,9 @@ public struct Node {
 /// Walks `topology` in declared order, firing every node whose reads are satisfied, and returns the
 /// value at `collect` as soon as it appears.
 ///
-/// Each tap is released as soon as no remaining node reads it. That is not a micro-optimisation: at
-/// 12 MP a buffer is 279 MB, and holding all six intermediates alive peaked at 4.3 GB, well past the
-/// roughly 1.4 GB where iOS terminates a foreground app. Freeing them as the walk advances keeps at
-/// most two live at once.
+/// Each tap is released as soon as no remaining node reads it. At 12 MP a buffer is 279 MB. Holding
+/// all six intermediates peaks at 4.3 GB, and iOS terminates a foreground app near 1.4 GB. Freeing
+/// taps as the walk advances keeps at most two alive.
 ///
 /// `onFire` reports each node's wall-clock time, which the pipeline uses for its timing breakdown.
 public func runTopology(
@@ -78,7 +76,7 @@ public func runTopology(
         var inputs = node.reads.map { state[$0]! }
 
         // Drop the dictionary's reference before running, so a node whose input is dead after this
-        // step sees a uniquely referenced buffer and can mutate it in place rather than copying.
+        // step sees a uniquely referenced buffer and can mutate it in place.
         for tap in node.reads where tap != collect && !isRead(tap, after: index, in: topology) {
             state[tap] = nil
         }

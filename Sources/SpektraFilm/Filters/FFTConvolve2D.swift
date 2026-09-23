@@ -1,8 +1,7 @@
 import Accelerate
 import Foundation
 
-/// Linear 2D convolution through a pair of complex DFTs, standing in for
-/// `scipy.signal.fftconvolve`.
+/// Linear 2D convolution through a pair of complex DFTs, in place of `scipy.signal.fftconvolve`.
 ///
 /// Upstream calls `fftconvolve(padded, psf, mode='same')` and then crops the padding away. That
 /// composite is exactly the *valid* region of the full linear convolution, which is what
@@ -10,16 +9,17 @@ import Foundation
 /// `same[i] == full[i + radius]`, and cropping `radius` off each side leaves
 /// `full[t + kernelHeight - 1]`.
 ///
-/// The transform length is free. `fftconvolve` computes the full linear convolution at a
-/// `next_fast_len`-rounded size, so no output sample ever wraps, and the result does not depend on
-/// the size chosen. This picks the smallest length `vDSP_DFT` accepts, which is why it can match
-/// SciPy to roundoff while using different transform sizes.
+/// Any transform length works. `fftconvolve` computes the full linear convolution at a
+/// `next_fast_len`-rounded size, so no output sample wraps and the result does not depend on the
+/// size chosen. This picks the smallest length `vDSP_DFT` accepts and still matches SciPy to
+/// roundoff with different transform sizes.
 public enum FFTConvolve2D {
 
     /// Smallest transform length `vDSP_DFT_zop_CreateSetupD` accepts that is at least `n`.
     ///
     /// vDSP restricts complex DFT lengths to `f * 2^k` with `f` in `{1, 3, 5, 15}` and `k >= 3`,
-    /// so the minimum is 8. Rounding up is free: the convolution is linear either way.
+    /// so the minimum is 8. Rounding up does not change the result: the convolution is linear
+    /// either way.
     public static func supportedLength(atLeast n: Int) -> Int {
         precondition(n > 0, "transform length must be positive")
         var best = Int.max

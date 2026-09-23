@@ -21,10 +21,10 @@ import Testing
 /// | `jzazbz` output compression | 9.2e-13 |
 ///
 /// The compressor tests keep the subsystem's 1e-4 contract rather than the measured figure, because
-/// two error sources are spent before the port contributes any: the published forward/inverse matrix
-/// pairs are not exact inverses (4e-5 of round-trip error for sRGB), and the envelope's 18-step
-/// bisection quantises `C_max` (1.8e-5 of output RGB for CAM16-UCS). ``defaultPathTightAgreement()``
-/// pins the default path at the measured figure so a regression inside that budget still fails.
+/// two error sources exist before the port adds any: the published forward/inverse matrix pairs are
+/// not exact inverses (4e-5 of round-trip error for sRGB), and the envelope's 18-step bisection
+/// quantises `C_max` (1.8e-5 of output RGB for CAM16-UCS). ``defaultPathTightAgreement()`` pins the
+/// default path at the measured figure so a regression inside that budget still fails.
 @Suite("Gamut compression parity")
 struct GamutParityTests {
 
@@ -47,8 +47,8 @@ struct GamutParityTests {
         try expectParity(input.map { reinhardKnee($0, knee) }, matches: "gamut_knee_\(label)")
     }
 
-    /// The mask is `>`, so the threshold itself is identity, and negatives never move. The lightness
-    /// knee's black anchoring rests on the second half.
+    /// The mask is `>`, so the threshold maps to itself and negatives never move. The lightness
+    /// knee's black anchoring depends on the second property.
     @Test("the knee leaves the threshold and everything below it alone")
     func kneeIdentityRegion() {
         #expect(reinhardKnee(0.815, Self.softKnee) == 0.815)
@@ -104,8 +104,8 @@ struct GamutParityTests {
     }
 
     /// A ray from outside the locus can miss every edge. The reference returns `+inf` and
-    /// `compress_xy_radial` then multiplies `0 * inf` into NaN. Documented precondition, reproduced
-    /// rather than guarded.
+    /// `compress_xy_radial` then multiplies `0 * inf` into NaN. A documented precondition. The port
+    /// reproduces the NaN and adds no guard.
     @Test("a missing ray returns infinity and compression produces NaN")
     func missingRay() {
         let outside = Chromaticity(x: 2.0, y: 2.0)
@@ -132,15 +132,14 @@ struct GamutParityTests {
         try expectParity(actual, matches: "gamut_point_in_polygon", maxAbsolute: 0, rootMeanSquare: 0)
     }
 
-    /// Known divergence, measured rather than fixed. Points exactly *on* the polygon have no
-    /// well-defined answer, and the two implementations disagree on 49 of the 131 vertices and edge
-    /// midpoints: matplotlib's Agg point-in-path routine calls 28 of them inside, the crossing rule
-    /// calls 51. The spec's claim that both call every boundary point outside is wrong on both sides.
+    /// Known divergence, left in place. Points exactly *on* the polygon have no well-defined
+    /// answer, and the two implementations disagree on 49 of the 131 vertices and edge midpoints:
+    /// matplotlib's Agg point-in-path routine calls 28 of them inside, the crossing rule calls 51.
+    /// The spec says both call every boundary point outside; neither does.
     ///
-    /// It does not matter. The predicate's only consumer is the Oklch locus envelope, whose bisection
-    /// never lands exactly on an edge, and that envelope still hashes identical to the oracle's; see
-    /// ``envelopeHashes()``. Matching Agg on the boundary would mean reimplementing it for no
-    /// difference in any output.
+    /// No output changes. The predicate's only consumer is the Oklch locus envelope, whose
+    /// bisection never falls exactly on an edge, and that envelope hashes the same as the oracle's;
+    /// see ``envelopeHashes()``. Matching Agg on the boundary would mean reimplementing it.
     @Test("on-boundary points follow the crossing rule, not matplotlib")
     func pointInPolygonBoundary() throws {
         let golden = try Golden("gamut_point_in_polygon_boundary").values
@@ -190,8 +189,8 @@ struct GamutParityTests {
         try expectParity(actual, matches: "gamut_xy_inactive", maxAbsolute: 0, rootMeanSquare: 0)
     }
 
-    /// The default knee has no identity region, so nothing survives untouched. A port that leaves a
-    /// flat region near white has the wrong knee.
+    /// The default knee has no identity region. A port that leaves a flat region near white has the
+    /// wrong knee.
     @Test("the default input knee moves even a near-white chromaticity")
     func compressXYHasNoIdentityRegion() {
         var spec = InputGamutCompressSpec()
@@ -279,8 +278,8 @@ struct GamutParityTests {
     }
 
     /// Five divisions in the CAM16 inverse go through colour-science's `sdiv`, which maps a
-    /// non-finite quotient to 0. Without that the four hue axes come back NaN, which would show up as
-    /// four radial artefacts in a hue sweep and nowhere else.
+    /// non-finite quotient to 0. Without it, the four hue axes come back NaN, which would show up
+    /// as four radial artefacts in a hue sweep and nowhere else.
     @Test("the CAM16 inverse stays finite on the four hue axes")
     func cam16InverseHueAxes() {
         let vc = CAM16ViewingConditions(whitepointXYZ: Self.srgbWhiteXYZ)
@@ -336,9 +335,9 @@ struct GamutParityTests {
         try expectParity(mapTriples(input, compressor.apply), matches: "gamut_rgb_\(name)")
     }
 
-    /// The default path measures at 8.1e-15 over the 1032-pixel sweep and 1.5e-14 over the realizable
-    /// sweep, twelve orders under the subsystem contract. Pinned close to the measurement so a
-    /// regression that still fits inside the 1e-4 gate fails here.
+    /// The default path measures 8.1e-15 over the 1032-pixel sweep and 1.5e-14 over the realizable
+    /// sweep, twelve orders under the subsystem contract. The gate sits close to the measurement,
+    /// so a regression that still fits inside the 1e-4 gate fails here.
     @Test("the default path agrees with the oracle to 1e-12")
     func defaultPathTightAgreement() throws {
         let compressor = try OutputGamutCompressor(
@@ -359,22 +358,21 @@ struct GamutParityTests {
             spec: OutputGamutCompressSpec(), colourSpace: .sRGB)
         let actual = mapTriples(input, compressor.apply)
         try expectParity(actual, matches: "gamut_realizable_cam16ucs")
-        // What actually ships: 2048 chromaticities sampled inside the locus at Y in (0, 2], converted
+        // The shipped path: 2048 chromaticities sampled inside the locus at Y in (0, 2], converted
         // to linear sRGB. 91% of the pixels are out of gamut and the input spans [-14.4, 96.9]. The
-        // default algorithm brings all of it into [1.8e-5, 0.99998], which is why nothing downstream
-        // clips.
+        // default algorithm maps all of it into [1.8e-5, 0.99998], so nothing downstream clips.
         #expect((input.min() ?? 0) < -14.0)
         #expect((input.max() ?? 0) > 96.0)
         #expect((actual.min() ?? 0) > 0.0)
         #expect((actual.max() ?? 0) < 1.0)
     }
 
-    /// The reference docstrings promise output in [0, 1]. Only `cam16ucs` delivers it. Measured on the
-    /// realizable sweep, the other algorithms leave the cube on 17 to 39% of pixels: `oklch` reaches
-    /// 1.00148, `oklrab` 1.00110, `jzazbz` 1.00675, and `aces_rgc` 96.9, since it never touches the
-    /// achromatic value. The cause for the three perceptual ones is the 64-point lightness grid plus
-    /// bilinear interpolation, which underestimates `C_max`. There is no clamp in the reference and
-    /// none here; the overshoot is pinned so a downstream consumer is not surprised by it.
+    /// The reference docstrings promise output in [0, 1]. Only `cam16ucs` delivers it. Measured on
+    /// the realizable sweep, the other algorithms leave the cube on 17 to 39% of pixels: `oklch`
+    /// reaches 1.00148, `oklrab` 1.00110, `jzazbz` 1.00675, and `aces_rgc` 96.9, since it never
+    /// touches the achromatic value. For the three perceptual ones, the cause is the 64-point
+    /// lightness grid with bilinear interpolation, which underestimates `C_max`. Neither the
+    /// reference nor the port clamps; the test pins the overshoot for downstream consumers.
     @Test("only cam16ucs keeps realizable pixels inside the cube")
     func cubeContainment() throws {
         let input = try Golden("gamut_realizable_input").values
@@ -426,9 +424,9 @@ struct GamutParityTests {
         }
     }
 
-    /// Negative luminance makes CAM16's `J` negative, `spow(J/100, 0.5)` NaN, and the `C_max` lookup
-    /// index non-finite. Unreachable from the pipeline, which guarantees `Y > 0`. The port must not
-    /// trap on the integer conversion; the numbers themselves are not worth matching.
+    /// Negative luminance makes CAM16's `J` negative, `spow(J/100, 0.5)` NaN, and the `C_max`
+    /// lookup index non-finite. Unreachable from the pipeline, which guarantees `Y > 0`. The port
+    /// must not trap on the integer conversion; the numbers themselves are not worth matching.
     @Test("negative-luminance pixels do not crash")
     func negativeLuminance() throws {
         let input = try Golden("gamut_negative_input").values
@@ -441,10 +439,10 @@ struct GamutParityTests {
             out, matches: "gamut_negative_cam16ucs", maxAbsolute: 1e-12, rootMeanSquare: 1e-13)
     }
 
-    /// Non-finite pixels, which the simulation does not produce and the reference does not simply
-    /// propagate. `sdiv` turns a NaN quotient into 0 inside the CAM16 lightness correlate, so the
-    /// reference emits numbers where a plain division would leave NaN. ``expectParity`` fails on a
-    /// NaN appearing or disappearing, which is the point of this test.
+    /// Non-finite pixels. The simulation does not produce them, and the reference does not simply
+    /// propagate them: `sdiv` turns a NaN quotient into 0 inside the CAM16 lightness correlate, so
+    /// the reference emits numbers where a plain division would leave NaN. ``expectParity`` fails
+    /// if a NaN appears or disappears.
     @Test(
         "non-finite pixels match the reference on every algorithm",
         arguments: ["aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs"])
@@ -457,8 +455,8 @@ struct GamutParityTests {
         try expectParity(mapTriples(input, compressor.apply), matches: "gamut_nonfinite_\(name)")
     }
 
-    /// The radial path's passthrough mask is `dist < 1e-9`, so a NaN distance takes the compute path
-    /// and both components come back NaN. A `dist >= 1e-9` guard would keep the finite component.
+    /// The radial path's passthrough mask is `dist < 1e-9`, so a NaN distance takes the compute
+    /// path and both components come back NaN. A `dist >= 1e-9` guard would keep the finite one.
     @Test(
         "non-finite chromaticities match on both input algorithms",
         arguments: [InputGamutCompressSpec.Algorithm.xy, .oklch])
@@ -534,11 +532,11 @@ struct GamutParityTests {
 
     // MARK: - Chroma envelopes
 
-    /// The bisection is deterministic given the same in-gamut predicate, and the predicate only flips
-    /// if a channel lands within about 1e-16 of the ±1e-6 slack, so the Swift tables should be the
-    /// same bytes as the oracle's. They are: this hashes all 46 080 cells of each envelope and
-    /// compares against the SHA-256 the oracle wrote. Committing the tables themselves would be
-    /// 2.5 MB of goldens and a weaker check, since the parity gate tolerates 1e-4.
+    /// The bisection is deterministic given the same in-gamut predicate, and the predicate flips
+    /// only if a channel falls within about 1e-16 of the ±1e-6 slack, so the Swift tables should be
+    /// byte-identical to the oracle's. This test hashes all 46 080 cells of each envelope and
+    /// compares against the SHA-256 the oracle wrote. Committing the tables would add 2.5 MB of
+    /// goldens and give a weaker check, since the parity gate tolerates 1e-4.
     @Test("every chroma envelope hashes to the oracle's table")
     func envelopeHashes() throws {
         let expected = try Self.envelopeHashes()
@@ -582,9 +580,9 @@ struct GamutParityTests {
         try expectParity(actual, matches: golden, maxAbsolute: 0, rootMeanSquare: 0)
     }
 
-    /// The input-side locus envelope runs into its own `hi = 0.5` bisection ceiling over 27.7% of the
-    /// table, every cell at L >= 0.3968253968253968. Over that region the algorithm compresses
-    /// against a flat 0.5 instead of the locus. Reference behaviour; reproduced on purpose.
+    /// The input-side locus envelope hits its own `hi = 0.5` bisection ceiling over 27.7% of the
+    /// table, all at L >= 0.3968253968253968. Over that region the algorithm compresses against a
+    /// flat 0.5 instead of the locus. Reference behaviour, reproduced on purpose.
     @Test("the locus envelope saturates at the bisection ceiling as the reference does")
     func locusEnvelopeCeiling() {
         let table = InputGamutCompression.locusEnvelope
@@ -597,8 +595,8 @@ struct GamutParityTests {
         #expect(firstAffectedRow == 23)
         #expect(table.lightnessGrid[23] == 0.3968253968253968)
         #expect(saturatedInRow(22) == 0)
-        // The spec's claim that whole rows saturate above that lightness is wrong: the affected band
-        // grows from 3 hues at row 23 to 476 of 720 at the top, and no row saturates completely.
+        // The spec says whole rows saturate above that lightness, but no row saturates completely:
+        // the affected band grows from 3 hues at row 23 to 476 of 720 at the top.
         #expect(saturatedInRow(63) == 476)
     }
 
@@ -610,9 +608,9 @@ struct GamutParityTests {
         let actual = zip(L, h).map { table.lookup($0, $1) }
         try expectParity(
             actual, matches: "gamut_cmax_lookup_oklch_srgb", maxAbsolute: 0, rootMeanSquare: 0)
-        // +pi is the top of atan2's range. It wraps onto the -pi column rather than clamping onto the
-        // last one. The hue index comes out as 720.00000000000819, not exactly 720, so the wrapped
-        // lookup carries a 8e-12 fraction of the next column.
+        // +pi is the top of atan2's range. It wraps onto the -pi column rather than clamping onto
+        // the last one. The hue index comes out as 720.00000000000819, not exactly 720, so the
+        // wrapped lookup includes an 8e-12 fraction of the next column.
         #expect(abs(table.lookup(0.6, .pi) - table.lookup(0.6, -.pi)) < 1e-12)
         // A non-finite index returns 0 instead of trapping on the integer conversion.
         #expect(table.lookup(.nan, 0.5) == 0.0)

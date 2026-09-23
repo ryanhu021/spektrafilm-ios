@@ -5,9 +5,8 @@ import Testing
 
 /// Checks the error function, the CDFs built on it, and Brent root finding against the oracle.
 ///
-/// These are leaf primitives, so their errors arrive at the render disguised as someone else's bug.
-/// The gate here is 1e-15, eleven orders tighter than the pipeline gate, because nothing downstream
-/// can explain a libm that is merely close.
+/// These are leaf primitives, so an error here reaches the render looking like a bug in another
+/// stage. The gate is 1e-15, eleven orders tighter than the pipeline gate.
 @Suite("Transcendental primitives")
 struct TranscendentalTests {
 
@@ -195,8 +194,8 @@ struct TranscendentalTests {
     }
 
     /// The reference's `brentq` raises `RuntimeError` on an exhausted budget, so the search reports
-    /// no root at all. Unreachable with the default budget: a bracket that
-    /// straddles always converges well inside 100 iterations.
+    /// no root. Unreachable with the default budget: a bracket that straddles always converges well
+    /// inside 100 iterations.
     @Test("a straddling bracket that does not converge reports no root")
     func bracketNonConvergence() {
         let f: @Sendable (Double) -> Double = { Foundation.atan($0) - 0.5 }
@@ -218,7 +217,7 @@ struct TranscendentalTests {
 
     /// SciPy wraps `f` and raises `ValueError` on the first NaN. Nothing here throws, so a NaN at an
     /// endpoint is `nil` and a NaN mid-solve is a non-converged result. Returning it as a converged
-    /// root would hand the morph a silent wrong answer.
+    /// root would give the morph a wrong answer with no error.
     @Test("a NaN residual is reported in the return value")
     func nanResidual() {
         #expect(RootFind.brentq(lower: -1.0, upper: 2.0) { $0 > 1.0 ? Double.nan : $0 - 0.7 } == nil)
@@ -239,8 +238,8 @@ struct TranscendentalTests {
         #expect(high?.value == 0.0)
     }
 
-    /// The tolerances are invisible in every root above, because `xtol` dominates `rtol * |x|` by
-    /// four orders at `xtol = 2e-12`. They still have to be SciPy's, so they are checked directly.
+    /// No root above depends on `rtol`, because `xtol` exceeds `rtol * |x|` by four orders at
+    /// `xtol = 2e-12`. The defaults must still be SciPy's, so this checks them directly.
     @Test("the defaults are scipy.optimize.brentq's")
     func brentDefaults() {
         #expect(RootFind.defaultXTolerance == 2e-12)
@@ -291,7 +290,7 @@ struct TranscendentalTests {
             maxAbsolute: 1e-15, rootMeanSquare: 1e-15)
     }
 
-    /// Zero exhaustion is the shipped default and must cost no root solve at all.
+    /// Zero exhaustion is the shipped default and must skip the root solve.
     @Test("zero exhaustion short-circuits to a zero offset")
     func exhaustionZero() throws {
         let centers = try Golden("transcendental_morph_centers")

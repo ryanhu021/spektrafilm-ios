@@ -2,9 +2,9 @@ import Foundation
 
 /// A spatial blur the coupler and halation models need.
 ///
-/// Declared as a protocol so the emulsion model can be built and gated before the diffusion module
-/// lands, and so a Metal implementation can substitute later. ``NoSpatialFilter`` is the identity,
-/// which is what `debug.lutMode` and `debug.deactivateSpatialEffects` select anyway.
+/// A protocol so the emulsion model can be built and gated without the diffusion module, and so a
+/// Metal implementation can substitute later. ``NoSpatialFilter`` is the identity, the same result
+/// `debug.lutMode` and `debug.deactivateSpatialEffects` select.
 public protocol SpatialFilter: Sendable {
     /// Isotropic Gaussian blur, sigma in pixels.
     func gaussian(_ image: ImageBuffer, sigma: Double) -> ImageBuffer
@@ -22,8 +22,8 @@ public struct NoSpatialFilter: SpatialFilter {
 /// Development-inhibitor-releasing couplers.
 ///
 /// Ports `model/couplers.py`. As density forms in one layer, inhibitor diffuses out and suppresses
-/// density nearby, in the same layer and in the other two. That raises saturation and contrast, and
-/// once the inhibitor is allowed to spread spatially, local contrast and apparent sharpness too.
+/// density nearby, in the same layer and in the other two. This raises saturation and contrast.
+/// When the inhibitor also spreads spatially, it raises local contrast and apparent sharpness.
 public enum Couplers {
 
     /// `compute_dir_couplers_matrix`.
@@ -47,7 +47,7 @@ public enum Couplers {
     /// they would be without it. This inverts the relationship by shifting the exposure axis by the
     /// inhibitor each density level releases, then resampling.
     ///
-    /// The shifted axis is not monotonic for positive stocks, which is why this uses
+    /// The shifted axis is not monotonic for positive stocks, so this uses
     /// ``Interpolation/npInterp(query:xp:fp:)``. See that function for what depends on it.
     ///
     /// - Parameters:
@@ -158,8 +158,8 @@ public enum Couplers {
     /// The Gaussian core and the exponential tail, blended and written back over `image`.
     ///
     /// Runs one channel at a time. Both whole-buffer filters dispatch per channel internally, so the
-    /// arithmetic is unchanged, but the core, the tail and the mixture are single planes instead of
-    /// three more full frames.
+    /// arithmetic is unchanged, and the core, the tail and the mixture each hold one plane instead
+    /// of a full frame.
     private static func diffuseInPlace(
         _ image: inout ImageBuffer,
         sigma: Double,
@@ -200,9 +200,9 @@ public enum Couplers {
     ///
     /// - Parameters:
     ///   - curves: normalised curves, `[exposure][cmy]` flattened.
-    ///   - pixelSizeMicrons: `nil` when the pipeline was injected past preprocessing, which happens
-    ///     for LUT bakes. The reference gates the conversion to pixel units on
-    ///     `diffusion_size_um > 0` for exactly this case, so the non-spatial chemistry still runs.
+    ///   - pixelSizeMicrons: `nil` when the pipeline was injected past preprocessing, as LUT bakes
+    ///     are. The reference converts to pixel units only when `diffusion_size_um > 0`, so in this
+    ///     case the non-spatial chemistry still runs.
     public static func applyDensityCorrection(
         density: consuming ImageBuffer,
         logRaw: ImageBuffer,

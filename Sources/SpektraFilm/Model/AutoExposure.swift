@@ -5,11 +5,11 @@ import Foundation
 /// Ports `utils/autoexposure.py`. Every method reduces the frame's luminance to one number, divides
 /// by 18% grey, and returns the compensation in stops that would put that number at grey.
 ///
-/// The reference meters on a 256 px preview, not the full frame, and applies the resulting gain to
-/// the full frame. The pipeline keeps that split.
+/// The reference meters a 256 px preview and applies the resulting gain to the full frame. The
+/// pipeline does the same.
 public enum AutoExposure {
 
-    /// Midgray. The same 0.184 the print balance and the density references use.
+    /// Midgray, the same 0.184 the print balance and the density references use.
     public static let midgray = 0.184
 
     /// `measure_autoexposure_ev`.
@@ -32,8 +32,8 @@ public enum AutoExposure {
     /// The Y channel of XYZ.
     ///
     /// Matches `colour.RGB_to_XYZ(image, color_space, apply_cctf_decoding:)`, which passes no
-    /// illuminant. colour-science then adapts from the colourspace whitepoint to itself, a product
-    /// that is only near identity, so the whitepoint is passed explicitly here to reproduce it.
+    /// illuminant. colour-science then adapts from the colourspace whitepoint to itself. That
+    /// product is only near identity, so the whitepoint is passed explicitly here to reproduce it.
     static func luminanceY(
         _ image: ImageBuffer, colourSpace: ColourSpace, applyCCTFDecoding: Bool
     ) -> [Double] {

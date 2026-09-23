@@ -35,10 +35,10 @@ _BRENTQ_CASES = [
     (lambda x: math.exp(-x * x) - 0.75, 0.0, 3.0),
 ]
 
-# Roots outside the reference's initial [-0.25, 0.25], so the doubling search has to fire. The last
-# three pin conventions that a correct-looking rewrite gets wrong by 1e-13 or misses entirely: the
-# r_lo and r_hi exact-zero short-circuits, and the twelfth bracket. Dropping either short-circuit
-# lands on 0.24999999999989636; stopping at eleven doublings gives up on the +-512 case.
+# Roots outside the reference's initial [-0.25, 0.25], so the doubling search has to run. The last
+# three pin conventions that a plausible rewrite gets wrong by 1e-13 or misses entirely: the r_lo
+# and r_hi exact-zero short-circuits, and the twelfth bracket. Dropping either short-circuit returns
+# 0.24999999999989636; stopping at eleven doublings gives up on the +-512 case.
 _BRACKET_CASES = [
     lambda x: math.tanh(x - 1.7),
     lambda x: 1.0 - math.exp(-(x + 1.1)),

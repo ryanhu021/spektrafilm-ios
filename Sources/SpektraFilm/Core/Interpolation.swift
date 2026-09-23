@@ -1,6 +1,6 @@
 import Foundation
 
-/// 1-D linear interpolation. The engine needs two variants and they behave differently.
+/// 1-D linear interpolation, in two variants that behave differently.
 ///
 /// - ``npInterp(query:xp:fp:)`` copies `numpy.interp`, including its guess-threaded binary search.
 ///   The DIR-coupler stage calls it on an axis that runs backwards for slide film, where the
@@ -17,10 +17,10 @@ public enum Interpolation {
     /// Copied line for line because `xp` is not always sorted.
     /// `compute_density_curves_before_dir_couplers` builds its axis as
     /// `log_exposure - couplers_amount_curves`, which steps backwards by up to 0.039 for positive
-    /// stocks (Velvia, Provia, Ektachrome, Kodachrome). NumPy still returns something definite,
-    /// but the answer depends on the guess carried from the previous sample, the three-probe fast
-    /// path and the cache-locality clamps. A plain bisection lands on a different interval and
-    /// slide film comes out wrong.
+    /// stocks (Velvia, Provia, Ektachrome, Kodachrome). NumPy still returns a definite answer, but
+    /// it depends on the guess carried from the previous sample, the three-probe fast path and the
+    /// cache-locality clamps. A plain bisection picks a different interval and slide film comes
+    /// out wrong.
     ///
     /// - Returns: `-1` below the range, `len` above it, otherwise an interval start index.
     @usableFromInline
@@ -127,7 +127,7 @@ public enum Interpolation {
                     } else if j == len - 1 {
                         out[i] = dy[j]
                     } else if dx[j] == x {
-                        // NumPy short-circuits an exact hit to dodge a non-finite slope.
+                        // NumPy short-circuits an exact hit to avoid a non-finite slope.
                         out[i] = dy[j]
                     } else {
                         let slope = slopes[j]
@@ -173,12 +173,12 @@ public enum Interpolation {
     ///   - values: `count * 3` interleaved y values.
     ///
     /// Repeated x values are allowed. Upstream stores a reciprocal of 0 for a zero-width interval,
-    /// so the weight becomes 0 and the lower y comes back.
+    /// so the weight becomes 0 and the lower y is returned.
     ///
-    /// A NaN query returns `values[0, channel]`, same as a query below the axis. That is what the
-    /// oracle does, though it falls out of undefined behaviour: upstream's `x <= xa[0]` and
-    /// `x >= xa[K-1]` are both false for NaN, so it reaches `searchsorted`, which returns `K` and
-    /// indexes `inv_dx[K-1]` one past the end. Numba compiles with `fastmath=True`, which lets it
+    /// A NaN query returns `values[0, channel]`, same as a query below the axis. The oracle does
+    /// the same, but through undefined behaviour: upstream's `x <= xa[0]` and `x >= xa[K-1]` are
+    /// both false for NaN, so it reaches `searchsorted`, which returns `K` and indexes
+    /// `inv_dx[K-1]` one past the end. Numba compiles with `fastmath=True`, which lets it
     /// assume NaN never appears. Nothing on the default path feeds NaN here, since every caller
     /// passes `log10(fmax(raw, 0) + 1e-10)` and `fmax` drops NaN. The `interp_fast_nan_query`
     /// golden pins the behaviour.

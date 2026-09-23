@@ -5,8 +5,8 @@ import Testing
 /// Checks the memory ceiling that keeps a full-resolution export from being terminated.
 ///
 /// Peak footprint is about 148 MB per megapixel, measured in release. A 12 MP frame needs 1.7 GB,
-/// and iOS terminates a foreground app at roughly 1.4 GB, so the ceiling is load-bearing: too high
-/// and export crashes, too low and it quietly shrinks the user's photo.
+/// and iOS terminates a foreground app at roughly 1.4 GB. Set the ceiling too high and export
+/// crashes; set it too low and export shrinks the user's photo more than it needs to.
 @Suite("Render budget")
 struct RenderBudgetTests {
 
@@ -21,8 +21,8 @@ struct RenderBudgetTests {
         let width = 4032
         let height = 3024
         guard let longEdge = RenderBudget.longEdge(forWidth: width, height: height) else {
-            // Only reachable on a machine with a very large allowance, which a desktop test host may
-            // well have. Not a failure.
+            // Reached only when the allowance is very large, as it may be on a desktop test host.
+            // Not a failure.
             return
         }
         let scale = Double(longEdge) / Double(max(width, height))
@@ -45,15 +45,15 @@ struct RenderBudgetTests {
 
     @Test("the measured cost per megapixel is what the ceiling divides by")
     func costIsRecorded() {
-        // Pinned so a change to the constant is a deliberate edit with a new measurement behind it,
-        // not a drifting guess. 125 MB/MP comes from 250 MB at 2 MP, 738 at 6 and 1471 at 12, measured
-        // in release with Tools/memprofile, one measurement per process.
+        // Pinned so the constant changes only with a new measurement. 125 MB/MP comes from 250 MB
+        // at 2 MP, 738 at 6 and 1471 at 12, measured in release with Tools/memprofile, one
+        // measurement per process.
         #expect(RenderBudget.bytesPerMegapixel == 125 * 1_048_576)
         #expect(RenderBudget.safetyFraction > 0 && RenderBudget.safetyFraction < 1)
     }
 
-    /// A render at the capped size must actually produce that size, since the whole point is that the
-    /// larger one would not complete.
+    /// A render at the capped size must complete and produce that size. The cap exists because the
+    /// full-size render would not complete.
     @Test("rendering at the capped size works")
     func cappedRenderRuns() throws {
         var params = try RuntimePhotoParams.make(

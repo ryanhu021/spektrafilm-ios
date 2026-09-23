@@ -154,10 +154,10 @@ public final class ColorReferenceService {
         }
     }
 
-    /// The clipped linear ramp, and where 18% grey lands under it.
+    /// The clipped linear ramp, and where it maps 18% grey.
     ///
-    /// With only one correction enabled the other end anchors to the measured reference instead of
-    /// the requested level, which leaves that end untouched.
+    /// With only one correction enabled, the other end anchors to the measured reference, which
+    /// leaves that end untouched.
     private func correction() throws -> (apply: (Double) -> Double, midgrayCorrected: Double) {
         guard let yBlack, let yWhite else {
             throw SpektraError.unsupportedSetting(

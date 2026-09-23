@@ -176,9 +176,9 @@ public final class FilmingStage {
     /// Reconstructs in sRGB with no transfer decoding, whatever the input colour space is.
     /// `_rgb_to_film_raw` declares `color_space="sRGB"` as a default argument, `expose` passes the
     /// real input space, and this caller passes nothing. The midgray reference is therefore always
-    /// sRGB-relative, which matters: 0.184 in ProPhoto RGB is a different colour, and using the
-    /// input space here shifts the print exposure factor by 3.2e-5 in log space, which lands as a
-    /// uniform 1.8e-3 error on the rendered output.
+    /// sRGB-relative. 0.184 in ProPhoto RGB is a different colour: using the input space here
+    /// shifts the print exposure factor by 3.2e-5 in log space, a uniform 1.8e-3 error on the
+    /// rendered output.
     private func simpleRGBToSpectralDensity(_ rgb: ImageBuffer) throws -> ImageBuffer {
         var raw = try rgbToFilmRaw(rgb, colourSpace: ColourSpace.sRGB, applyCCTFDecoding: false)
         raw.values.withUnsafeMutableBufferPointer { buf in

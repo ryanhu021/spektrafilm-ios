@@ -14,8 +14,8 @@ import Foundation
 /// and `spow(0, -1) = 0 * inf = nan`. The oracle confirms both, scalar and array.
 @inlinable
 public func spow(_ a: Double, _ p: Double) -> Double {
-    // np.sign(-0.0) is +0.0, and NaN * anything is NaN, so the NaN branch only needs to keep the
-    // NaN alive.
+    // np.sign(-0.0) is +0.0, and NaN * anything is NaN, so the NaN branch only needs to propagate
+    // the NaN.
     let sign: Double
     if a < 0 {
         sign = -1
@@ -71,8 +71,8 @@ public func nanToNum(_ image: ImageBuffer) -> ImageBuffer {
 /// exposure conversions (`filming.py:70`, `printing.py:61`, `printing.py:91`) and the scanner's
 /// XYZ-to-log step (`scanning.py:120`).
 ///
-/// The `1e-10` floors the result at -10 for a zero or negative input, and `fmax` means a NaN input
-/// also lands on -10 instead of poisoning the downstream density lookup.
+/// The `1e-10` floors the result at -10 for a zero or negative input. `fmax` maps a NaN input to
+/// -10 as well, so NaN never reaches the downstream density lookup.
 @inlinable
 public func log10Guard(_ x: Double) -> Double { log10(npFmax(x, 0) + 1e-10) }
 
@@ -88,8 +88,8 @@ public func log10Guard(_ image: ImageBuffer) -> ImageBuffer {
 
 /// `numpy.linspace(start, stop, count, endpoint:)`.
 ///
-/// Ported term by term because the result is an interpolation domain, so a one-ulp difference in a
-/// breakpoint moves every query that lands near it. Two details carry the whole function:
+/// Ported term by term because the result is an interpolation domain: a one-ulp difference in a
+/// breakpoint moves every query near it. Two details matter:
 ///
 /// - The step is formed **once** as `(stop - start) / div` and then multiplied by `i`. Computing
 ///   `Double(i) * (stop - start) / div` instead rounds twice and misses `linspace(-3, 4, 256)` by
@@ -131,9 +131,9 @@ public func linspace(
 
 /// Per-channel `np.nanmin(a, axis: 0)` over a flattened `[n][channels]` array.
 ///
-/// An all-NaN slice returns NaN, which is what NumPy does after its `All-NaN slice encountered`
-/// warning. Verified in the oracle, including on `fujifilm_c200`'s `channel_density`, the one
-/// bundled profile array with missing samples.
+/// An all-NaN slice returns NaN, as NumPy does after its `All-NaN slice encountered` warning.
+/// Verified in the oracle, including on `fujifilm_c200`'s `channel_density`, the one bundled
+/// profile array with missing samples.
 public func nanMin(_ values: [Double], channels: Int) -> [Double] {
     reduceOverSamples(values, channels: channels) { Swift.min($0, $1) }
 }

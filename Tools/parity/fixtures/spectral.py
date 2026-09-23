@@ -4,9 +4,9 @@ Covers the chromaticity warp, the shipped 192x192x81 irradiance LUT, the sensiti
 window and surface, the per-film tc_lut contraction, the Mitchell 2D LUT fetch and the end-to-end
 raw. Input gamut compression is out of scope here, so every tc_lut is built with it bypassed.
 
-Two fixtures carry the full 192x192x3 array because they are the gates that matter (the production
-tc_lut and the on-grid Mitchell fetch). The variants are decimated on a fixed index list that
-includes both ends of each axis, so a transposed or off-by-one LUT still fails.
+Two fixtures hold the full 192x192x3 array because they are the main gates: the production tc_lut
+and the on-grid Mitchell fetch. The variants are decimated on a fixed index list that includes both
+ends of each axis, so a transposed or off-by-one LUT still fails.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def spectral_irradiance_lut():
 
     yield "su_spectra_lut_cells", np.stack([LUT[i, j] for i, j in CELLS])
     # The total is 3.2e6 over 3M elements, so a sequential Swift sum and NumPy's pairwise sum differ
-    # by ~2e-3. Scaled by 1e-6 the load check still catches a misread element and clears the gate.
+    # by ~2e-3. Scaled by 1e-6, the sum still catches a misread element and stays within the gate.
     yield "su_spectra_lut_stats_scaled", np.array([LUT.min(), LUT.max(), LUT.sum() * 1e-6])
 
 

@@ -107,10 +107,10 @@ struct ParityReport: CustomStringConvertible {
 
 /// Compares elementwise, treating NaN as equal to NaN.
 ///
-/// Profiles encode missing data as JSON `null`, which the reference loads as NaN and carries
-/// through the density curves, so stocks with partial datasheet coverage legitimately contain NaN.
-/// Skipping NaN outright would hide a port that turned real numbers into NaN, which is what
-/// ``ParityReport/nanMismatches`` counts.
+/// Profiles encode missing data as JSON `null`, which the reference loads as NaN and propagates
+/// through the density curves, so stocks with partial datasheet coverage contain NaN. Skipping NaN
+/// entirely would hide a port that turned real numbers into NaN; ``ParityReport/nanMismatches``
+/// counts those.
 func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
     precondition(
         actual.count == expected.count,
@@ -128,9 +128,8 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
             if a.isNaN != e.isNaN { nanMismatches += 1 }
             continue
         }
-        // abs(-0.0 - 0.0) is 0, so a signed-zero disagreement is invisible to the bounds below.
-        // That is not academic: it hid an npFmax that broke the tie the opposite way from np.fmax,
-        // in a fixture that contained the exact failing case.
+        // abs(-0.0 - 0.0) is 0, so the bounds below cannot see a signed-zero disagreement, such as
+        // an npFmax that breaks the tie the opposite way from np.fmax.
         if a == 0 && e == 0 && a.sign != e.sign { signedZeroMismatches += 1 }
         let d = abs(a - e)
         if d > maxAbs {
@@ -154,7 +153,7 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
 
 /// The parity contract: absolute and RMS bounds, and no NaN appearing or disappearing.
 ///
-/// Same tolerance the Android port settled on, so both ports promise the same thing.
+/// The Android port uses the same tolerance, so both ports promise the same accuracy.
 func expectParity(
     _ actual: [Double],
     matches golden: String,

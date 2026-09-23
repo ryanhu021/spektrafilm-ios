@@ -3,10 +3,9 @@ import SwiftUI
 
 /// The print on the easel.
 ///
-/// The render takes between 83 ms and 623 ms depending on the tier, and no amount of engineering will
-/// make that a per-frame update on a CPU engine. Rather than hide the latency behind a spinner, a
-/// completed render resolves the way a print comes up in the developer: it arrives slightly flat and
-/// settles over about 280 ms. The wait becomes the material instead of an apology for it.
+/// A render takes 83 to 623 ms depending on the tier, too slow to update every frame. A finished
+/// render appears slightly flat and soft and settles to full contrast over about 280 ms, the way a
+/// print comes up in the developer tray.
 struct PrintView: View {
     let image: CGImage?
     let isRendering: Bool
@@ -97,7 +96,7 @@ struct PrintView: View {
         }
     }
 
-    /// Names the tap when it is not the print, so an inverted negative is never mistaken for a bug.
+    /// Names the tap when it is not the print, so an intermediate is not mistaken for a bad render.
     @ViewBuilder
     private var statusBadge: some View {
         if tap != .rgbOut || isRendering {

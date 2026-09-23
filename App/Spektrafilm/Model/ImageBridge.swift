@@ -5,11 +5,10 @@ import UIKit
 
 /// Converts between CoreGraphics images and the engine's buffers.
 ///
-/// The colour handling matters more than the plumbing. The engine wants scene-linear RGB in a named
-/// colour space, so decoding happens here by drawing through a linear CGColorSpace: CoreGraphics
-/// applies the source image's own transfer function and gamut mapping on the way in, which is more
-/// trustworthy than reading encoded bytes and inverting a transfer function we guessed at. The
-/// engine is then told `inputCCTFDecoding = false`, because the values arriving are already linear.
+/// The engine wants scene-linear RGB in a named colour space. Decoding draws the image into a linear
+/// CGColorSpace, so CoreGraphics applies the file's own transfer function and gamut mapping from its
+/// embedded profile. The engine is then told `inputCCTFDecoding = false`, since the values are
+/// already linear.
 enum ImageBridge {
 
     /// The working colour space. Display P3 covers what modern iPhone cameras capture, and the engine
@@ -32,8 +31,8 @@ enum ImageBridge {
 
     /// Decodes a `CGImage` into a linear `ImageBuffer`, scaled so its long edge is at most `longEdge`.
     ///
-    /// Scaling happens inside CoreGraphics rather than in the engine: the engine's own resampler is
-    /// not ported, and CoreGraphics is doing a colour conversion in the same pass anyway.
+    /// CoreGraphics scales in the same pass as the colour conversion. The engine's resampler only
+    /// implements the orders its own pipeline uses.
     static func buffer(from image: CGImage, longEdge: Int?) throws -> ImageBuffer {
         var width = image.width
         var height = image.height
@@ -78,8 +77,7 @@ enum ImageBridge {
         for pixel in 0..<(width * height) {
             let source = pixel * componentsPerPixel
             let alpha = Double(raw[source + 3])
-            // Un-premultiply. A transparent PNG would otherwise darken toward black, which the film
-            // model would faithfully expose as a shadow.
+            // Un-premultiply, or a transparent PNG darkens toward black and renders as shadow.
             let scale = alpha > 1e-6 ? 1.0 / alpha : 0.0
             values[pixel * 3] = Double(raw[source]) * scale
             values[pixel * 3 + 1] = Double(raw[source + 1]) * scale
@@ -91,10 +89,9 @@ enum ImageBridge {
 
     /// Wraps a rendered buffer as a `CGImage` for display.
     ///
-    /// The engine emits values encoded with the output colour space's transfer function, so the image
-    /// is tagged with that space rather than a linear one. Values are clamped to [0, 1] here: output
-    /// gamut compression already lands inside the cube, and anything outside it is a defect worth
-    /// seeing as a flat clip rather than a wrapped colour.
+    /// The engine's output is already encoded with the output colour space's transfer function, so
+    /// the image is tagged with that space. Values are clamped to [0, 1]. Output gamut compression
+    /// keeps them inside the cube, so anything outside is a defect, and a clip shows it plainly.
     static func image(from buffer: ImageBuffer, colourSpace: CGColorSpace) throws -> CGImage {
         precondition(buffer.channels == 3, "expected an RGB buffer")
         let count = buffer.pixelCount

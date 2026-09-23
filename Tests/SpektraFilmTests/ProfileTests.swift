@@ -4,9 +4,8 @@ import Testing
 
 /// Checks the bundled profiles load, validate, and keep the values the pipeline reduces over.
 ///
-/// The JSON ships byte for byte from upstream, so these test the decoder, not the numbers. Watch
-/// the NaN cases: profiles use JSON `null` for wavelengths the datasheet skips, and the reference
-/// needs those to stay NaN.
+/// The JSON ships byte for byte from upstream, so these tests check the decoder. Profiles use JSON
+/// `null` for wavelengths the datasheet skips, and the reference needs those to decode to NaN.
 @Suite("Profiles")
 struct ProfileTests {
 
@@ -20,7 +19,7 @@ struct ProfileTests {
     }
 
     /// Stage decides whether a profile can act as the negative or the print. Kodak 2383 and 2393
-    /// are cine print films, carrying `support: film` with `stage: printing`. Keying the pickers off
+    /// are cine print films, with `support: film` and `stage: printing`. Keying the pickers off
     /// support would offer them as camera stocks and hide two print media.
     @Test("the library splits by stage into 20 camera stocks and 8 print media")
     func stageSplit() throws {
@@ -29,7 +28,7 @@ struct ProfileTests {
         #expect(try ProfileLibrary.printMedia.count == 8)
         #expect(profiles.filter(\.isPositive).count == 4)
 
-        // Support and stage genuinely disagree for exactly these two.
+        // Support and stage disagree for these two only.
         let printFilms = profiles.filter { $0.isFilm && $0.info.stage == .printing }
         #expect(printFilms.map(\.info.stock).sorted() == ["kodak_2383", "kodak_2393"])
         #expect(profiles.filter(\.isPaper).count == 6)

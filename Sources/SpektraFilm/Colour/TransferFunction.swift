@@ -9,8 +9,8 @@ import Foundation
 /// - `spow` is a signed power, `sign(a) * |a|^p`, so the sRGB and BT.2020 segments stay finite
 ///   below zero.
 /// - `gamma_function` defaults to "Indeterminate" negative handling, a plain `a ** p`, which is
-///   NaN for a negative base with a fractional exponent. DCI-P3 and Adobe RGB go NaN below zero
-///   and the engine leaves that alone.
+///   NaN for a negative base with a fractional exponent. DCI-P3 and Adobe RGB return NaN below
+///   zero, and the engine keeps the NaN.
 /// - ROMM RGB (ProPhoto) scales through an 8-bit integer range and back, so the arithmetic is
 ///   `X * 16 * 255 / 255`.
 public enum TransferFunction: String, Sendable, CaseIterable {

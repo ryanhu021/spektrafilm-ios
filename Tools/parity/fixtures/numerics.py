@@ -3,9 +3,9 @@
 Nothing here is stochastic and almost everything is closed form, so the Swift side gates these at
 bit equality, or at 1e-15 for the two sums where NumPy accumulates pairwise.
 
-Non-finite values are deliberately kept out of the compared arrays. `Golden.swift`'s `parity()`
-computes `abs(a - e)`, and `inf - inf` is NaN, which poisons the RMS instead of failing loudly; the
-infinity cases are asserted directly in `NumericsTests.swift` against values measured here.
+Non-finite values are kept out of the compared arrays. `Golden.swift`'s `parity()` computes
+`abs(a - e)`, and `inf - inf` is NaN, which poisons the RMS instead of failing loudly. The infinity
+cases are asserted directly in `NumericsTests.swift` against values measured here.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import scipy.ndimage as ndi
 from fixture_registry import fixture
 
 # (a, p) pairs for spow. Every result is finite and non-NaN, so the whole grid can be one golden.
-# The negative bases are the point: np.power(-0.5, 2.2) is NaN, spow is not.
+# np.power(-0.5, 2.2) is NaN and spow is not, so the negative bases are the important cases.
 SPOW_CASES = [
     (0.5, 2.2),
     (-0.5, 2.2),
@@ -46,7 +46,7 @@ SPOW_CASES = [
 # comparison treats NaN as equal to NaN, so a Swift `max` that propagated NaN would show up as a
 # NaN mismatch.
 #
-# The two signed-zero rows are carried for documentation only. The Swift comparison is
+# The two signed-zero rows are for documentation only. The Swift comparison is
 # abs(actual - expected), which is 0 for -0.0 against +0.0, so the golden cannot check the sign of
 # the tie; NumericsTests.fmaxTieOnSignedZero pins it against the values measured here.
 FMAX_CASES = [
@@ -65,7 +65,7 @@ FMAX_CASES = [
 
 NAN_TO_NUM_CASES = [np.nan, np.inf, -np.inf, 0.0, -0.0, 1.5, -2.5, 1e308, -1e308]
 
-# log10_guard inputs: the negatives and the NaN all land on -10, which is the floor the four call
+# log10_guard inputs: the negatives and the NaN all map to -10, which is the floor the four call
 # sites rely on.
 LOG10_GUARD_CASES = [np.nan, -1.0, -1e-30, 0.0, 1e-30, 1e-10, 1e-5, 0.184, 1.0, 10.0, 1e6]
 
@@ -171,7 +171,7 @@ def numerics():
         yield "num_nan_mean_flat", np.array([np.nanmean(reduce_in)])
 
         # The same reductions on real data. fujifilm_c200 is the one bundled profile whose
-        # channel_density carries missing samples: 8/7/7 NaN per channel and 7 all-NaN rows.
+        # channel_density has missing samples: 8/7/7 NaN per channel and 7 all-NaN rows.
         density = np.asarray(load_profile("fujifilm_c200").data.channel_density, dtype=np.float64)
         assert np.isnan(density).any(), "fujifilm_c200 channel_density lost its NaN"
         yield "num_nan_min_c200_channel_density", np.nanmin(density, axis=0)

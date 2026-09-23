@@ -2,9 +2,9 @@ import Foundation
 
 /// Samples a square 2D LUT at per-pixel coordinates.
 ///
-/// The seam a Metal implementation drops into: the `tc_lut` fetch is the only per-pixel work in
-/// spectral upsampling, so it is the only part of the subsystem worth a GPU path. A GPU version has
-/// to reproduce ``MitchellLUT2DSampler`` exactly, including the non-interpolating kernel; an
+/// A Metal implementation plugs in here. The `tc_lut` fetch is the only per-pixel work in spectral
+/// upsampling, so it is the only part of the subsystem worth a GPU path. A GPU version must
+/// reproduce ``MitchellLUT2DSampler`` exactly, including the non-interpolating kernel. An
 /// `MTLSampler` bicubic is a different filter and shifts every pixel.
 public protocol LUT2DSampler: Sendable {
     /// Samples one pixel at a time, so a caller that derives its coordinates from another buffer
@@ -106,12 +106,12 @@ public enum LUTInterpolation {
     /// `base + 1` stays in range.
     ///
     /// **NaN guard.** `Int(Double.nan)` traps in Swift, so NaN cannot reach the `Int` conversion. It
-    /// maps to base 0 with a **NaN fraction**, which is what reproduces the reference: there
+    /// maps to base 0 with a **NaN fraction**, which reproduces the reference. There,
     /// `int(np.floor(nan))` is a garbage index, but every `mitchell_weight(nan)` is 0 because both of
-    /// its comparisons fail, the weight sum is 0, and the trailing guard leaves the output at zero.
-    /// A NaN fraction gives the same 16 zero weights and therefore the same exact zero, measured
-    /// against the oracle. Returning fraction 0 instead would fetch the smoothed cell at the origin,
-    /// which is up to 8.1 off on the production `tc_lut`.
+    /// its comparisons fail, so the weight sum is 0 and the trailing guard leaves the output at zero.
+    /// A NaN fraction gives the same 16 zero weights and the same exact zero, measured against the
+    /// oracle. Returning fraction 0 would fetch the smoothed cell at the origin, up to 8.1 off on
+    /// the production `tc_lut`.
     @inlinable
     public static func cubicCoordinateBaseFraction(
         _ coordinate: Double, size: Int
@@ -135,8 +135,8 @@ public enum LUTInterpolation {
 
     /// `_cubic_interp_lut_at_2d`. Writes `lut.channels` values into `out`.
     ///
-    /// The trailing division by the weight sum stays: the sum is `1 ± 9e-16`, not exactly 1, so
-    /// dropping it is observable (far below the parity gate, but free to get right).
+    /// Keep the trailing division by the weight sum: the sum is `1 ± 9e-16`, not exactly 1, so
+    /// dropping it changes the output (far below the parity gate).
     @inlinable
     public static func cubicInterpLUT2D(
         lut: ImageBuffer, x: Double, y: Double, into out: inout [Double]
@@ -178,8 +178,8 @@ public enum LUTInterpolation {
     ///
     /// A NaN coordinate maps to 0 here, so the single cell is returned. The reference is undefined
     /// for that input: `int(np.floor(nan))` again, and its bilinear weights come out NaN where the
-    /// cubic kernel's come out 0. The path is unreachable from the engine anyway, because the only 2D
-    /// LUT in the pipeline is 192 x 192.
+    /// cubic kernel's come out 0. The path is unreachable from the engine, because the only 2D LUT
+    /// in the pipeline is 192 x 192.
     @inlinable
     public static func linearInterpLUT2D(
         lut: ImageBuffer, x: Double, y: Double, into out: inout [Double]
@@ -227,8 +227,8 @@ public enum LUTInterpolation {
     /// This is the subsystem's only per-pixel work, so the tap loop runs on raw pointers: 43 ms per
     /// megapixel with 3 output channels on an M-series core, against 58 ms for the same loop through
     /// ``ImageBuffer``'s bounds-checked subscript. The reference quotes 14.8 ms per megapixel for a
-    /// Numba kernel with `parallel=True` across rows; output pixels are independent here too, so
-    /// row-parallelism is available behind ``LUT2DSampler`` when a caller needs it.
+    /// Numba kernel with `parallel=True` across rows. Output pixels are independent here too, so a
+    /// ``LUT2DSampler`` can parallelise across rows when a caller needs it.
     public static func sampleCubic2D(
         lut: ImageBuffer,
         into destination: inout ImageBuffer,

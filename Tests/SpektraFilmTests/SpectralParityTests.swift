@@ -127,7 +127,7 @@ struct SpectralParityTests {
         #expect(tc.y == 1.0)
         #expect(abs(tc.x - 1.000000000057511e-12) < 1e-24)
 
-        // The two only differ for x < 0, where 1 - x exceeds 1 and clipping x to 0 first would give
+        // The two differ only for x < 0, where 1 - x exceeds 1 and clipping x to 0 first would give
         // the larger ratio y instead of y / (1 - x). Oracle values from `_tri2quad`.
         let negative: [(Double, Double, Double)] = [
             (-2.0, 0.5, 0.16666666666666666),
@@ -136,16 +136,15 @@ struct SpectralParityTests {
         ]
         for (x, y, expected) in negative {
             let quad = ChromaticityCoordinates.triToQuad(x: x, y: y)
-            // (1 - x)^2 > 1 for every negative x, so the x coordinate saturates and only y carries
-            // the distinction.
+            // (1 - x)^2 > 1 for every negative x, so the x coordinate saturates and only y differs.
             #expect(quad.x == 1.0)
             #expect(abs(quad.y - expected) < 1e-15)
         }
     }
 
     @Test func negativeChromaticityXIsReachableFromOrdinaryInput() throws {
-        // ProPhoto RGB (-0.2, 0.1, 1.0) is a saturated blue outside the input space, with a perfectly
-        // finite b = 0.828. Its CIE x is -0.122, which is the branch above. Oracle: _rgb_to_tc_b.
+        // ProPhoto RGB (-0.2, 0.1, 1.0) is a saturated blue outside the input space, with a finite
+        // b = 0.828. Its CIE x is -0.122, so it takes the branch above. Oracle: _rgb_to_tc_b.
         let rgb = ImageBuffer(height: 1, width: 1, channels: 3, values: [-0.2, 0.1, 1.0])
         let (tc, brightness) = SpectralUpsampling.rgbToTCB(
             rgb: rgb,
@@ -218,8 +217,8 @@ struct SpectralParityTests {
             colourSpace: try ColourSpace.named("ACES2065-1"),
             applyCCTFDecoding: false,
             referenceIlluminant: try Illuminant(label: "D55"))
-        // 1e-9, not tighter: ACES2065-1's composed CAT16 matrix differs from colour-science's in the
-        // last bits because the adaptation inverse here is analytic and LAPACK's there.
+        // 1e-9, not tighter: ACES2065-1's composed CAT16 matrix differs from colour-science's in
+        // the last bits because the adaptation inverse here is analytic and LAPACK's there.
         #expect(abs(brightness[0] - -0.087019446625840) < 1e-9)
     }
 
@@ -284,13 +283,13 @@ struct SpectralParityTests {
             illuminantXY: adaptation.referenceIlluminant.chromaticity,
             gridSize: 192)
         // (85, 99) is the nearest grid cell to D55's tc. Dropping the polynomial's constant term
-        // is what forces the correction to vanish there, which is what preserves white.
+        // forces the correction to vanish there, which preserves white.
         for c in 0..<3 { #expect(abs(surface[85, 99, c]) < 3e-3) }
     }
 
     @Test func poly4WarpSurface() throws {
         let adaptation = try Self.adaptation("kodak_portra_400")
-        // No shipped profile carries the warp strength, so append a synthetic alpha per channel.
+        // No shipped profile has the warp strength, so append a synthetic alpha per channel.
         var params: [Double] = []
         for channel in 0..<3 {
             params += Array(adaptation.surfaceParams[(channel * 15)..<((channel + 1) * 15)]) + [0.5]
@@ -449,7 +448,7 @@ struct SpectralParityTests {
     }
 
     @Test func mitchellDoesNotInterpolate() {
-        // B = C = 1/3 gives [1/18, 8/9, 1/18, 0] at frac 0. A grid-aligned fetch is a smoothing, so
+        // B = C = 1/3 gives [1/18, 8/9, 1/18, 0] at frac 0. A grid-aligned fetch smooths, so
         // substituting any interpolating kernel shifts every rendered pixel.
         let w = [
             LUTInterpolation.mitchellWeight(1), LUTInterpolation.mitchellWeight(0),
@@ -475,9 +474,9 @@ struct SpectralParityTests {
         let fetched = LUTInterpolation.applyLUTCubic2D(lut: lut, coordinates: coordinates)
         try expectParity(fetched.values, matches: "su_lut2d_grid")
 
-        // The same array against the *stored* LUT, which the fetch deliberately does not reproduce.
-        // The oracle measures 0.21265295923 on this LUT (0.780 on the raw irradiance table), so this
-        // pins the smoothing magnitude, not just the values.
+        // The same array against the *stored* LUT, which the fetch does not reproduce. The oracle
+        // measures 0.21265295923 on this LUT (0.780 on the raw irradiance table), so this pins the
+        // smoothing magnitude as well as the values.
         let smoothing = zip(fetched.values, lut.values).map { abs($0 - $1) }.max() ?? 0
         #expect(abs(smoothing - 0.21265295922986738) < 1e-9)
     }
@@ -509,7 +508,7 @@ struct SpectralParityTests {
     @Test func coordinateBaseFractionEdgeCases() {
         #expect(LUTInterpolation.cubicCoordinateBaseFraction(-5, size: 192) == (0, 0))
         #expect(LUTInterpolation.cubicCoordinateBaseFraction(0, size: 192) == (0, 0))
-        // The top edge lands in the last cell with fraction 1, so base + 1 stays in range.
+        // The top edge falls in the last cell with fraction 1, so base + 1 stays in range.
         #expect(LUTInterpolation.cubicCoordinateBaseFraction(191, size: 192) == (190, 1.0))
         #expect(LUTInterpolation.cubicCoordinateBaseFraction(500, size: 192) == (190, 1.0))
         let (base, fraction) = LUTInterpolation.cubicCoordinateBaseFraction(3.25, size: 192)
@@ -518,9 +517,8 @@ struct SpectralParityTests {
     }
 
     @Test func coordinateBaseFractionGuardsNaN() throws {
-        // Int(Double.nan) traps in Swift where Numba produced a garbage index. The fraction stays NaN
-        // so every Mitchell weight is 0, which is what makes the fetch return exactly 0, as the
-        // oracle does.
+        // Int(Double.nan) traps in Swift, where Numba produced a garbage index. The fraction stays
+        // NaN, so every Mitchell weight is 0 and the fetch returns exactly 0, as the oracle does.
         let (base, fraction) = LUTInterpolation.cubicCoordinateBaseFraction(.nan, size: 192)
         #expect(base == 0)
         #expect(fraction.isNaN)
@@ -552,7 +550,7 @@ struct SpectralParityTests {
             tcLUT: try Self.portraTCLUT())
         try expectParity(raw.values, matches: "su_raw_hanatos2025")
 
-        // Midgray lands near 1 without any normalisation here: log_sensitivity is pre-balanced
+        // Midgray comes out near 1 without any normalisation here: log_sensitivity is pre-balanced
         // offline, and the rest happens downstream in the colour reference service.
         for c in 0..<3 { #expect(abs(raw[0, 1, c] - 1.0) < 0.1) }
     }

@@ -6,11 +6,11 @@ collects whatever registered itself here.
 
 Two kinds:
 
-- `@fixture` produces `(name, array)` pairs, written as .spkg and listed in the manifest. This is
-  what almost everything uses.
-- `@sidecar` writes its own file under Goldens/ and returns a short description. For goldens that
-  are not float arrays, such as the parameter defaults, which mix numbers, booleans, strings and
-  nulls.
+- `@fixture` produces `(name, array)` pairs, written as .spkg and listed in the manifest. Almost
+  every fixture uses this.
+- `@sidecar` writes its own file under Goldens/ and returns a short description. It is for goldens
+  that are not float arrays, such as the parameter defaults, which mix numbers, booleans, strings
+  and nulls.
 """
 
 from __future__ import annotations

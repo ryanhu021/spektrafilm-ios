@@ -88,9 +88,9 @@ public struct Matrix3: Sendable, Equatable {
 
     /// Analytic inverse via the adjugate.
     ///
-    /// The reference gets its inverses from LAPACK, which differs in the last couple of bits. That
-    /// reaches about 1e-16 relative in the rendered pixel, twelve orders of magnitude under the
-    /// 1e-4 gate, so LAPACK is not worth a dependency.
+    /// The reference gets its inverses from LAPACK, which differs in the last couple of bits. The
+    /// difference reaches about 1e-16 relative in the rendered pixel, twelve orders of magnitude
+    /// under the 1e-4 gate, so LAPACK is not worth a dependency.
     public var inverse: Matrix3 {
         let det = determinant
         precondition(det != 0, "Matrix3 is singular")

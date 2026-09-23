@@ -4,15 +4,15 @@ import Testing
 
 /// Checks the colour foundations against colour-science.
 ///
-/// The whole render sits on transfer functions, illuminant spectra and the XYZ to RGB matrices. A
-/// bug in any of them shows up in the end-to-end fixtures as a vague colour shift that is painful
-/// to track down, so they get their own gate.
+/// The whole render depends on transfer functions, illuminant spectra and the XYZ to RGB matrices.
+/// A bug in any of them shows up in the end-to-end fixtures as a vague colour shift that is hard to
+/// trace, so this suite tests them directly.
 @Suite("Colour parity")
 struct ColourParityTests {
 
     // MARK: - Transfer functions
 
-    /// Slugs match `generate_goldens.py`, so a renamed fixture fails loudly.
+    /// Slugs match `generate_goldens.py`, so renaming a fixture there makes these tests throw.
     static let transferCases: [(space: String, slug: String)] = [
         ("sRGB", "srgb"),
         ("DCI-P3", "dci_p3"),
@@ -38,9 +38,9 @@ struct ColourParityTests {
     }
 
     /// The sweep includes negatives. sRGB and BT.2020 use a signed power and stay finite, while
-    /// DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. A silent change
-    /// to clamping would still pass the parity test on the positive half, so assert the behaviour
-    /// directly.
+    /// DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. A change to
+    /// clamping would still pass the parity test on the positive half, so this asserts the
+    /// behaviour directly.
     @Test("negative inputs keep colour-science's divergent handling")
     func negativeHandling() throws {
         #expect(TransferFunction.sRGB.encode(-0.5).isFinite)
@@ -154,8 +154,8 @@ struct ColourParityTests {
     }
 
     /// The scanning stage encodes its output through `RGB_to_RGB(rgb, cs, cs, ...)`, which applies
-    /// `fromXYZ * (CAT * toXYZ)` before the transfer function. The product only comes close to
-    /// identity, so skipping it shows up here.
+    /// `fromXYZ * (CAT * toXYZ)` before the transfer function. The product is close to identity
+    /// but not equal to it, so skipping it fails here.
     @Test(
         "same-space RGB_to_RGB keeps its near-identity matrix",
         arguments: [("sRGB", "srgb"), ("Display P3", "display_p3"), ("ProPhoto RGB", "prophoto_rgb")]

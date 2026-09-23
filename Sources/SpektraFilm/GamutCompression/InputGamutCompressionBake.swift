@@ -11,8 +11,8 @@ import Foundation
 /// Each cell of the new LUT decodes its own tc index back to xy, compresses that, re-encodes to tc,
 /// and samples the original LUT there. The per-pixel path stays compression-agnostic.
 ///
-/// This closes the seam ``InputGamutCompressionBake`` declares. It lives with the compressor because
-/// the compression is the part that varies; the sampling is fixed.
+/// This implements ``InputGamutCompressionBake``. It lives with the compressor because the
+/// compression is the part that varies. The sampling is fixed.
 public struct TCLUTCompressionBake: InputGamutCompressionBake {
     public init() {}
 

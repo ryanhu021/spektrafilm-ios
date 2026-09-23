@@ -3,9 +3,9 @@ import Foundation
 /// An RGB colourspace: conversion matrices, whitepoint and transfer function.
 ///
 /// The seven registered spaces are the ones the reference GUI offers
-/// (`spektrafilm_gui/options.py:RGBColorSpaces`). Matrices come from ``ColourTables``, dumped
-/// straight from colour-science, because several spaces ship published matrices that a fresh
-/// derivation from the primaries would not match digit for digit.
+/// (`spektrafilm_gui/options.py:RGBColorSpaces`). Matrices come from ``ColourTables``, dumped from
+/// colour-science. Several spaces ship published matrices that a derivation from the primaries
+/// would not match digit for digit.
 public struct ColourSpace: Sendable, Hashable, Identifiable {
     public let name: String
     public let whitepoint: Chromaticity
@@ -68,8 +68,7 @@ extension ColourSpace {
 
 /// Cone-response space used for von Kries chromatic adaptation.
 public enum ChromaticAdaptationTransform: String, Sendable, CaseIterable {
-    /// colour-science's default for `XYZ_to_RGB` / `RGB_to_RGB`, and therefore what the scanning
-    /// stage uses.
+    /// colour-science's default for `XYZ_to_RGB` / `RGB_to_RGB`, so the scanning stage uses it.
     case cat02
     /// Named explicitly by the spectral-upsampling stage, where CAT02's cone primaries misbehave
     /// for blues and violets.
@@ -106,9 +105,9 @@ public enum Colour {
 
     /// `colour.XYZ_to_RGB(XYZ, colourspace, illuminant:, apply_cctf_encoding: false)`.
     ///
-    /// Given an `illuminant`, the adaptation matrix and the XYZ to RGB matrix go on as two separate
-    /// products, the way upstream does it. The scanning stage passes the print's viewing-illuminant
-    /// chromaticity through here.
+    /// Given an `illuminant`, the adaptation matrix and the XYZ to RGB matrix are applied as two
+    /// separate products, as upstream does. The scanning stage passes the print's
+    /// viewing-illuminant chromaticity through here.
     public static func XYZToRGB(
         _ buffer: inout ImageBuffer,
         colourspace: ColourSpace,
@@ -143,7 +142,7 @@ public enum Colour {
     ///
     /// Upstream calls this with `input == output` just to run the output transfer function, in
     /// `ScanningStage._apply_cctf_encoding`. That path still multiplies by `fromXYZ * (CAT *
-    /// toXYZ)`, which only comes close to identity, so the matrix step always runs here.
+    /// toXYZ)`, which is only close to identity, so the matrix step always runs here.
     public static func RGBToRGB(
         _ buffer: inout ImageBuffer,
         from input: ColourSpace,

@@ -1,12 +1,12 @@
 name: Parity oracle
 
 # Rebuilds the pinned Python oracle and checks that the committed tables and goldens still match
-# what it produces. This lives outside CI because installing NumPy, SciPy, Numba and colour-science
-# takes minutes, and it can only fail for two reasons that a normal commit does not cause:
+# what it produces. This runs outside CI because installing NumPy, SciPy, Numba and colour-science
+# takes minutes. It fails for only two reasons, neither caused by a normal commit:
 #
 #   1. Someone hand-edited a generated file or a golden instead of regenerating it.
-#   2. A dependency resolved to a version whose numbers differ, which is the drift this job exists
-#      to catch before it changes a render.
+#   2. A dependency resolved to a version whose numbers differ. This job catches that drift before
+#      it changes a render.
 #
 # Upstream moving does not fail this job. The oracle is pinned to a commit.
 

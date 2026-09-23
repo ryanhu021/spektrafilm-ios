@@ -1,12 +1,12 @@
 import Foundation
 
-/// Turns a freshly constructed parameter set into the one the pipeline actually runs.
+/// Turns a freshly constructed parameter set into the one the pipeline runs.
 ///
 /// Ports `runtime/params_builder.digest_params`. The dataclass defaults in ``RuntimePhotoParams``
-/// are not what renders: this layer overrides the enlarger's neutral filter positions from a
+/// are not what renders. This layer overrides the enlarger's neutral filter positions from a
 /// measured database, seeds the coupler and halation parameters from the stock's own tags, and
-/// applies the debug switches. Skipping it changes the render, so ``Simulator`` digests on the way
-/// in and there is no way to construct a pipeline around undigested params.
+/// applies the debug switches. Skipping it changes the render, so ``Simulator`` always digests and
+/// no pipeline can be built from undigested params.
 public enum ParamsBuilder {
 
     /// `digest_params`.
@@ -32,8 +32,8 @@ public enum ParamsBuilder {
     /// `apply_database_neutral_print_filters`.
     ///
     /// The filter positions that make an 18% grey card neutral depend on the paper, the enlarger
-    /// lamp and the film together, so they are measured per combination rather than derived. The
-    /// dataclass defaults of 0 / 65 / 55 are a fallback for combinations the database does not cover.
+    /// lamp and the film together, so they are measured per combination. The dataclass defaults of
+    /// 0 / 65 / 55 are a fallback for combinations the database does not cover.
     static func applyDatabaseNeutralPrintFilters(_ p: inout RuntimePhotoParams) throws {
         guard p.settings.neutralPrintFiltersFromDatabase else { return }
         guard
@@ -49,8 +49,8 @@ public enum ParamsBuilder {
 
     // MARK: - Preview mode
 
-    /// Drops the expensive spatial and stochastic work while keeping the scatter and halation kernel
-    /// sigmas, which the reference preserves deliberately.
+    /// Drops the expensive spatial and stochastic work. The scatter and halation kernel sigmas stay,
+    /// as in the reference.
     static func applyPreviewMode(_ p: inout RuntimePhotoParams) {
         p.enlarger.lensBlur = 0
         p.filmRender.dirCouplers.diffusionSizeMicrons = 0
@@ -68,8 +68,8 @@ public enum ParamsBuilder {
     /// `_apply_film_specifics`.
     ///
     /// The coupler gammas here are fitted, and they differ from the dataclass defaults. Positive
-    /// stocks get much weaker inhibition than negatives, and Velvia and Provia are tuned again on
-    /// top of that.
+    /// stocks get much weaker inhibition than negatives, and Velvia and Provia then get their own
+    /// values.
     static func applyFilmSpecifics(_ p: inout RuntimePhotoParams) {
         if p.film.isPositive {
             p.filmRender.dirCouplers.gammaSameLayerRGB = (0.12, 0.08, 0.06)
@@ -179,7 +179,7 @@ public enum ParamsBuilder {
 /// The measured neutral enlarger filter positions, keyed by paper, lamp and film.
 ///
 /// Loaded once from `neutral_print_filters.json`. A combination the database does not cover keeps
-/// the dataclass defaults, which is what the reference does after printing a warning.
+/// the dataclass defaults. The reference does the same after printing a warning.
 public final class NeutralPrintFilters: @unchecked Sendable {
     public static let shared = NeutralPrintFilters()
 

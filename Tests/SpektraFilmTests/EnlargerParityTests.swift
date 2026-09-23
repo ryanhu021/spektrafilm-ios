@@ -56,9 +56,9 @@ struct EnlargerParityTests {
         try expectParity(service.preflashIlluminant(lamp), matches: "enlarger_service_preflash")
     }
 
-    /// CC units are density, so 100 units should cut transmittance by a factor of ten. This checks
-    /// the unit convention directly, since swapping the sign or the scale would still produce a
-    /// plausible looking spectrum.
+    /// CC units are density, so 100 units should cut transmittance by a factor of ten. A swapped
+    /// sign or scale would still produce a plausible looking spectrum, so this checks the unit
+    /// convention directly.
     @Test("100 CC units is one density unit")
     func ccIsDensity() {
         let flat = [Double](repeating: 1.0, count: ColourTables.wavelengthCount)

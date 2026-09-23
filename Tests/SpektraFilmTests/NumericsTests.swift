@@ -4,11 +4,11 @@ import Testing
 
 /// Gates the scalar primitives every stage shares against NumPy and colour-science.
 ///
-/// These are closed form, so the gate is bit equality wherever the oracle allows it: every fixture
+/// These are closed form, so the gate is bit equality wherever the oracle allows it. Every fixture
 /// here matches at `max_abs = 0` except the two sums where NumPy's pairwise accumulation differs
-/// from a sequential one, and those are gated at 1e-15. The 1e-4 render budget belongs to the
-/// stages, and anything spent here is spent twice: `linspace(-3, 4, 256)` is an interpolation
-/// domain, so a last-bit error in a breakpoint moves every query that lands near it.
+/// from a sequential one; those are gated at 1e-15. The 1e-4 render budget is for the stages, and
+/// an error here propagates through them: `linspace(-3, 4, 256)` is an interpolation domain, so a
+/// last-bit error in a breakpoint moves every query near it.
 @Suite("Numerics parity")
 struct NumericsTests {
 
@@ -24,7 +24,7 @@ struct NumericsTests {
 
     /// colour-science's `spow` maps a NaN *result* to 0 for a 0-d input only
     /// (`0 if a_p.ndim == 0 and np.isnan(a_p) else a_p`). Every engine call site passes an array, so
-    /// the array behaviour is the one to match: NaN propagates. Values measured in the oracle.
+    /// this matches the array behaviour: NaN propagates. Values measured in the oracle.
     @Test("spow on the non-finite cases follows the array path")
     func spowNonFinite() {
         #expect(spow(.nan, 2).isNaN)
@@ -47,9 +47,9 @@ struct NumericsTests {
         try expectParity(result, matches: "num_fmax", maxAbsolute: 0, rootMeanSquare: 0)
     }
 
-    /// The reason `npFmax` exists. Swift's `max` is `y >= x ? y : x`, and `NaN >= x` is false, so it
-    /// returns whichever operand came first when that operand is NaN. The pipeline needs the NaN
-    /// dropped: `log10Guard` would otherwise carry it into the density lookup.
+    /// Why `npFmax` exists. Swift's `max` is `y >= x ? y : x`, and `NaN >= x` is false, so it
+    /// returns the first operand when that operand is NaN. The pipeline needs the NaN dropped:
+    /// `log10Guard` would otherwise pass it into the density lookup.
     @Test("npFmax and Swift max disagree about NaN")
     func fmaxIsNotMax() {
         #expect(npFmax(.nan, 3) == 3)
@@ -58,10 +58,10 @@ struct NumericsTests {
         #expect(max(Double.nan, 3).isNaN)
     }
 
-    /// `num_fmax` carries both signed-zero orders, and the golden cannot check them: `parity()`
+    /// `num_fmax` contains both signed-zero orders, but the golden cannot check them: `parity()`
     /// compares `abs(a - e)`, which is 0 for `-0.0` against `+0.0`. `np.fmax` returns `+0.0` for the
     /// tie in either order, measured over array lengths 1 to 100. `Double.maximum` returns the second
-    /// operand instead, so this is what stops a substitution.
+    /// operand, so this test catches a substitution.
     @Test("npFmax breaks the signed-zero tie the way np.fmax does")
     func fmaxTieOnSignedZero() {
         #expect(npFmax(0.0, -0.0).sign == .plus)
@@ -76,8 +76,8 @@ struct NumericsTests {
         let input = try Golden("num_nan_to_num_input")
         try expectParity(
             nanToNum(input.values), matches: "num_nan_to_num", maxAbsolute: 0, rootMeanSquare: 0)
-        // The substitutions themselves, so a golden regenerated on a different platform cannot hide
-        // a wrong constant.
+        // Check the substitutions directly, so a golden regenerated on a different platform cannot
+        // hide a wrong constant.
         #expect(nanToNum(Double.infinity) == .greatestFiniteMagnitude)
         #expect(nanToNum(-Double.infinity) == -.greatestFiniteMagnitude)
         #expect(nanToNum(Double.nan) == 0)
@@ -138,10 +138,10 @@ struct NumericsTests {
     }
 
     /// NumPy overwrites the last sample with `stop`. None of the counts in the goldens above needs
-    /// it, so without this test the overwrite can be deleted and everything stays green. These three
-    /// counts do need it: the accumulated last sample is 0.9999999999999999, 0.9999999999999999 and
-    /// 3.999999999999999, all measured in the oracle. `linspace(0, 1, L)` is the LUT axis at seven
-    /// reference call sites, and 505 of the 4095 counts in `2...4096` land here.
+    /// it, so without this test deleting the overwrite would pass. These three counts need it: the
+    /// accumulated last sample is 0.9999999999999999, 0.9999999999999999 and 3.999999999999999, all
+    /// measured in the oracle. `linspace(0, 1, L)` is the LUT axis at seven reference call sites,
+    /// and 505 of the 4095 counts in `2...4096` need the overwrite.
     @Test("linspace writes the final sample as stop exactly")
     func linspaceEndpointIsWritten() {
         #expect(linspace(0, 1, count: 50)[49] == 1.0)
@@ -298,8 +298,7 @@ struct BoundaryIndexTests {
         }
     }
 
-    /// The two folds agree inside the range and differ immediately outside it, which is the whole
-    /// reason they have separate names.
+    /// The two folds agree inside the range and differ one step outside it.
     @Test("the two folds differ one step outside the range")
     func foldsDisagreeAtTheEdge() {
         #expect(BoundaryIndex.reflectEdgeDuplicated(-1, count: 5) == 0)
@@ -396,7 +395,7 @@ struct SpectralShapeTests {
             }
         }
         // ȳ peaks at 555 nm, index 35. colour-science's 5 nm table gives 1.0000000000000004 there,
-        // not 1, so this doubles as a check that the embedded table was not rounded.
+        // not 1, so this also checks that the embedded table was not rounded.
         #expect(cmfs[wavelength: 35, channel: 1] == 1.0000000000000004)
         #expect(cmfs.channel(1)[35] == 1.0000000000000004)
         #expect(SpectralMatrix(channels: [cmfs.channel(0), cmfs.channel(1), cmfs.channel(2)]) == cmfs)

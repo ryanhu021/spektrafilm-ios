@@ -2,14 +2,14 @@ import Foundation
 
 /// Chemical development: log exposure in, dye density out.
 ///
-/// Ports `model/develop.py`. Three steps in order, and the order matters because each reads the
-/// previous one's output: the characteristic curves, the DIR couplers, then grain.
+/// Ports `model/develop.py`. Three steps, in order: the characteristic curves, the DIR couplers,
+/// then grain. Each reads the previous one's output.
 public enum Develop {
 
     /// `develop_simple`. Curves only, no couplers and no grain.
     ///
-    /// Used for the black, white and midgray references the print balance depends on, where adding
-    /// couplers or grain would put noise into a calibration constant.
+    /// Used for the black, white and midgray references the print balance depends on. Couplers or
+    /// grain would put noise into a calibration constant.
     public static func simple(
         logRaw: ImageBuffer,
         logExposure: [Double],
@@ -27,8 +27,8 @@ public enum Develop {
     ///
     /// - Parameters:
     ///   - pixelSizeMicrons: `nil` when the pipeline was injected past preprocessing, as a LUT bake
-    ///     does. The coupler stage handles that by skipping its spatial term; grain needs a pitch,
-    ///     so it is skipped entirely.
+    ///     does. The coupler stage then skips its spatial term. Grain needs a pitch, so it is
+    ///     skipped entirely.
     public static func film(
         logRaw: ImageBuffer,
         pixelSizeMicrons: Double?,
@@ -48,8 +48,8 @@ public enum Develop {
             logExposure: logRaw, curves: normalised, axis: data.logExposure,
             gammaFactor: gammaFactor)
 
-        // `consume` throughout: each of these takes the frame it is handed and writes over it, which
-        // it can only do while nothing else holds a reference.
+        // `consume` throughout: each call writes over the frame it is handed, and can only do so
+        // while nothing else holds a reference.
         let developed = Couplers.applyDensityCorrection(
             density: consume density,
             logRaw: logRaw,
@@ -79,9 +79,8 @@ public enum Develop {
 
     /// `develop_print_morph`, the print path.
     ///
-    /// Print paper has no couplers modelled and no grain: it does not sample a scene, so it is
-    /// designed with little channel cross-talk to begin with. The creative curve morph is off by
-    /// default.
+    /// Print paper has no modelled couplers and no grain. It does not sample a scene, so it is
+    /// designed with little channel cross-talk. The creative curve morph is off by default.
     public static func print(
         logRaw: ImageBuffer,
         profile: Profile,
@@ -102,13 +101,13 @@ public enum Develop {
 /// The print paper's characteristic curves, evaluated from their parametric fit.
 ///
 /// Ports `utils/morph_curves.apply_print_curves_morph`. The printing stage always goes through here,
-/// including when the morph is off: with `active: false` the curves come from
-/// `_evaluate_fitted_density`, a sum of scaled normal CDFs over the emulsion's layers, and NOT from
-/// `profile.data.densityCurves`. Reading the tabulated curves instead costs 3.2e-3 on the rendered
-/// output, because the fit and the table are not the same function.
+/// even with the morph off. With `active: false` the curves come from `_evaluate_fitted_density`, a
+/// sum of scaled normal CDFs over the emulsion's layers, and NOT from `profile.data.densityCurves`.
+/// The fit and the table are different functions: reading the table moves the rendered output by
+/// 3.2e-3.
 ///
 /// The active morph needs a Brent solve per control point to re-place the layer centres.
-/// `Core/RootFind.swift` has the solver; the morph itself is not written, and it defaults off.
+/// `Core/RootFind.swift` has the solver. The morph itself is not ported, and defaults off.
 public enum PrintCurvesMorph {
     public static func apply(
         logExposure: [Double],

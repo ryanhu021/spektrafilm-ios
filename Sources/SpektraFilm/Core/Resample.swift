@@ -1,6 +1,6 @@
 import Foundation
 
-/// `skimage.transform.rescale`, for the orders the pipeline actually asks for.
+/// `skimage.transform.rescale`, for the orders the pipeline uses.
 ///
 /// Auto-exposure meters on a 256 px preview, so this is on the default render path even though no
 /// user setting mentions resampling. Two details decide whether the metered EV matches:
@@ -62,9 +62,9 @@ public struct SkimageResampler: Resampler {
 
     /// Correlates along the row axis with mirror boundaries.
     ///
-    /// Mirror here is scipy's `mode: "mirror"`, which does not repeat the edge sample, so it is
-    /// ``BoundaryIndex/mirrorEdgeShared(_:count:)`` and not the other reflection. Using the wrong one is a 6.6e-6 error,
-    /// which would slip under the parity gate.
+    /// Mirror here is scipy's `mode: "mirror"`, which does not repeat the edge sample, so the fold
+    /// is ``BoundaryIndex/mirrorEdgeShared(_:count:)``, not the other reflection. The wrong one is
+    /// off by 6.6e-6, small enough to pass the parity gate unnoticed.
     static func gaussianRows(_ image: ImageBuffer, sigma: Double) -> ImageBuffer {
         let taps = kernel(sigma: sigma)
         let radius = taps.count / 2

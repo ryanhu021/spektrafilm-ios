@@ -1,9 +1,9 @@
 /// Index maps that fold an out-of-range index back into `0..<count`.
 ///
 /// Three of them, named for what they do to the edge sample, because the reference uses two
-/// different folds and calls both of them "reflect". Crossing them changes only border pixels,
-/// which is where a coarse tolerance hides the mistake: reconstructing `apply_diffusion_filter_um`
-/// with the wrong one of the two is off by 6.6e-6, and the parity gate is 1e-4.
+/// different folds and calls both "reflect". Swapping them changes only border pixels, and a coarse
+/// tolerance hides the mistake: `apply_diffusion_filter_um` with the wrong fold is off by 6.6e-6,
+/// and the parity gate is 1e-4.
 ///
 /// The naming mapping, verified index for index against the oracle:
 ///
@@ -21,10 +21,10 @@ public enum BoundaryIndex {
     ///
     /// Upstream's `_reflect(i, n)` in `fast_gaussian_filter.py`, used by the FIR blur path.
     ///
-    /// The modulo fixup is load-bearing in Swift. Python's `%` returns a non-negative result for a
-    /// positive modulus, so upstream's `if i < 0: i += period` is dead there; Swift's `%` truncates
-    /// toward zero, so without the fixup a negative index would index out of bounds. The modulo path
-    /// is reached whenever `radius > n`, e.g. a one-row image with a 19-tap kernel.
+    /// Swift needs the modulo fixup. Python's `%` returns a non-negative result for a positive
+    /// modulus, so upstream's `if i < 0: i += period` never runs. Swift's `%` truncates toward
+    /// zero, so without the fixup a negative index goes out of bounds. The modulo path is reached
+    /// whenever `radius > n`, e.g. a one-row image with a 19-tap kernel.
     @inlinable
     public static func reflectEdgeDuplicated(_ i: Int, count n: Int) -> Int {
         precondition(n > 0, "count must be positive")

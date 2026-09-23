@@ -12,8 +12,8 @@ deterministic, since every array becomes a file in git.
 Usage:
     Tools/parity/oracle/.venv/bin/python Tools/parity/generate_goldens.py [fixture ...]
 
-With no arguments it regenerates everything. Arguments are fixture-function names, and the manifest
-is merged rather than replaced, so a partial run does not drop the other entries.
+With no arguments it regenerates everything. Arguments are fixture-function names. The manifest is
+merged, so a partial run keeps the other entries.
 """
 
 from __future__ import annotations

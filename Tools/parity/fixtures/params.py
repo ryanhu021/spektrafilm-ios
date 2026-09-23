@@ -1,10 +1,10 @@
 """Golden for the parameter defaults.
 
-The defaults define the render. One transcription slip shifts every photo, and nothing else in the
-suite would notice, so the whole default tree is dumped as JSON keyed by its Python path and
-compared field by field on the Swift side.
+The defaults define the render. One transcription slip shifts every photo, and no other test would
+catch it. So the whole default tree is dumped as JSON keyed by its Python path, and the Swift side
+compares it field by field.
 
-This emits JSON rather than a .spkg because the tree mixes numbers, booleans, strings and nulls.
+This emits JSON because the tree mixes numbers, booleans, strings and nulls.
 Package.swift copies the Goldens directory wholesale, so the file reaches the test bundle without
 any manifest change.
 """

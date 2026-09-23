@@ -2,9 +2,9 @@ import Foundation
 
 /// A dense, row-major `[height][width][channels]` buffer of `Double`.
 ///
-/// Every stage passes these around, standing in for the reference's NumPy arrays. `channels` is 3
-/// for RGB, CMY density and XYZ, and 81 for spectral quantities on the engine's 380 to 780 nm
-/// grid at 5 nm steps.
+/// Every stage passes these where the reference passes NumPy arrays. `channels` is 3 for RGB, CMY
+/// density and XYZ, and 81 for spectral quantities on the engine's 380 to 780 nm grid at 5 nm
+/// steps.
 ///
 /// `Double` throughout. The reference computes in float64, and the spectral contractions sum 81
 /// terms per pixel per channel, which would drift past the 1e-4 gate in Float.
@@ -105,9 +105,9 @@ public struct ImageBuffer: Sendable, Equatable {
 
     /// Applies `transform` to every value, reusing the storage.
     ///
-    /// The pipeline's peak footprint is what caps export size on iOS, and it is set by how many
-    /// full-frame buffers are live at once rather than by how many are allocated over the run. A
-    /// `map` that returns a new buffer doubles the frame for the duration; this does not.
+    /// Peak memory caps export size on iOS. The peak is set by how many full-frame buffers are live
+    /// at once, not by how many are allocated over the run. A `map` that returns a new buffer holds
+    /// two frames while it runs; this holds one.
     @inlinable
     public mutating func transformInPlace(_ transform: (Double) -> Double) {
         values.withUnsafeMutableBufferPointer { buffer in
@@ -161,8 +161,8 @@ public struct ImageBuffer: Sendable, Equatable {
 
     /// Row-band height that keeps a `channels`-deep intermediate under `budgetBytes`.
     ///
-    /// Always at least one row, even when a single row blows the budget. A very wide panorama ends
-    /// up with one-row bands.
+    /// Always at least one row, even when a single row exceeds the budget. A very wide panorama
+    /// gets one-row bands.
     public static func bandRows(
         width: Int, channels: Int, budgetBytes: Int = 64 << 20
     ) -> Int {

@@ -3,15 +3,14 @@ import Foundation
 /// `utils/fast_gaussian_filter.py`'s `fast_gaussian_filter`.
 ///
 /// Two paths behind one sigma threshold: a separable truncated FIR below 3 pixels, and the
-/// Young and van Vliet third-order recursion at 3 and above. The two disagree with each other by
-/// about 1e-1 at the crossover, and neither is an accurate Gaussian. That is the behaviour to
-/// reproduce, not to repair. See ``iirPlane(_:height:width:sigma:)`` for the two measured
-/// deviations and why they have to stay.
+/// Young and van Vliet third-order recursion at 3 and above. The two disagree by about 1e-1 at the
+/// crossover, and neither is an accurate Gaussian. Reproduce this behaviour; do not repair it. See
+/// ``iirPlane(_:height:width:sigma:)`` for the two measured deviations and why they stay.
 ///
 /// Dispatch is per channel, and callers that build a Gaussian mixture dispatch again per mixture
 /// component, so one call can take the FIR on red and blue and the IIR on green. At a 4000 pixel
-/// long edge the scatter tail's third component sits at sigma `(2.942, 3.069, 2.879)` and does
-/// exactly that.
+/// long edge the scatter tail's third component has sigma `(2.942, 3.069, 2.879)` and splits this
+/// way.
 public enum GaussianFilter {
 
     /// `SMALL_SIGMA_MAX`. Sigma at or above this takes the IIR path.
@@ -75,7 +74,7 @@ public enum GaussianFilter {
     /// `_gaussian_kernel_1d`.
     ///
     /// `radius` truncates toward zero, so sigma 0.032 at truncate 3 gives radius 0: a single unit
-    /// tap, an exact identity. The scatter core lands there at every resolution up to 2048.
+    /// tap, an exact identity. The scatter core has radius 0 at every resolution up to 2048.
     public static func kernel1D(sigma: Double, truncate: Double) -> (kernel: [Double], radius: Int) {
         precondition(sigma > 0, "kernel1D needs a positive sigma")
         let radius = Int(truncate * sigma + 0.5)
@@ -96,8 +95,8 @@ public enum GaussianFilter {
     /// half-sample symmetric boundary of ``BoundaryIndex/reflectEdgeDuplicated(_:count:)``.
     ///
     /// Upstream fuses the two passes into 16-row strips and splits the horizontal pass into edges
-    /// and a wrap-free interior. Both are pure locality work and change nothing observable, so this
-    /// keeps the plain two-pass form and only borrows the interior split.
+    /// and a wrap-free interior. Both only improve locality and change nothing observable. This
+    /// keeps the plain two-pass form and uses only the interior split.
     static func firPlane(
         _ plane: [Double], height n: Int, width m: Int, sigma: Double, truncate: Double
     ) -> [Double] {
@@ -168,13 +167,13 @@ public enum GaussianFilter {
     /// `_gaussian_filter_2d_large`: horizontal recursion into scratch, then vertical into the result.
     ///
     /// Two measured properties of this path are bugs that the reference look now depends on, so both
-    /// are reproduced deliberately:
+    /// are reproduced:
     ///
     /// - **It is 3 to 11 percent wider than the sigma asked for.** Measured on an impulse, requested
     ///   3 comes back as 3.2995 (ratio 1.0998), requested 65 as 67.761 (1.0425).
     /// - **The boundary is edge replication, not reflection**, contradicting `fast_gaussian_filter`'s
-    ///   own docstring. The FIR path really does reflect, so the two paths differ at the borders as
-    ///   well as in width.
+    ///   own docstring. The FIR path does reflect, so the two paths differ at the borders as well as
+    ///   in width.
     ///
     /// Correcting either one moves every halation golden at sigma 3 and above by about 1e-1, a
     /// thousand times the 1e-4 parity gate.

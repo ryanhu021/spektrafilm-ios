@@ -2,8 +2,8 @@
 # Build the pinned Python oracle used to generate parity goldens.
 #
 # Clones upstream spektrafilm at the commit in upstream_pin.json and installs it into a
-# Python 3.13 venv. Everything lands under Tools/parity/oracle/, which is gitignored:
-# goldens are committed, the generator that produced them is reproducible on demand.
+# Python 3.13 venv. Everything goes under Tools/parity/oracle/, which is gitignored. The
+# goldens are committed, and the oracle that produced them can be rebuilt on demand.
 #
 # Only the runtime dependencies are installed. Upstream's default install also pulls
 # napari/PySide6 for its desktop GUI, which the engine never imports and which would add
@@ -32,7 +32,7 @@ echo "==> creating Python 3.13 venv"
 uv python install 3.13 >/dev/null
 uv venv --quiet --python 3.13 "$ORACLE/.venv"
 
-# The four libraries whose output lands in a committed fixture are pinned exactly; see
+# The four libraries whose output reaches a committed fixture are pinned exactly; see
 # oracle_environment in upstream_pin.json. The rest only need to satisfy upstream's imports.
 pinned=$(python3 - "$PIN" <<'EOF'
 import json, sys

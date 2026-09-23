@@ -3,10 +3,8 @@ import SwiftUI
 
 /// The pipeline as a row of stops you can tap into.
 ///
-/// This exists because the engine's topology exposes named taps, so the app can collect at any stage
-/// boundary and show it. Seeing the orange-masked negative, then the paper exposure, then the print,
-/// is the clearest available explanation of what the simulation is doing, and it is only possible
-/// because the model is a real chain rather than a look-up table.
+/// The engine can stop at any named tap between stages, so the app can show the negative, the paper
+/// exposure and the print. Stepping through them shows what the simulation does.
 struct StageStrip: View {
     @Binding var tap: Tap
     let scanFilm: Bool

@@ -5,10 +5,9 @@ import Testing
 
 /// Checks every default in `RuntimePhotoParams` against the reference.
 ///
-/// The defaults are the render. A single wrong one shifts every photo, and no other test in the
-/// suite would catch it, so all 172 leaves are compared by name against a JSON dump of the Python
-/// dataclass defaults. Keys are the Python paths, which also documents the mapping between the two
-/// naming conventions.
+/// A single wrong default shifts every photo, and no other test in the suite would catch it, so all
+/// 172 leaves are compared by name against a JSON dump of the Python dataclass defaults. Keys are
+/// the Python paths, so this also documents the mapping between the two naming conventions.
 @Suite("Parameter defaults")
 struct ParamsDefaultsTests {
 
@@ -253,7 +252,7 @@ struct ParamsDefaultsTests {
 
     @Test("the reference dump covers the whole tree")
     func dumpIsComplete() throws {
-        // Guards against the dump silently shrinking, which would make the test above vacuous.
+        // A smaller dump would let the test above pass while checking fewer keys.
         #expect(try referenceDefaults().count == 172)
     }
 

@@ -3,8 +3,8 @@ import Foundation
 /// The public entry point.
 ///
 /// Mirrors `spektrafilm.runtime.process.Simulator`. Construct one per parameter set and reuse it
-/// across frames: building it computes the per-film spectral LUT and the midgray references, which
-/// is the expensive part and does not depend on the image.
+/// across frames. Construction computes the per-film spectral LUT and the midgray references. Both
+/// are expensive, and neither depends on the image.
 ///
 /// ```swift
 /// let params = try RuntimePhotoParams.make(

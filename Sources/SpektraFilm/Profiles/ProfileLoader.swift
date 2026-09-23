@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Decoding
 
 /// JSON `null` means the datasheet does not cover that wavelength. The reference loads it as NaN
-/// and keeps it: `nanmin` and `nanmax` skip it, and it travels through the spectral products so
+/// and keeps it: `nanmin` and `nanmax` skip it, and it passes through the spectral products so
 /// unmeasured bands contribute nothing. Decoding it as 0 would invent absorption.
 private func flatten(_ values: [Double?]) -> [Double] {
     values.map { $0 ?? .nan }
@@ -137,7 +137,7 @@ public enum ProfileLibrary {
 
     /// Profiles usable as the camera negative, meaning `stage == .filming`, which is 20 of the 28.
     ///
-    /// Keyed on `stage` because Kodak 2383 and 2393 are cine print films: they carry
+    /// Keyed on `stage` because Kodak 2383 and 2393 are cine print films: they have
     /// `support: film` but belong on the print side. Filtering by support would offer them as
     /// camera stocks and hide two print media.
     public static var filmStocks: [Profile] {
@@ -173,8 +173,8 @@ public enum ProfileLibrary {
 
     /// The shape checks from `_validate_profile`, plus illuminant labels that resolve.
     ///
-    /// Checking illuminants at load time means an unknown label fails here, instead of quietly
-    /// becoming D50 halfway through a render.
+    /// Checking illuminants at load time means an unknown label fails here, instead of becoming D50
+    /// without warning halfway through a render.
     static func validate(_ profile: Profile, stock: String) throws {
         let d = profile.data
         let wavelengths = d.wavelengthCount

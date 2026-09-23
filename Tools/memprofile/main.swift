@@ -1,8 +1,8 @@
 // Peak-memory profiler for the render pipeline.
 //
-// Reports the high-water footprint and wall time for one frame size. This is the instrument for the
-// memory-reduction work: peak footprint is about 148 MB per megapixel, which still caps export size
-// on iOS below a 12 MP frame (see Sources/SpektraFilm/Runtime/RenderBudget.swift).
+// Reports the high-water footprint and wall time for one frame size. Peak footprint is about 125 MB
+// per megapixel, which caps export size on iOS below a 12 MP frame (see
+// Sources/SpektraFilm/Runtime/RenderBudget.swift).
 //
 // Build and run:
 //   swift build -c release --product memprofile
@@ -10,10 +10,10 @@
 //   .build/release/memprofile 2 --tap cmy_film   # peak to reach one tap
 //   .build/release/memprofile 2 --spectral       # the spectral upsampling call alone
 //
-// One measurement per process, and the three modes are mutually exclusive: phys_footprint is a
+// One measurement per process, and the three modes are mutually exclusive. phys_footprint is a
 // whole-process high-water mark, so anything measured after something larger reads the larger figure.
 //
-// Always measure in release. Debug keeps bounds checks on every ImageBuffer subscript and the same
+// Always measure in release. Debug keeps bounds checks on every ImageBuffer subscript, and the same
 // render takes over an order of magnitude longer.
 
 import Foundation
@@ -122,11 +122,11 @@ if !spectralOnly && !tapOnly {
     print("checksum       \(String(format: "%.9f", output.values[0]))")
 }
 
-// Isolates the spectral upsampling call, which the bisection above points at.
+// Isolates the spectral upsampling call.
 //
 // `--tap` must not reach here. The bindings below are top level, so they are globals that live for
-// the rest of the process: `tc`, `brightness` and `sampled` are 96 MB of them at 2 MP, and a tap
-// measured afterwards reads that on top of its own frames.
+// the rest of the process. `tc`, `brightness` and `sampled` hold 96 MB at 2 MP, and a tap measured
+// afterwards reads that on top of its own frames.
 if spectralOnly {
     print("frame          \(width) x \(height)  (\(String(format: "%.2f", megapixels)) MP)")
     print("input buffer   \(megabytes(withInput - baseline))")
@@ -144,8 +144,9 @@ if spectralOnly {
         referenceIlluminant: try Illuminant(label: params.film.info.referenceIlluminant),
         tcLUT: lut)
 
-    // Cumulative, because `tc`, `brightness` and `sampled` are globals too: only the first line is a
-    // reading of one call. Comparing the second or third across a change needs a separate process.
+    // Cumulative, because `tc`, `brightness` and `sampled` are globals too. Only the first line
+    // measures one call alone. Comparing the second or third across a change needs a separate
+    // process.
     print("\nspectral upsampling, cumulative high-water:")
     var s = PeakSampler()
     s.start()
@@ -172,8 +173,7 @@ if spectralOnly {
 }
 
 // One tap per process. phys_footprint is a high-water mark, so measuring several in one process
-// reports the largest so far for every one of them, which is how two earlier rounds of this
-// measurement mislocated the cost.
+// reports the largest so far for every one of them.
 if let tapIndex = arguments.firstIndex(of: "--tap"), tapIndex + 1 < arguments.count {
     let name = arguments[tapIndex + 1]
     let taps: [String: Tap] = [

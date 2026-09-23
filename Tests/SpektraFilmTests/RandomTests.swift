@@ -52,17 +52,16 @@ private let momentNames = ["mean", "variance", "skewness", "excess kurtosis"]
 /// Sample count every calibrated tolerance in this file assumes.
 ///
 /// `random_*_moment_sd` holds the standard deviation of each statistic across 256 independent
-/// oracle realisations of exactly this many samples, so changing this number invalidates every
-/// gate below.
+/// oracle realisations of this many samples, so changing this number invalidates every gate below.
 private let samples = 512 * 512
 
 /// Gates a measured statistic against its closed form at five times the oracle's measured sampling
 /// standard deviation.
 ///
-/// Five sigma with an estimated sigma puts the false-failure rate for the whole file near 1e-4,
-/// which is low enough that a red test means a real defect. It is also tight enough to catch a
-/// Gaussian approximation standing in for the Poisson sampler: at lambda 20 the correct skewness is
-/// 0.224 and a Gaussian returns 0, a 44 sigma miss.
+/// Five sigma with an estimated sigma puts the false-failure rate for the whole file near 1e-4, so a
+/// failure almost always means a real defect. The gate still catches a Gaussian approximation in
+/// place of the Poisson sampler: at lambda 20 the correct skewness is 0.224 and a Gaussian returns
+/// 0, a 44 sigma miss.
 private func expectMoment(
     _ measured: Double,
     closedForm: Double,
@@ -88,16 +87,16 @@ private func normalCDF(_ z: Double) -> Double {
 // MARK: - Philox
 
 /// Checks the generator itself: the published test vectors, then the two properties the render
-/// leans on, uniformity and diffusion.
+/// relies on, uniformity and diffusion.
 @Suite("Philox4x32-10")
 struct PhiloxTests {
 
     /// Known-answer vectors from Random123's `kat_vectors`, in its `counter key -> output` order.
     ///
     /// The round function, the key schedule and the output word order were also cross-checked
-    /// against `numpy.random.Philox`, which is the 4x64 member of the same family: implementing
-    /// Philox4x64-10 with this structure reproduces `Philox(key:counter:).random_raw(4)` exactly,
-    /// once you account for NumPy incrementing its counter before it fills a block.
+    /// against `numpy.random.Philox`, the 4x64 member of the same family. Philox4x64-10 built with
+    /// this structure reproduces `Philox(key:counter:).random_raw(4)` bit for bit, once you account
+    /// for NumPy incrementing its counter before it fills a block.
     @Test("published Random123 test vectors")
     func knownAnswerVectors() {
         let vectors: [(counter: SIMD4<UInt32>, key: (UInt32, UInt32), expected: SIMD4<UInt32>)] = [
@@ -254,9 +253,9 @@ struct PhiloxTests {
 
 // MARK: - Decomposition independence
 
-/// The reason the generator is counter-based at all: a pixel's noise must not depend on how the
-/// frame was cut up. Upstream's fast path fails this, and its output changes with the thread count
-/// (`grain.md` section 8.2).
+/// The generator is counter-based so that a pixel's noise does not depend on how the frame is split
+/// up. Upstream's fast path fails this, and its output changes with the thread count (`grain.md`
+/// section 8.2).
 @Suite("Counter-based reproducibility")
 struct CounterIndependenceTests {
 
@@ -287,8 +286,7 @@ struct CounterIndependenceTests {
         return plane
     }
 
-    /// Tiles of `rows` rows, even tiles before odd ones, so the order genuinely differs from a
-    /// raster scan.
+    /// Tiles of `rows` rows, even tiles before odd ones, so the order differs from a raster scan.
     private static func tiledOrder(rows: Int) -> [Int] {
         var order: [Int] = []
         for parity in 0..<2 {
@@ -366,8 +364,8 @@ struct DistributionsTests {
 
     // MARK: Lognormal
 
-    /// The log-space inversion is pure arithmetic, so it gets a hard golden at 1e-15. Nothing here
-    /// should differ from the oracle beyond rounding.
+    /// The log-space inversion is pure arithmetic, so its golden is gated at 1e-15. It should differ
+    /// from the oracle only by rounding.
     @Test("the log-space inversion matches fast_lognormal_from_mean_std")
     func lognormalLogParameters() throws {
         let golden = try Golden("random_lognormal_log_params")
@@ -409,10 +407,10 @@ struct DistributionsTests {
         }
     }
 
-    /// `m <= 0` is false for NaN, so the reference carries a NaN mean through its arithmetic and
-    /// `fast_lognormal_from_mean_std(nan, 0.5)` returns NaN, measured. A guard written `mean > 0`
-    /// would return the `mean <= 0` constant 1.0 instead and hide a NaN density behind a clean unit
-    /// clumping field.
+    /// `m <= 0` is false for NaN, so the reference propagates a NaN mean through its arithmetic, and
+    /// `fast_lognormal_from_mean_std(nan, 0.5)` returns NaN (measured). A guard written `mean > 0`
+    /// would return the `mean <= 0` constant 1.0 and hide a NaN density behind a clumping field of
+    /// all ones.
     @Test("a NaN mean or std stays NaN")
     func lognormalCarriesNaN() {
         let key = PhiloxKey(seed: 3)
@@ -450,8 +448,8 @@ struct DistributionsTests {
             }
             let moments = Moments(drawn)
 
-            // The closed form is the requested (mean, std) by construction: the whole point of the
-            // inversion is that the linear-space moments come out as asked.
+            // The closed form is the requested (mean, std): the inversion exists to make the
+            // linear-space moments equal the requested ones.
             let label = "lognormal(mean \(mean), std \(std))"
             expectMoment(
                 moments.mean, closedForm: mean, samplingSD: samplingSD.values[row * 4],
@@ -459,7 +457,7 @@ struct DistributionsTests {
             expectMoment(
                 moments.variance, closedForm: std * std,
                 samplingSD: samplingSD.values[row * 4 + 1], "\(label) variance")
-            // The oracle's own realisation has to clear the same gate, or the gate is wrong.
+            // The oracle's own realisation must pass the same gate, or the gate is wrong.
             expectMoment(
                 expected.values[row * 4], closedForm: mean,
                 samplingSD: samplingSD.values[row * 4], "oracle \(label) mean")
@@ -520,15 +518,15 @@ struct DistributionsTests {
         for lambda in [0.0, -0.0, -1.0, -1e9, Double.nan, -Double.infinity] {
             #expect(Distributions.poisson(lambda: lambda, key: key, counter: 0) == 0, "\(lambda)")
         }
-        // Infinity has no answer to copy: the exact path raises and `fast_poisson` returns
-        // Int64.max. Returning 0 keeps `Int(Double)` from trapping.
+        // The reference has no usable answer for infinity: the exact path raises and
+        // `fast_poisson` returns Int64.max. Returning 0 keeps `Int(Double)` from trapping.
         #expect(Distributions.poisson(lambda: .infinity, key: key, counter: 0) == 0)
     }
 
     /// A finite lambda past `Int64` range must not trap. The reference raises above its own
     /// `POISSON_LAM_MAX`; here lambda clamps to it, which keeps every accepted candidate inside
     /// `Int`. Grain can reach this: `sat = 1 - p * u * (1 - 1e-6)` is one ulp above zero just past
-    /// `uniformity = 1`, and `lambda = N * p / sat` then runs to 2.8e19.
+    /// `uniformity = 1`, and `lambda = N * p / sat` then reaches 2.8e19.
     @Test("a lambda past the Int64 range clamps instead of trapping")
     func poissonClampsHugeLambda() {
         let key = PhiloxKey(seed: 8)
@@ -545,8 +543,8 @@ struct DistributionsTests {
                 miss <= 10.0 * Distributions.poissonLambdaMax.squareRoot(),
                 "lambda \(lambda) drew \(drawn), off the clamp by \(miss)")
         }
-        // Just under the clamp nothing changes, so the bound is not silently swallowing the range
-        // the grain model really uses.
+        // Just under the clamp the draws are untouched, so the bound does not cut into the range the
+        // grain model uses.
         var source = Philox4x32(key: key)
         for i in 0..<64 {
             source.reset(counter: UInt64(i))
@@ -584,14 +582,15 @@ struct DistributionsTests {
         }
     }
 
-    /// A Gaussian with the right mean and variance passes the first two moment gates above. It fails
-    /// here, which is why the skewness gate is not optional.
+    /// A Gaussian with the right mean and variance passes the first two moment gates above and fails
+    /// this one, so do not drop the skewness gate.
     @Test("Poisson skewness is nowhere near a Gaussian's")
     func poissonSkewnessSeparatesTheSamplerFromAGaussian() throws {
         let samplingSD = try Golden("random_poisson_moment_sd")
         let lambdas = try Golden("random_poisson_lambdas").values
 
-        // lambda 20 sits in the transformed-rejection branch, the one a Gaussian would replace.
+        // lambda 20 is in the transformed-rejection branch, which a Gaussian approximation would
+        // replace.
         let row = try #require(lambdas.firstIndex(of: 20.0))
         let lambda = lambdas[row]
         var source = Philox4x32(key: PhiloxKey(seed: 0x4000_0000))
@@ -668,8 +667,8 @@ struct DistributionsTests {
         }
     }
 
-    /// The transformed-rejection branch has to stay exact where the grain model actually drives it:
-    /// `sat` bottoms out near 2e-6 at `uniformity = 1`, which puts lambda at 1.2e8.
+    /// The transformed-rejection branch must stay exact at the top of the grain model's range: `sat`
+    /// reaches its minimum near 2e-6 at `uniformity = 1`, which puts lambda at 1.2e8.
     @Test("transformed rejection survives lambda 1.2e8")
     func poissonAtTheTopOfTheRange() {
         let lambda = 1.2e8

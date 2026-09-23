@@ -3,11 +3,11 @@
 
 The reference engine reads colour-matching functions, illuminant spectra, RGB colourspace matrices
 and chromatic adaptation from colour-science. None of it exists on iOS, so every table the runtime
-touches gets extracted here once from the pinned oracle.
+uses is extracted here once from the pinned oracle.
 
-Tables only. Transfer functions stay as Swift formulas and get gated by
+Tables only. Transfer functions stay as Swift formulas and are gated by the goldens from
 Tools/parity/generate_goldens.py, so a typo in a piecewise breakpoint fails a test instead of
-quietly shifting every render.
+silently shifting every render.
 
 Usage:  Tools/parity/extract_colour_tables.py [--check]
         --check exits non-zero if the committed file is stale (used by CI).
@@ -258,8 +258,8 @@ def build_filters() -> str:
 
     Upstream resamples the vendor CSVs with `scipy.interpolate.Akima1DInterpolator` at import time.
     Several files do not span the grid (the Durst dichroics stop at 761 nm, the Edmund set starts at
-    381 nm), so the ends are extrapolated, and matching Akima plus SciPy's extrapolation rules bit
-    for bit in Swift is a lot of surface. Baking the result keeps exactly what SciPy produced.
+    381 nm), so the ends are extrapolated. Matching Akima and SciPy's extrapolation rules bit for
+    bit in Swift would be a large port. Baking the result keeps exactly what SciPy produced.
 
     The CSVs stay in the repository for provenance and are not shipped in the app bundle.
     """

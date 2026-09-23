@@ -4,13 +4,12 @@ import Testing
 
 /// The whole pipeline, and every stage boundary along the way.
 ///
-/// The per-subsystem suites prove each operator is right on its own. These prove the operators are
-/// wired in the right order with the right constants, which is a different failure mode and the one
-/// a caller actually sees.
+/// The per-subsystem suites check each operator on its own. These check that the operators are
+/// wired in the right order with the right constants.
 ///
-/// Every case runs in `lut_mode`, so the render is a deterministic per-pixel transform. Grain, glare
-/// and the spatial operators have their own gates; mixing them in here would make these fixtures
-/// depend on the RNG.
+/// Every case runs in `lut_mode`, so the render is a deterministic per-pixel transform. Grain,
+/// glare and the spatial operators have their own gates; mixing them in here would make these
+/// fixtures depend on the RNG.
 @Suite("End to end")
 struct EndToEndTests {
 
@@ -32,8 +31,7 @@ struct EndToEndTests {
 
     /// 18% grey through Portra 400 onto Portra Endura, in sRGB.
     ///
-    /// The single number that says the pipeline is assembled correctly, and the one quoted in the
-    /// README.
+    /// The top-level check that the pipeline is assembled correctly. The README quotes this value.
     @Test("18% grey matches the reference render")
     func midgreyAnchor() throws {
         var params = try RuntimePhotoParams.make(
@@ -69,7 +67,7 @@ struct EndToEndTests {
         try expectParity(out.values, matches: "pipeline_\(testCase.label)_\(tap.slug)")
     }
 
-    /// Scanning the negative directly skips the print entirely, which is a different topology.
+    /// Scanning the negative skips the print, so the graph has a different topology.
     @Test(
         "scanning the negative takes the short topology",
         arguments: [
@@ -89,8 +87,8 @@ struct EndToEndTests {
         try expectParity(out.values, matches: "pipeline_scanfilm_portra400_\(slug)")
     }
 
-    /// Asking for the print taps while scanning the negative has no path, and the topology should
-    /// say so instead of returning something plausible.
+    /// The print taps have no path when scanning the negative. The topology must throw, not return
+    /// a plausible buffer.
     @Test("an unreachable tap is an error")
     func unreachableTap() throws {
         var params = try RuntimePhotoParams.make(
@@ -121,9 +119,9 @@ struct EndToEndTests {
         #expect(first.values == second.values)
     }
 
-    /// Settings that are declared but not implemented must fail loudly. Both default off, so the
-    /// default render is unaffected, but accepting the flag and ignoring it would mean a caller asks
-    /// for the LUT path and silently gets the direct one.
+    /// Settings that are declared but not implemented must throw. Both default off, so the default
+    /// render is unaffected. If a flag were accepted and ignored, a caller asking for the LUT path
+    /// would silently get the direct one.
     @Test("the unported 3D LUT settings are rejected")
     func unportedLUTSettings() throws {
         for mutate in [

@@ -2,14 +2,14 @@ import Foundation
 
 /// Bakes input gamut compression into a finished `tc_lut`.
 ///
-/// The seam between this subsystem and `gamut_compression`. `remap_tc_lut_for_compression` rewrites
-/// the LUT so `new_lut[xy]` returns what the uncompressed LUT would have returned for
+/// The interface between this subsystem and `gamut_compression`. `remap_tc_lut_for_compression`
+/// rewrites the LUT so `new_lut[xy]` returns what the uncompressed LUT would have returned for
 /// `compress(xy)`, which keeps the per-pixel fetch compression-agnostic. Its resample is **bilinear
 /// with clamp-to-edge**, a different interpolator and a different boundary rule from the runtime
-/// Mitchell fetch; the two must not be unified.
+/// Mitchell fetch. Do not unify the two.
 ///
-/// Nothing in this subsystem implements it. ``TCLUTBuilder`` throws rather than silently rendering
-/// uncompressed when a spec asks for compression and no bake is supplied.
+/// Nothing in this subsystem implements it. When a spec asks for compression and no bake is
+/// supplied, ``TCLUTBuilder`` throws instead of rendering uncompressed.
 public protocol InputGamutCompressionBake: Sendable {
     /// - Parameters:
     ///   - tcLUT: `[tc.x][tc.y][rgb]`, as ``TCLUTBuilder`` produced it.
@@ -75,17 +75,16 @@ public enum TCLUTBuilder {
 /// `SpectralLUTService`'s filming `tc_lut` cache.
 ///
 /// The reference compares its cache key by value across the sensitivity array, the adaptation record
-/// and the gamut-compress spec, and rebuilds when any of them differs; `_same_hanatos2025_adaptation`
-/// deliberately ignores the adaptation's dead `active` field, which the Swift record does not carry
-/// at all, so plain `Equatable` is the same comparison.
+/// and the gamut-compress spec, and rebuilds when any of them differs. `_same_hanatos2025_adaptation`
+/// ignores the adaptation's dead `active` field. The Swift record has no such field, so plain
+/// `Equatable` is the same comparison.
 ///
-/// A value type replaces the reference's copy-on-set dance: `FilmingStage` mutates the adaptation
-/// object it was handed, so the reference has to deep-copy it to notice the change. Swift's value
-/// semantics give that for free, including the case the reference pins with
-/// `test_filming_tc_lut_recomputes_when_spectral_gaussian_blur_changes`.
+/// The reference's `FilmingStage` mutates the adaptation object it was handed, so the reference
+/// deep-copies it on set to notice the change. Swift's value semantics give the same behaviour,
+/// including the case `test_filming_tc_lut_recomputes_when_spectral_gaussian_blur_changes` covers.
 ///
 /// The compression bake is not part of the key. It is a deterministic function of the spec, so two
-/// bakes of the same spec agree; a caller that swaps in a different implementation has to discard
+/// bakes of the same spec agree. A caller that swaps in a different implementation has to discard
 /// the cache itself.
 public struct FilmingTCLUTCache: Sendable {
     private struct Key: Equatable {

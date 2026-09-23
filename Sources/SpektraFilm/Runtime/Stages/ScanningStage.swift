@@ -97,8 +97,8 @@ public final class ScanningStage {
     /// `add_glare`, applied in place.
     ///
     /// ``Glare/add(_:illuminantXYZ:glare:seed:spatial:)`` returns a new frame while this stage still
-    /// holds the old one, so the two overlap. The field stays: it is one channel, and the blur needs
-    /// the whole plane.
+    /// holds the old one, so the two would overlap. The glare field is still a whole plane: it is
+    /// one channel, and the blur needs all of it.
     private func addGlare(_ xyz: inout ImageBuffer, illuminantXYZ: (Double, Double, Double)) {
         // The reference passes no glare on the scan-film branch. `film_render.glare` is dead.
         guard !io.scanFilm else { return }
@@ -124,8 +124,8 @@ public final class ScanningStage {
 
     /// The per-pixel spectral map.
     ///
-    /// `use_scanner_lut` replaces this with a coarse 3D LUT in the reference. It defaults off and
-    /// the reference itself calls the LUT an approximation, so the direct path is the only one here.
+    /// In the reference, `use_scanner_lut` replaces this with a coarse 3D LUT. It defaults off and
+    /// the reference calls the LUT an approximation, so only the direct path is ported.
     private func spectralCompute(_ density: ImageBuffer) -> ImageBuffer {
         Self.cmyToLogXYZ(
             density, channelDensity: channelDensity, baseDensity: baseDensity,

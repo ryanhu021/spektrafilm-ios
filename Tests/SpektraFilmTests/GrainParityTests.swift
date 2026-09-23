@@ -35,17 +35,17 @@ private struct SampleMoments {
 /// standard deviation.
 ///
 /// The sampling standard deviations come from `grain_*_moment_sd_*`, which the oracle measures over
-/// 48 independent realisations of exactly ``statisticalSamples`` samples drawn from the closed-form
-/// distribution. They are measured rather than assumed because `sqrt(6/n)`, the normal-theory
-/// standard error of the skewness estimator, understates the real spread by up to 25 percent at the
-/// skewness levels grain produces.
+/// 48 independent realisations of ``statisticalSamples`` samples drawn from the closed-form
+/// distribution. They are measured, not assumed: `sqrt(6/n)`, the normal-theory standard error of
+/// the skewness estimator, understates the real spread by up to 25 percent at grain's skewness
+/// levels.
 ///
-/// Five measured sigma is a per-assertion false-failure rate of 5.7e-7, so about 1 in 13000 runs
-/// across the roughly 135 seed-dependent assertions here. Every seed is fixed, so in practice a run
-/// either always passes or always fails; the rate is the risk taken on when a seed or the sampler
-/// changes. Measured over 12 independent realisations of the layered gate, 648 assertions, the worst
-/// miss was 3.79 sigma and nothing exceeded 4. Raise ``statisticalSamples`` if that ever bites; do
-/// not widen this.
+/// Five measured sigma is a per-assertion false-failure rate of 5.7e-7, or about 1 in 13000 runs
+/// across the roughly 135 seed-dependent assertions here. Every seed is fixed, so a given build
+/// always passes or always fails; the rate is the risk of a false failure when a seed or the
+/// sampler changes. Over 12 independent realisations of the layered gate (648 assertions), the
+/// worst miss was 3.79 sigma and none exceeded 4. If a false failure does occur, raise
+/// ``statisticalSamples``; do not widen this gate.
 private func expectStatistic(
     _ measured: Double,
     closedForm: Double,
@@ -198,7 +198,7 @@ private func channel(_ image: ImageBuffer, _ c: Int) -> [Double] {
 /// Everything grain computes before the first random draw, gated at 1e-12.
 ///
 /// These catch every index-order, unit and broadcast error in the model, which is most of the file.
-/// The sampled stages are gated separately, statistically, in `GrainStatisticsTests`.
+/// `GrainStatisticsTests` gates the sampled stages statistically.
 @Suite("Grain derived parameters")
 struct GrainDerivedParameterTests {
 
@@ -237,11 +237,11 @@ struct GrainDerivedParameterTests {
             maxAbsolute: 1e-12, rootMeanSquare: 1e-12)
     }
 
-    /// The fractions are what make the final `-= density_min` balance, so they get their own check.
+    /// The fractions make the final `-= density_min` balance, so they get their own check.
     ///
-    /// Run twice, the second time with a `density_min` whose three entries differ. The shipped
-    /// default is `(0.03, 0.03, 0.03)`, and under a uniform triple a `density_min[sublayer]` typo
-    /// reads the same number as `density_min[channel]`, so nothing else in this file separates them.
+    /// The test runs twice, the second time with three different `density_min` entries. The shipped
+    /// default is `(0.03, 0.03, 0.03)`, and with equal entries a `density_min[sublayer]` typo reads
+    /// the same number as `density_min[channel]`. Nothing else in this file separates them.
     @Test("each channel's sublayer fractions sum to one")
     func fractionsSumToOne() throws {
         let stock = try GrainStock()
@@ -282,7 +282,7 @@ struct GrainDerivedParameterTests {
                 derived.microStructureSigma,
             ]
             // At the shipped `micro_structure`, the clumping gate stays shut at every pitch a real
-            // render lands on. It needs under 0.6 um, a 35 mm frame at 58333 px wide.
+            // render uses. Opening it needs a pitch under 0.6 um, a 35 mm frame 58333 px wide.
             if micro.1 == 30.0 && pitch >= 1.0 {
                 #expect(
                     derived.microStructureSigma <= 0.05,
@@ -332,8 +332,8 @@ struct GrainDerivedParameterTests {
                     == Grain.probabilityCeiling, "\(density)")
         }
         #expect(Grain.probabilityOfDevelopment(density: .nan, densityMax: 2.2).isNaN)
-        // sat stays positive at the ceiling even when uniformity is 1, which is what keeps lambda
-        // finite. 2e-6 is the floor grain.md section 4.1 records.
+        // sat stays positive at the ceiling even when uniformity is 1, which keeps lambda finite.
+        // 2e-6 is the floor grain.md section 4.1 records.
         let sat = Grain.saturation(probability: Grain.probabilityCeiling, uniformity: 1.0)
         #expect(sat > 0)
         #expect(abs(sat - 2e-6) < 1e-11, "saturation floor \(sat)")
@@ -364,8 +364,8 @@ struct GrainDerivedParameterTests {
         }
     }
 
-    /// The closed form is the whole model, so gating it against the oracle exactly gates the derived
-    /// parameter chain, the clip, the saturation term and the Poisson-thinning identity in one go.
+    /// The closed form is the whole model, so gating it against the oracle checks the derived
+    /// parameter chain, the clip, the saturation term and the Poisson-thinning identity together.
     @Test("the closed-form moments match the oracle")
     func closedFormMoments() throws {
         let stock = try GrainStock()
@@ -414,16 +414,15 @@ struct GrainDerivedParameterTests {
         }
     }
 
-    /// `n_sub_layers` is a complete distributional no-op, not just a mean- and variance-preserving
-    /// one.
+    /// `n_sub_layers` leaves the whole distribution unchanged, not only the mean and variance.
     ///
-    /// `grain.md` section 5.1 and trap 15 say it flattens the skewness and that a skewness test would
-    /// catch a port that dropped it. It does not. `od_particle` is derived from the *already divided*
-    /// `n_particles_per_pixel`, so each repeat's step grows by `n_sub_layers` and the final division
-    /// by `n_sub_layers` cancels it exactly. The sum of `S` independent `Poisson(lambda/S)` variates
-    /// is `Poisson(lambda)`, so the output is the same scaled Poisson for every `S`: mean, variance,
-    /// skewness and kurtosis all identical. Confirmed in the oracle at 512x512 for `S` in
-    /// `{1, 2, 3, 5}`, where all four moments agree within sampling noise and the closed forms are
+    /// `grain.md` section 5.1 and trap 15 say it flattens the skewness, and that a skewness test
+    /// would catch a port that dropped it; neither holds. `od_particle` is derived from the *already
+    /// divided* `n_particles_per_pixel`, so each repeat's step grows by `n_sub_layers` and the final
+    /// division by `n_sub_layers` cancels it exactly. The sum of `S` independent `Poisson(lambda/S)`
+    /// variates is `Poisson(lambda)`, so the output is the same scaled Poisson for every `S`, with
+    /// identical mean, variance, skewness and kurtosis. The oracle confirms this at 512x512 for `S`
+    /// in `{1, 2, 3, 5}`: all four moments agree within sampling noise and the closed forms are
     /// bit-identical. The only cost is `S` times the Poisson draws.
     @Test("n_sub_layers leaves the whole distribution alone")
     func subLayerCountIsADistributionalNoOp() throws {
@@ -442,8 +441,8 @@ struct GrainDerivedParameterTests {
             #expect(abs(moments.variance / reference.variance - 1.0) <= 1e-14)
             #expect(abs(moments.skewness / reference.skewness - 1.0) <= 1e-14)
             #expect(abs(moments.excessKurtosis / reference.excessKurtosis - 1.0) <= 1e-14)
-            // The step each repeat contributes after the division is unchanged, which is why the
-            // moments are. `od_particle` itself grows by the repeat count.
+            // The step each repeat contributes after the division is unchanged, so the moments are
+            // too. `od_particle` itself grows by the repeat count.
             let population = moments.populations[0]
             #expect(abs(population.step / reference.populations[0].step - 1.0) <= 1e-14)
             #expect(
@@ -523,9 +522,9 @@ struct GrainInvariantTests {
         }
     }
 
-    /// A pixel's value must be fixed by the stream key and the linear pixel index alone. That is what
-    /// makes a render reproducible across machines with different core counts, and it is the property
-    /// upstream's fast path does not have.
+    /// A pixel's value must depend only on the stream key and the linear pixel index. This makes a
+    /// render reproducible across machines with different core counts. Upstream's fast path lacks
+    /// this property.
     @Test("every pixel is a function of its key and index only")
     func perPixelDeterminism() throws {
         let stock = try GrainStock()
@@ -611,8 +610,8 @@ struct GrainInvariantTests {
             "saturated mean \(saturated.mean), want \(expected) within \(5 * standardError)")
     }
 
-    /// Grain legitimately goes negative, down to about `-density_min`, because the subtraction at the
-    /// end is unconditional. The printing and scanning LUT wires reserve headroom for it, so nothing
+    /// Grain can go negative, down to about `-density_min`, because the final subtraction is
+    /// unconditional. The printing and scanning LUT wires reserve headroom for it, so nothing
     /// downstream may clamp at zero.
     @Test("a black frame produces densities near minus density_min")
     func outputGoesNegative() throws {
@@ -633,10 +632,10 @@ struct GrainInvariantTests {
 /// The sampled stages, gated against the closed form of `grain.md` section 4.2 at five measured
 /// sampling sigma.
 ///
-/// Gating against the analytic moments takes the oracle's RNG out of the loop: byte parity with
-/// SciPy on NumPy's legacy MT19937 is unreachable at acceptable cost, and reproducing it would buy
-/// nothing. Each test also puts the oracle's own realisation through the same gate, so a
-/// miscalibrated tolerance shows up as the oracle failing rather than as a false pass.
+/// Gating against the analytic moments removes the oracle's RNG from the comparison. Byte parity
+/// with SciPy on NumPy's legacy MT19937 would cost too much and gain nothing. Each test also runs
+/// the oracle's own realisation through the same gate, so a miscalibrated tolerance shows up as the
+/// oracle failing.
 @Suite("Grain statistics")
 struct GrainStatisticsTests {
 
@@ -764,8 +763,8 @@ struct GrainStatisticsTests {
         }
     }
 
-    /// RMS granularity through a 48 um densitometer aperture, the figure a photographer recognises.
-    /// Also the only test that drives `pixel_size_um` five times larger than any real render.
+    /// RMS granularity through a 48 um densitometer aperture, the figure photographers know. Also the
+    /// only test with a `pixel_size_um` five times larger than any real render uses.
     ///
     /// 128x128 samples, so `SE(sd)/sd` is 0.55 percent against the oracle's 0.14 percent at 512x512.
     /// The 5 percent gate is about nine combined sigma.
@@ -806,7 +805,8 @@ struct GrainStatisticsTests {
 // MARK: - Blur wiring
 
 /// The three blur sites, their gates and what they do to the variance. The filter itself belongs to
-/// the diffusion subsystem; these check that grain drives it with the right sigma at the right time.
+/// the diffusion subsystem; these check that grain calls it with the right sigma under the right
+/// conditions.
 @Suite("Grain blur wiring")
 struct GrainBlurTests {
 
@@ -830,7 +830,7 @@ struct GrainBlurTests {
     @Test("the two topologies gate the final blur differently")
     func blurGateAsymmetry() throws {
         let filter = FIRGaussianFilter()
-        /// True when the requested blur actually reached the filter and changed something.
+        /// True when the requested blur reached the filter and changed the output.
         func blurred(_ params: GrainParams) throws -> Bool {
             let filtered = try render(params, filter: filter).values
             let unfiltered = try render(params, filter: NoSpatialFilter()).values
@@ -852,8 +852,8 @@ struct GrainBlurTests {
             try blurred(layered),
             "the layered path skipped the blur at sigma 0.3, which its > 0 gate admits")
 
-        // Its gate admits 0.1 too, and the filter turns that into an exact identity because the
-        // radius rounds to 0. Both halves of the asymmetry matter.
+        // Its gate admits 0.1 too, and the filter makes that an exact identity because the radius
+        // rounds to 0.
         layered.blur = 0.1
         #expect(FIRGaussianFilter.kernel(sigma: 0.1) == [1.0])
         #expect(try !blurred(layered))
@@ -861,8 +861,8 @@ struct GrainBlurTests {
 
     /// `radius = int(3 * sigma + 0.5)` puts the identity boundary just *below* sigma = 1/6, not at
     /// it: `3 * (1.0/6.0) + 0.5` rounds to exactly 1.0 in float64, so 1/6 itself gives radius 1.
-    /// `grain.md` section 6.1 says "the radius-0 boundary is sigma = 1/6"; verified in the oracle,
-    /// 1/6 is the first sigma that is not an identity.
+    /// `grain.md` section 6.1 says "the radius-0 boundary is sigma = 1/6". The oracle confirms 1/6
+    /// is the first sigma that is not an identity.
     @Test("the kernel's radius-0 boundary sits just below one sixth")
     func radiusZeroBoundary() {
         for sigma in [0.05, 0.13, 0.1666, 0.16666] {
@@ -908,7 +908,7 @@ struct GrainBlurTests {
     }
 
     /// `layer_particle_model` gates the dye-cloud blur on `blur_particle > 0`, on the parameter and
-    /// not on the sigma it produces. Driven through synthetic `density_max` and
+    /// not on the sigma it produces. The test uses synthetic `density_max` and
     /// `n_particles_per_pixel` so `od_particle` is 1 and the sigma equals the parameter, which puts
     /// 0.2 above the kernel's radius-0 boundary. A `> 0.4` gate would skip it.
     @Test("the dye-cloud gate admits any positive blur_dye_clouds_um")
@@ -931,14 +931,14 @@ struct GrainBlurTests {
     }
 
     /// `blur_dye_clouds_um` is dimensionless: it multiplies `sqrt(od_particle)` to give a sigma in
-    /// pixels. The physical sigma is therefore resolution invariant and the pixel sigma is not, so
-    /// which sublayers the stage touches depends on output resolution.
+    /// pixels. The physical sigma is resolution invariant and the pixel sigma is not, so which
+    /// sublayers the stage touches depends on output resolution.
     ///
     /// `grain.md` section 4.3 says the stage is a no-op at 8.75 um per pixel and that sublayer 0
-    /// first gets radius 1 at 5.83 um. Its own sigma table contradicts that: sublayer 0, blue is
+    /// first gets radius 1 at 5.83 um. Its own sigma table contradicts that: sublayer 0 blue is
     /// 0.1915 px at 8.75 um, above the radius-0 boundary, so eight of the nine planes are exact
     /// identities and that one is not. Its kernel is `[1.19e-6, 0.9999976, 1.19e-6]`, three orders
-    /// below the parity gate but not zero.
+    /// below the parity gate but nonzero.
     @Test("the dye-cloud blur touches one plane at 8.75 um and more at 5.83 um")
     func dyeCloudResolutionDependence() throws {
         let stock = try GrainStock()
@@ -965,8 +965,8 @@ struct GrainBlurTests {
         }
         #expect(fineIdentities.count < identities.count)
 
-        // The physical sigma does not move with resolution, which is the property that makes the
-        // pixel threshold resolution dependent in the first place.
+        // The physical sigma does not change with resolution, which is why the pixel threshold
+        // depends on resolution.
         for i in 0..<9 {
             let coarseMicrons = coarse.dyeCloudSigmaPixels[i] * pixelSize
             let fineMicrons = fine.dyeCloudSigmaPixels[i] * 35_000.0 / 6000.0
@@ -980,8 +980,8 @@ struct GrainBlurTests {
 @Suite("Grain micro-structure")
 struct GrainMicroStructureTests {
 
-    /// Neither gate opens at any realistic pixel pitch, so with default parameters the stage is dead
-    /// code in every production render.
+    /// Neither gate opens at any realistic pixel pitch, so with default parameters the stage never
+    /// runs in a production render.
     @Test("the default parameters leave the grain untouched")
     func defaultsNeverFire() throws {
         let stock = try GrainStock()
@@ -997,8 +997,8 @@ struct GrainMicroStructureTests {
         #expect(render((0.2, 30)).values == render((0, 0)).values)
     }
 
-    /// Both thresholds are bare literals in `add_micro_structure`, and everything else here drives
-    /// them from far away on one side or the other. These pin them.
+    /// Both thresholds are bare literals in `add_micro_structure`, and every other test here stays
+    /// far from them on one side or the other, so these pin them.
     ///
     /// `pixel_size_um = 1`, so `sigma = micro_structure[1] * 0.001` and
     /// `blur_px = micro_structure[0]`. Sigma 0.05 exactly is shut and 0.050001 is open; blur 0.4
@@ -1033,8 +1033,8 @@ struct GrainMicroStructureTests {
     }
 
     /// `apply_grain_to_density_layers` multiplies the clumping field in *before* it subtracts
-    /// `density_min`, so the fog floor is modulated too and the variance carries a
-    /// `(mean + density_min)^2` term rather than a `mean^2` one.
+    /// `density_min`, so the fog floor is modulated too and the variance has a
+    /// `(mean + density_min)^2` term, not a `mean^2` one.
     ///
     /// At the shipped `density_min` of 0.03 the two orderings differ by about 0.3 percent in the
     /// standard deviation, which no calibrated gate can separate. `density_min = 0.5` against an
@@ -1075,7 +1075,7 @@ struct GrainMicroStructureTests {
             let measured = SampleMoments(channel(out, c)).standardDeviation
             let n = Double(out.pixelCount)
             let sdSE = 3.0 * expected.squareRoot() / (2.0 * n).squareRoot()
-            // The gate has to reject the other ordering by a wide margin, or it proves nothing.
+            // The gate must reject the other ordering by a wide margin, or the test proves nothing.
             #expect(
                 abs(ifSwapped.squareRoot() - expected.squareRoot()) > 15.0 * sdSE,
                 Comment(
@@ -1123,7 +1123,7 @@ struct GrainMicroStructureTests {
                     measured.standardDeviation, closedForm: sigma, samplingSD: sdSE,
                     "clumping sigma \(sigma) channel \(c) sd")
             }
-            // The oracle's own realisation, at 1024x1024, has to clear the same closed form.
+            // The oracle's own realisation, at 1024x1024, must match the same closed form.
             expectStatistic(
                 oracleMean, closedForm: 1.0, samplingSD: sigma / 1024.0,
                 "oracle clumping sigma \(sigma) mean")
@@ -1190,8 +1190,8 @@ struct GrainMicroStructureTests {
                 samplingSD: expectedVariance.squareRoot() / n.squareRoot(),
                 "forced clumping channel \(c) mean")
             // The blurred field is spatially correlated, so the sd estimator's spread is wider than
-            // the i.i.d. 1/sqrt(2n). Three times that, which still rejects a missing or
-            // double-counted clumping term by a wide margin.
+            // the i.i.d. 1/sqrt(2n). The gate uses three times that, which still rejects a missing
+            // or double-counted clumping term by a wide margin.
             let sdSE = 3.0 * expectedVariance.squareRoot() / (2.0 * n).squareRoot()
             expectStatistic(
                 measured.standardDeviation, closedForm: expectedVariance.squareRoot(),
@@ -1225,7 +1225,7 @@ struct GlareTests {
             #expect(field.channels == 1)
             #expect(field.values.count == statisticalSamples)
 
-            // The division by 100 is what turns `percent` into a fraction.
+            // The division by 100 turns `percent` into a fraction.
             let expectedMean = percent / 100
             let expectedSD = roughness * percent / 100
             let measured = SampleMoments(field.values)
@@ -1253,7 +1253,7 @@ struct GlareTests {
     }
 
     /// `blur` is a pixel sigma, so at the shipped 0.5 it takes the FIR path with radius 2. The mean
-    /// survives and the standard deviation drops by the kernel's factor.
+    /// is unchanged and the standard deviation drops by the kernel's factor.
     @Test("the blur leaves the mean alone and scales the standard deviation")
     func blurMovesOnlyTheSpread() throws {
         let side = 256
@@ -1333,10 +1333,10 @@ struct GlareTests {
         #expect(field(seed: 2) != field(seed: 3))
     }
 
-    /// Glare and grain run off the same seed on the default render path, so their streams have to be
-    /// distinct. They were not: `PhiloxKey(seed:)` is channel 0 and sublayer 0, which is also grain's
-    /// red channel, first particle sublayer, and both index by the linear pixel. The two fields came
-    /// out correlated at r = -0.139 over 65536 pixels, where the sampling scale is 0.004.
+    /// Glare and grain use the same seed on the default render path, so their streams must be
+    /// distinct. `PhiloxKey(seed:)` is channel 0 and sublayer 0, which is also grain's red channel,
+    /// first particle sublayer, and both index by the linear pixel. Sharing that key correlated the
+    /// two fields at r = -0.139 over 65536 pixels, against a sampling scale of 0.004.
     @Test("the glare stream is not one of grain's")
     func streamDoesNotCollideWithGrain() throws {
         // `subLayerCount` is unbounded, so grain's particle streams can reach any small sublayer.

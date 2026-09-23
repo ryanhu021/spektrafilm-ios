@@ -3,8 +3,8 @@ import Foundation
 /// The element types the reader accepts, spelled as NumPy's `descr` string.
 ///
 /// Little-endian IEEE-754 only. Every array the engine loads is written by NumPy on a
-/// little-endian host, and a big-endian or integer `descr` is far more likely to be the wrong file
-/// than a file worth byte-swapping.
+/// little-endian host, so a big-endian or integer `descr` more likely means the wrong file than
+/// one that needs byte-swapping.
 public enum NumpyDType: String, Sendable, CaseIterable {
     case float16 = "<f2"
     case float32 = "<f4"
@@ -23,8 +23,8 @@ public enum NumpyDType: String, Sendable, CaseIterable {
 ///
 /// The payload is not copied and not converted at load. The spectra LUT is 192x192x81 `Float16`,
 /// 5 971 968 bytes on disk and 23 887 872 bytes once widened, so a caller that only needs a few
-/// spectra per pixel reads through ``subscript(_:)`` or ``withPayload(_:)`` and never pays for the
-/// widened copy. ``values()`` is there for small arrays and for tests.
+/// spectra per pixel reads through ``subscript(_:)`` or ``withPayload(_:)`` and never allocates
+/// the widened copy. ``values()`` is for small arrays and tests.
 ///
 /// Float16 and Float32 widen to `Double` exactly, so values match NumPy's
 /// `np.double(np.load(...))` bit for bit.
@@ -60,7 +60,7 @@ public struct NumpyArray: Sendable {
         self.strides = reversed.reversed()
     }
 
-    /// Payload size in bytes, which is what the array costs resident while it stays unwidened.
+    /// Payload size in bytes: the array's resident cost while it stays unwidened.
     public var payloadByteCount: Int { count * dtype.byteCount }
 
     /// Flat element index of a C-order subscript.
@@ -109,9 +109,8 @@ public struct NumpyArray: Sendable {
 
     /// Hands the raw payload bytes to `body` without copying or widening them.
     ///
-    /// The seam for stages that fold the LUT into a sum: widening element by element inside the
-    /// contraction gives the same `Double` arithmetic as widening up front, at 2 bytes per element
-    /// instead of 8.
+    /// For stages that fold the LUT into a sum. Widening element by element inside the contraction
+    /// gives the same `Double` arithmetic as widening up front, at 2 bytes per element instead of 8.
     public func withPayload<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
         try bytes.withUnsafeBytes { raw in
             try body(
@@ -156,7 +155,7 @@ public struct NumpyArray: Sendable {
             return sign == 0 ? magnitude : -magnitude
         }
         if exponent == 0x1F {
-            // Hardware conversion quiets a signalling NaN, so bit 51 goes on whenever the
+            // Hardware conversion quiets a signalling NaN, so bit 51 is set whenever the
             // significand is non-zero. Without it 1022 of the NaN patterns differ from NumPy.
             let payload = fraction == 0 ? UInt64(0) : (fraction << 42) | 0x0008_0000_0000_0000
             return Double(bitPattern: sign | (0x7FF << 52) | payload)
@@ -175,7 +174,7 @@ public enum NumpyArrayReader {
 
     static let magic = Data([0x93, 0x4E, 0x55, 0x4D, 0x50, 0x59])
 
-    /// Memory-maps a `.npy` file. The pages stay unread until an element is asked for.
+    /// Memory-maps a `.npy` file. No page is read until an element is accessed.
     public static func mapped(at url: URL) throws -> NumpyArray {
         try mapped(at: url, source: url.lastPathComponent)
     }

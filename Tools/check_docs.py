@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check that the documentation still describes the repository it ships with.
 
-Docs drift quietly. A count in prose stays plausible long after it stops being true, and a relative
-link keeps rendering after the file moves. Every check covers a claim a reader would act on, and
-none need the parity oracle, so this runs on a bare checkout.
+A count in prose stays plausible after it stops being true, and a relative link keeps rendering
+after the file moves. Each check covers a claim a reader would act on. None needs the parity oracle,
+so this runs on a bare checkout.
 
 Usage:  Tools/check_docs.py
 """
@@ -97,7 +97,7 @@ def check_oracle_pin() -> None:
 
 
 def check_ci_references() -> None:
-    """Targets and scripts that CI invokes exist, so a green local run means something."""
+    """Make targets and scripts that CI invokes exist, and the scripts are executable."""
     makefile = (REPO / "Makefile").read_text()
     targets = {m.group(1) for m in re.finditer(r"^([a-z][a-z-]*):", makefile, re.M)}
     workflows = sorted((REPO / ".github/workflows").glob("*.yml"))
@@ -150,7 +150,7 @@ def check_build_name_collisions() -> None:
     each target's PRODUCT_NAME. Two names differing only by case merge into one directory on a
     case-insensitive filesystem, where the targets overwrite each other's output file maps and the
     build fails with "unable to open dependencies file". macOS is case-insensitive by default, so
-    this fails in CI while passing on a case-sensitive local volume. Expensive to diagnose twice.
+    the build fails in CI but passes on a case-sensitive local volume.
     """
     names: dict[str, list[str]] = {}
 

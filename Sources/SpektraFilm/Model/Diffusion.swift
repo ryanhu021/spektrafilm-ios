@@ -2,15 +2,14 @@ import Foundation
 
 /// `model/diffusion.py`, plus `utils/numba_boost_hightlights.py`.
 ///
-/// Four operators, applied in this order by the filming stage and never folded together:
-/// highlight boost, the diffusion-filter PSF, lens blur, halation. The boost is re-exported by
-/// `diffusion.py` but called one level up, from `FilmingStage.expose`, so it stays a separate
-/// operator here. Folding it into ``applyHalation(_:_:pixelSizeMicrons:)`` would change the
-/// pipeline order.
+/// Four separate operators, which the filming stage applies in this order: highlight boost, the
+/// diffusion-filter PSF, lens blur, halation. `diffusion.py` re-exports the boost, but
+/// `FilmingStage.expose` calls it one level up, so it stays a separate operator here. Folding it
+/// into ``applyHalation(_:_:pixelSizeMicrons:)`` would change the pipeline order.
 ///
-/// The printing stage runs a second, independent diffusion filter on the print-side exposure, and
-/// the scanning stage runs a lens blur and an unsharp mask whose sigmas are in **pixels** while the
-/// camera's lens blur is in **micrometres**.
+/// The printing stage runs a second, independent diffusion filter on the print-side exposure. The
+/// scanning stage runs a lens blur and an unsharp mask with sigmas in **pixels**; the camera's lens
+/// blur is in **micrometres**.
 public enum Diffusion {
 
     // MARK: - Highlight boost
@@ -28,8 +27,8 @@ public enum Diffusion {
 
     /// `boost_highlights` with `out` aliased onto the input, which is how the filming stage calls it.
     ///
-    /// The curve is frame-global: its shape depends on the maximum over the whole array, all
-    /// channels together, so this is not a per-pixel transform and cannot be baked into a 3D LUT.
+    /// The curve is frame-global. Its shape depends on the maximum over the whole array, all
+    /// channels together, so it is not a per-pixel transform and cannot be baked into a 3D LUT.
     /// `debug.lutMode` zeroes `boostEV` for that reason.
     public static func boostHighlights(
         _ image: inout ImageBuffer, boostEV: Double, boostRange: Double, protectEV: Double,
@@ -46,7 +45,7 @@ public enum Diffusion {
 
         let maxRaw = arrayMaximum(image.values)
         if maxRaw == 0 {
-            // Upstream fills zeros here instead of copying, which discards any negative value.
+            // Upstream fills zeros here instead of copying the input, so negative values are lost.
             for i in image.values.indices { image.values[i] = 0 }
             return
         }
@@ -87,17 +86,16 @@ public enum Diffusion {
 
     // MARK: - Blur and sharpen entry points
 
-    /// `apply_gaussian_blur`. Sigma in pixels, which is what the scanner's `lens_blur` carries.
+    /// `apply_gaussian_blur`. Sigma in pixels, the unit of the scanner's `lens_blur`.
     public static func applyGaussianBlur(_ image: ImageBuffer, sigmaPixels: Double) -> ImageBuffer {
         sigmaPixels > 0 ? GaussianFilter.apply(image, sigma: sigmaPixels) : image
     }
 
-    /// `apply_gaussian_blur_um`. Sigma in image-plane micrometres, which is the camera's
+    /// `apply_gaussian_blur_um`. Sigma in image-plane micrometres, the unit of the camera's
     /// `lens_blur_um`.
     ///
-    /// The zero check comes before the division deliberately: `pixelSizeMicrons` is unknown until
-    /// the resize stage has run, and LUT bakes inject past that point with every spatial size
-    /// already zeroed.
+    /// The zero check comes before the division because `pixelSizeMicrons` is unknown until the
+    /// resize stage has run, and LUT bakes inject past that point with every spatial size zeroed.
     public static func applyGaussianBlur(
         _ image: ImageBuffer, sigmaMicrons: Double, pixelSizeMicrons: Double?
     ) -> ImageBuffer {
@@ -111,7 +109,7 @@ public enum Diffusion {
 
     /// `apply_unsharp_mask`. Sigma in pixels.
     ///
-    /// No guard of its own: the scanning stage is what checks `sigma > 0 && amount > 0`. Nothing is
+    /// No guard of its own; the scanning stage checks `sigma > 0 && amount > 0`. Nothing is
     /// clipped, so ringing can drive the result negative, and does at `amount >= 1`.
     public static func applyUnsharpMask(
         _ image: ImageBuffer, sigma: Double, amount: Double
@@ -128,21 +126,17 @@ public enum Diffusion {
 
     // MARK: - Halation
 
-    /// `apply_halation_um`: in-emulsion scatter, then back-reflection.
-    ///
-    /// Both passes gate on "any channel has a non-zero size", so a channel whose size is zero still
-    /// goes through the filter with its width floored to 1e-6. At that width the FIR radius is 0, a
-    /// single unit tap, so the pass is an exact copy for that channel. Short-circuiting per channel
-    /// instead would change the arithmetic.
     /// `apply_halation_um`: in-emulsion scatter, then back-reflection off the film base.
     ///
-    /// Works one channel plane at a time, and consumes `raw`.
+    /// Consumes `raw` and works one channel plane at a time. Both passes need the unscattered image
+    /// while producing a blurred copy of it, so a whole-frame version would hold the input, the
+    /// result and two blurs at once, a full frame more peak footprint than this. Both filters take
+    /// one parameter per channel, so working per plane changes no arithmetic.
     ///
-    /// Both passes need the unscattered image while producing a blurred copy of it, so a whole-frame
-    /// version holds the input, the result and two blurs at once. That made halation the single
-    /// largest allocation in the pipeline, worth one full frame of peak footprint, which is what caps
-    /// export size on iOS. A plane is a third of a frame, and both filters already take one parameter
-    /// per channel, so processing per plane changes no arithmetic.
+    /// Each pass runs when any channel has a non-zero size. A channel whose size is zero still goes
+    /// through the filter, with its width floored to 1e-6. At that width the FIR radius is 0, a
+    /// single unit tap, so the pass is an exact copy for that channel. Skipping the channel instead
+    /// would change the arithmetic.
     public static func applyHalation(
         _ raw: consuming ImageBuffer, _ halation: HalationParams, pixelSizeMicrons: Double
     ) -> ImageBuffer {
@@ -167,8 +161,8 @@ public enum Diffusion {
         {
             for channel in 0..<3 {
                 let plane = halationPlane(result, channel: channel)
-                // The tail is a three-Gaussian mixture and holds the most scratch, so it runs while
-                // the core's result does not yet exist.
+                // The tail is a three-Gaussian mixture and holds the most scratch, so it runs
+                // before the core's result exists.
                 let tail = ExponentialFilter.apply(
                     plane, decayPerChannel: [Swift.max(tailLambda[channel], 1e-6)])
                 let core = GaussianFilter.apply(
@@ -233,7 +227,8 @@ public enum Diffusion {
 
     /// One channel of an RGB buffer, as a single-channel buffer.
     ///
-    /// A third of a frame, which is the point: see ``applyHalation(_:_:pixelSizeMicrons:)``.
+    /// A third of a frame, which keeps halation's peak footprint down; see
+    /// ``applyHalation(_:_:pixelSizeMicrons:)``.
     private static func halationPlane(_ image: ImageBuffer, channel: Int) -> ImageBuffer {
         var plane = ImageBuffer(height: image.height, width: image.width, channels: 1)
         let channels = image.channels
@@ -310,8 +305,8 @@ public enum Diffusion {
 
     /// `_DIFFUSION_FAMILY_TOTAL_GAIN`: the family's deflection efficiency at a given commercial stop.
     ///
-    /// Black Pro-Mist's "deep blacks" character lives here and in its low bloom weight. The model is
-    /// energy conserving and absorbs nothing, whatever the GUI tooltip says.
+    /// Black Pro-Mist's "deep blacks" character comes from this gain and its low bloom weight. The
+    /// model is energy conserving and absorbs nothing, although the GUI tooltip says otherwise.
     public static func totalGain(for family: DiffusionFilterParams.Family) -> Double {
         switch family {
         case .glimmerglass: return 0.65
@@ -368,10 +363,10 @@ public enum Diffusion {
     /// sub-components. Returns three rows of `weights.count` entries, each row summing to
     /// `weights.sum()`.
     ///
-    /// The clip to zero before the renormalise is not decoration. Cinebloom at its family base of
-    /// 0.85 drives red's innermost weight to `1 + 0.85 * 1.30 * -1 = -0.105`, so red clips to 0, the
-    /// row sums to 1.035, and the renormalise divides it back. Skipping the clip leaves a negative
-    /// weight and a silently different halo colour.
+    /// Keep the clip to zero before the renormalise. Cinebloom at its family base of 0.85 drives
+    /// red's innermost weight to `1 + 0.85 * 1.30 * -1 = -0.105`, so red clips to 0, the row sums
+    /// to 1.035, and the renormalise divides it back. Skipping the clip leaves a negative weight
+    /// and a silently different halo colour.
     static func haloChannelWeights(_ weights: [Double], warmth: Double) -> [[Double]] {
         let count = weights.count
         if count < 2 { return [weights, weights, weights] }
@@ -401,7 +396,7 @@ public enum Diffusion {
         return out
     }
 
-    /// Per-group multipliers off a ``DiffusionFilterParams``.
+    /// Per-group multipliers from a ``DiffusionFilterParams``.
     public struct PSFOverrides: Sendable, Equatable {
         public var coreIntensity: Double
         public var haloIntensity: Double
@@ -443,10 +438,10 @@ public enum Diffusion {
     /// to 1, leaving the strength-to-`p_s` mapping alone. The sizes scale each group's `lambdaMicrons`
     /// only: `spread`, `componentCount` and `alpha` are never touched.
     ///
-    /// Two clamps and one early return are load-bearing:
+    /// Two clamps and one early return that the output depends on:
     ///
     /// - a negative intensity clamps to 0, and the other two renormalise around it;
-    /// - a size of 0 becomes 1e-6, not 0;
+    /// - a size of 0 is floored to 1e-6;
     /// - **all three intensities at 0 reverts to the unmodified family**, discarding the size
     ///   overrides along with them.
     static func resolve(
@@ -482,8 +477,8 @@ public enum Diffusion {
     /// `_radial_components`.
     ///
     /// `radius` is in pixels when `pixelSizeMicrons` is the real pixel pitch, or in micrometres when
-    /// `pixelSizeMicrons` is 1. `warmth` arrives already summed with the family base: this does not
-    /// add the base itself, so adding it twice is the easy mistake.
+    /// `pixelSizeMicrons` is 1. `warmth` must already include the family base. This function does
+    /// not add it, so do not add it twice.
     static func radialComponents(
         radius: [Double], family: DiffusionFilterParams.Family, spatialScale: Double,
         pixelSizeMicrons: Double, warmth: Double, overrides: PSFOverrides?
@@ -526,8 +521,8 @@ public enum Diffusion {
     /// `diffusion_filter_radial_profile`: the analytic continuum profile in `1 / um**2`.
     ///
     /// No normalisation, unlike ``diffusionFilterPSF(kernelHeight:kernelWidth:family:spatialScale:pixelSizeMicrons:haloWarmth:overrides:)``,
-    /// and no grid or truncation coupling. Nothing in the pipeline calls it; it exists as an
-    /// analysis and test hook.
+    /// and no grid or truncation coupling. The pipeline does not call it; it is an analysis and
+    /// test hook.
     public static func diffusionFilterRadialProfile(
         radiusMicrons: [Double], family: DiffusionFilterParams.Family = .blackProMist,
         spatialScale: Double = 1.0, haloWarmth: Double = 0.0, overrides: PSFOverrides? = nil
@@ -551,7 +546,7 @@ public enum Diffusion {
     /// flip the kernel.
     ///
     /// Sum normalisation absorbs both the truncation loss and the `1 / (2 pi lambda^2)` prefactors,
-    /// so only the relative radial shape survives. The truncation is not small: on a 29x29 grid at a
+    /// so only the relative radial shape survives. The truncation is large: on a 29x29 grid at a
     /// 100 um pitch the pre-normalisation red sum is 4.0028.
     public static func diffusionFilterPSF(
         kernelHeight: Int, kernelWidth: Int, family: DiffusionFilterParams.Family,
@@ -600,8 +595,8 @@ public enum Diffusion {
     ///
     /// 256 MB. Measured on 3:2 frames at 35 mm and `spatialScale` 1, that covers a long edge up to
     /// 1616 px for glimmerglass, 1360 for black_pro_mist and 1088 for pro_mist and cinebloom. See
-    /// ``applyDiffusionFilter(_:_:pixelSizeMicrons:memoryBudgetBytes:)`` for why the ceiling is this
-    /// low and why no FFT arrangement raises it.
+    /// ``applyDiffusionFilter(_:_:pixelSizeMicrons:memoryBudgetBytes:)`` for why the ceiling is low
+    /// and why no FFT arrangement raises it.
     public static let defaultMemoryBudgetBytes = 256 << 20
 
     /// Peak transient bytes ``applyDiffusionFilter(_:_:pixelSizeMicrons:memoryBudgetBytes:)`` would
@@ -623,8 +618,8 @@ public enum Diffusion {
     ///
     /// `ceil(max(8 * lambda_bloom_max_px, 5))`, then clamped to `max(min(H, W) / 2 - 1, 1)`. The 8x
     /// budget comes from the 2D radial CDF of a single exponential, `1 - (1 + r/l) exp(-r/l)`, which
-    /// reaches 99.95% at `r = 8 l`. The clamp is not a formality: on a 6000x4000 frame it drags
-    /// pro_mist from 2229 and cinebloom from 3429 down to 1999.
+    /// reaches 99.95% at `r = 8 l`. The clamp applies at real sizes: on a 6000x4000 frame it cuts
+    /// pro_mist from 2229 and cinebloom from 3429 to 1999.
     public static func diffusionKernelRadius(
         _ params: DiffusionFilterParams, pixelSizeMicrons: Double, imageHeight: Int, imageWidth: Int
     ) -> Int {
@@ -642,12 +637,12 @@ public enum Diffusion {
     ///
     /// The boundary is `numpy.pad(mode: "reflect")`, whole-sample symmetric with the edge sample
     /// shared, which is ``BoundaryIndex/mirrorEdgeShared(_:count:)`` and *not* the fold the FIR blur
-    /// uses. Reconstructing this operator with the other convention lands 4.7e-4 away on a random
-    /// 48x60 frame and 6.6e-6 on a smoother one, so the error can sit inside the 1e-4 gate. The tests
-    /// check the boundary directly as well as against a golden for that reason.
+    /// uses. The other convention is off by 4.7e-4 on a random 48x60 frame and by 6.6e-6 on a
+    /// smoother one, so the error can sit inside the 1e-4 gate. The tests therefore check the
+    /// boundary directly as well as against a golden.
     ///
     /// - Throws: ``SpektraError/unsupportedSetting(_:value:)`` when the peak allocation would exceed
-    ///   `memoryBudgetBytes`. The radius grows with resolution until the clamp catches it, and the
+    ///   `memoryBudgetBytes`. The radius grows with resolution until the clamp stops it, and the
     ///   transform has to span the image plus four radii, so the working set grows faster than the
     ///   frame. Measured for black_pro_mist on 3:2 frames: 130 MB at a 1024 px long edge, 2.1 GB at
     ///   4000 px, 4.4 GB at 6000 px, where pro_mist and cinebloom both reach 6.7 GB. No FFT

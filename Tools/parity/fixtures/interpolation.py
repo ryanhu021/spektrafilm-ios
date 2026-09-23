@@ -9,7 +9,7 @@ from fixture_registry import fixture
 
 @fixture
 def interpolation():
-    """np.interp on a monotonic and a genuinely non-monotonic axis, and fast_interp."""
+    """np.interp on a monotonic and a non-monotonic axis, and fast_interp."""
     from opt_einsum import contract
     from spektrafilm.model.couplers import compute_dir_couplers_matrix
     from spektrafilm.profiles.io import load_profile
@@ -46,7 +46,7 @@ def interpolation():
     curves = np.asarray(profile.data.density_curves)
     yield "interp_log_exposure", log_exposure
     rng = np.random.default_rng(7)
-    # Deliberately spans past both ends of the axis to pin the clamping.
+    # Spans past both ends of the axis to pin the clamping.
     query = np.ascontiguousarray(rng.uniform(-5.0, 6.0, size=(16, 16, 3)))
     yield "interp_fast_query", query
     yield "interp_fast_shared_axis", fast_interp(query, log_exposure, curves)
@@ -61,7 +61,6 @@ def interpolation():
     #   the left-clamp that comes out is an artefact of this toolchain.
     #   np.interp's single-point path is `x < xp ? left : (x > xp ? right : fp[0])`, and both
     #   comparisons are false for NaN, so NaN yields fp[0].
-    # Cheap to pin, expensive to rediscover.
     nan_axis = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     nan_values = np.tile(np.array([[10.0, 20.0, 30.0, 40.0, 50.0, 60.0]]).T, (1, 3))
     nan_query = np.full((1, 3, 3), np.nan)

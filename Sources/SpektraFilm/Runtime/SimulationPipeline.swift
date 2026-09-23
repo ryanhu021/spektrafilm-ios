@@ -24,9 +24,9 @@ public final class SimulationPipeline {
         resampler: any Resampler = UnavailableResampler()
     ) throws {
         try rawParams.validate()
-        // Digesting is not optional: it overrides the enlarger neutrals from the measured database
-        // and seeds the coupler and halation parameters from the stock's tags. The dataclass
-        // defaults alone render differently.
+        // Digesting is required. It overrides the enlarger neutrals from the measured database and
+        // seeds the coupler and halation parameters from the stock's tags. The dataclass defaults
+        // alone render differently.
         let params = try ParamsBuilder.digest(rawParams)
         self.params = params
 

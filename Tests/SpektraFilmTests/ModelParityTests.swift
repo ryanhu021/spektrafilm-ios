@@ -4,8 +4,8 @@ import Testing
 
 /// Checks the emulsion model against the reference.
 ///
-/// Four stocks, two negative and two positive, because the coupler inversion takes a different path
-/// for positive film and the positive path is where the non-monotonic interpolation lives.
+/// Four stocks, two negative and two positive. The coupler inversion takes a different path for
+/// positive film, and that path contains the non-monotonic interpolation.
 @Suite("Emulsion model parity")
 struct ModelParityTests {
 
@@ -111,9 +111,9 @@ struct ModelParityTests {
         try expectParity(withoutBase.values, matches: "spectral_density_without_base")
     }
 
-    /// `channel_density` and `base_density` both carry NaN for wavelengths the datasheet skips, so
-    /// the spectral density inherits it and `density_to_light` turns it into zero. If NaN were
-    /// dropped earlier the unmeasured bands would contribute light that is not there.
+    /// `channel_density` and `base_density` both contain NaN for wavelengths the datasheet skips,
+    /// so the spectral density inherits it and `density_to_light` turns it into zero. If NaN were
+    /// dropped earlier, the unmeasured bands would contribute light that is not there.
     @Test("density to light zeroes NaN and scales by the illuminant")
     func densityToLight() throws {
         let density = try Golden("spectral_density_with_base").imageBuffer()
@@ -135,7 +135,7 @@ struct ModelParityTests {
     }
 
     /// The spectral expansion turns 3 channels into 81, so a full frame cannot be converted in one
-    /// allocation. Banding has to produce the same answer as converting the whole thing at once.
+    /// allocation. Converting in row bands must give the same result as converting the whole frame.
     @Test("row-band conversion matches a single-shot conversion")
     func bandedConversionIsExact() throws {
         let cmy = try Golden("spectral_density_cmy_input").imageBuffer()

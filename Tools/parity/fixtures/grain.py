@@ -8,12 +8,12 @@ and `sat` planes, and the sublayer split. Gated at the project tolerance or tigh
 Closed form: the mean, standard deviation, skewness and excess kurtosis the particle model implies
 (`grain.md` section 4.2), so the Swift side can check its own derived-parameter chain against the
 oracle exactly and then gate its samples against the closed form. Also the sampling standard
-deviation of each statistic, measured across independent realisations of exactly the sample count the
-Swift tests use, so the 5-sigma gates are calibrated and not guessed.
+deviation of each statistic, measured across independent realisations at the sample count the Swift
+tests use, so the 5-sigma gates are calibrated from data.
 
 Sampled: the oracle's own realisation of the layered path and of the RMS granularity figure. These
-are one draw from a different RNG, so they are regression references, and the tests gate them against
-the same closed form the Swift samples are gated against.
+are one draw from a different RNG, so they are regression references. The tests gate them against
+the same closed form as the Swift samples.
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ DENSITOMETER_PIXEL_SIZE_UM = float(np.sqrt((48 / 2) ** 2 * np.pi))
 # green's total density_max and clips there.
 DENSITY_LEVELS = [0.05, 0.2, 0.5, 1.0, 1.5, 1.9]
 
-# Levels the single-layer path is gated at. It is not the production topology, so it gets the ends
-# and the middle instead of the full sweep, which keeps the Swift suite's runtime down.
+# Levels the single-layer path is gated at. It is not the production topology, so it gets only the
+# ends and the middle of the sweep, to keep the Swift suite's runtime down.
 SINGLE_LAYER_LEVELS = [0.05, 0.5, 1.9]
 
 # Sample count the Swift statistical gates use, and the realisation count the sampling standard
@@ -207,8 +207,8 @@ def grain_derived():
     yield f"grain_derived_layers_{STOCK}", tables
     yield f"grain_derived_layers_total_{STOCK}", total
 
-    # The micro-structure gates as a function of pixel pitch. Both are false everywhere a real
-    # render lands; the last row is the forced-on fixture from grain.md section 9.6.
+    # The micro-structure gates as a function of pixel pitch. Both are false at every pitch a real
+    # render uses; the last row is the forced-on fixture from grain.md section 9.6.
     rows = []
     for micro in [(0.2, 30.0), (0.2, 300.0)]:
         for pixel in [42.5388924217, 8.75, 5.8333333333, 2.9166666667, 0.6, 0.5, 0.3]:
@@ -298,7 +298,7 @@ def grain_statistics():
         """SD of the mean, the sd and the skewness across independent realisations.
 
         Drawn straight from `Poisson` rather than through `apply_grain`, so it measures the
-        estimator's noise at exactly SAMPLES samples and not the reference's sampler. The Swift
+        estimator's noise at SAMPLES samples and not the reference's sampler. The Swift
         gates are five of these, so they are calibrated rather than assumed normal: `sqrt(6/n)`
         understates the skewness estimator's spread by up to 25 percent here.
         """
@@ -388,14 +388,14 @@ def grain_clumping_and_glare():
 
     `fast_lognormal_from_mean_std` draws through `np.random.randn()` inside `njit(parallel=True)`, so
     Numba keeps per-thread generator state and the thread schedule decides which thread draws which
-    value. Seeding does not fix it: two consecutive regenerations of the sampled version differed by
-    3.9% relative for glare and 0.25% for the clumping field, which made `make goldens` dirty the
-    tree on every run and quietly undermined the "review the delta" rule.
+    value. Seeding does not make it reproducible: two consecutive regenerations of a sampled version
+    differed by 3.9% relative for glare and 0.25% for the clumping field. A sampled fixture would
+    dirty the tree on every `make goldens` run and defeat the "review the delta" rule.
 
     The distribution's mean and standard deviation are known exactly by construction, so the fixture
-    stores those instead. That is both reproducible and a stronger check: it tests that the Swift
-    sampler has the right distribution rather than that it agrees with one noisy draw of the Python
-    one. The Swift side compares its own sample against these within its measured sampling error.
+    stores those. They are reproducible, and they test that the Swift sampler has the right
+    distribution, not that it agrees with one noisy draw of the Python one. The Swift side compares
+    its own sample against these within its measured sampling error.
     """
     rng = np.random.default_rng(4242)
 

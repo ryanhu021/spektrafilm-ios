@@ -17,23 +17,23 @@ public struct TCCoordinate: Sendable, Equatable {
 /// The warp between CIE 1931 `xy` and the LUT's square coordinates.
 ///
 /// `spectral_upsampling._tri2quad` and `._quad2tri`. The warp spreads the visible locus over the
-/// unit square far more evenly than raw `xy` does, which is why the shipped 192x192 irradiance
-/// table is sampled in this space and not in `xy`.
+/// unit square far more evenly than raw `xy` does, so the shipped 192x192 irradiance table is
+/// sampled in this space.
 ///
 /// Used by two subsystems: the runtime `rgbToTCB` and the build-time input gamut compression bake.
 public enum ChromaticityCoordinates {
 
     /// CIE `xy` to `tc`.
     ///
-    /// Three details are load-bearing and all three are visible out of gamut:
+    /// Three details matter, and all three show up out of gamut:
     ///
     /// - `qy` divides by `fmax(1 - x, 1e-10)`, so a NaN `x` yields the `1e-10` guard, not NaN.
     /// - `qy` is computed from the **unclamped** `x`. Clamping first would move every out-of-locus
     ///   input.
     /// - `qx = (1 - x)^2` is symmetric about `x = 1`, so `x = 1.2` and `x = 0.8` both give 0.04.
-    ///   Super-unit chromaticities silently alias onto valid cells. Reproduced, not fixed.
+    ///   Super-unit chromaticities alias onto valid cells without any error. Reproduced on purpose.
     ///
-    /// NaN survives the clip, as it does in `np.clip`, and is caught by the LUT fetch instead.
+    /// NaN survives the clip, as it does in `np.clip`, and the LUT fetch catches it.
     @inlinable
     public static func triToQuad(x: Double, y: Double) -> TCCoordinate {
         let qy = y / npFmax(1.0 - x, 1e-10)

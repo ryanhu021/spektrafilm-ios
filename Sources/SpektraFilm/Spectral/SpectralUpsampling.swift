@@ -13,7 +13,7 @@ public enum SpectralUpsampling {
     ///
     /// `mallett2019` is not ported. It is a single 3x3 matrix valid only inside sRGB, it is not the
     /// default, and it needs a colour table (`MSDS_BASIS_FUNCTIONS_sRGB_MALLETT2019`) that
-    /// ``ColourTables`` does not yet carry.
+    /// ``ColourTables`` does not have.
     public static func rgbToRaw(
         method: SettingsParams.RGBToRawMethod,
         rgb: ImageBuffer,
@@ -83,8 +83,8 @@ public enum SpectralUpsampling {
     /// one matrix: `M = M_cat16(colourspace whitepoint -> illuminant xy) * matrix_RGB_to_XYZ`.
     ///
     /// Verified against `colour.RGB_to_XYZ` at 4.3e-19 max abs, i.e. exact. CAT16 is named
-    /// explicitly here; the rest of the engine's `RGB_to_RGB` calls take colour-science's CAT02
-    /// default, so two adaptation transforms coexist in the pipeline.
+    /// explicitly here. The rest of the engine's `RGB_to_RGB` calls take colour-science's CAT02
+    /// default, so the pipeline uses two adaptation transforms.
     public static func composedRGBToXYZMatrix(
         colourSpace: ColourSpace, referenceIlluminant: Illuminant
     ) -> Matrix3 {

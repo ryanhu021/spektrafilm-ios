@@ -16,8 +16,8 @@ public enum Distributions {
 
     /// Box-Muller, taking the cosine branch and dropping the sine one.
     ///
-    /// Keeping the second value would make the result depend on how many draws came before it,
-    /// which is exactly the property ``RandomSource`` exists to remove.
+    /// Keeping the second value would make the result depend on how many draws came before it.
+    /// ``RandomSource`` exists to remove that dependence.
     @inlinable
     public static func standardNormal<R: RandomSource>(_ source: inout R) -> Double {
         let radial = source.nextOpenUniform()
@@ -41,8 +41,8 @@ public enum Distributions {
     /// evaluates; `log1p` is better conditioned for tiny ratios and gives different last bits.
     ///
     /// The guard is spelled as the negation of the reference's `m <= 0` so that a NaN mean falls
-    /// through to the arithmetic and stays NaN. `mean > 0` would swallow it and return the
-    /// `mean <= 0` constants, giving a clean unit field where the reference gives NaN, measured.
+    /// through to the arithmetic and stays NaN. `mean > 0` would send NaN to the `mean <= 0`
+    /// constants and give a clean unit field where the reference gives NaN (measured).
     @inlinable
     public static func lognormalLogParameters(
         mean: Double, std: Double
@@ -59,8 +59,8 @@ public enum Distributions {
 
     /// A lognormal variate with linear-space mean `mean` and standard deviation `std`.
     ///
-    /// Grain's clumping field and glare's flare field are both unit-mean-by-construction fields
-    /// built from this.
+    /// Grain's clumping field and glare's flare field are both built from this, with unit mean by
+    /// construction.
     @inlinable
     public static func lognormalFromMeanStd<R: RandomSource>(
         mean: Double, std: Double, _ source: inout R
@@ -95,12 +95,12 @@ public enum Distributions {
 
     /// A Poisson variate.
     ///
-    /// Grain needs the full span the particle model produces, roughly 4.5 to 1.2e8: `sat` bottoms
-    /// out near 2e-6 when `uniformity` is 1 and the density saturates, and `lambda = N / sat`
-    /// follows it up (`grain.md` section 4.1). One algorithm does not cover that, so this is Knuth
+    /// Grain needs the full span the particle model produces, roughly 4.5 to 1.2e8: `sat` falls to
+    /// about 2e-6 when `uniformity` is 1 and the density saturates, and `lambda = N / sat` rises
+    /// with it (`grain.md` section 4.1). One algorithm does not cover that, so this is Knuth
     /// below 10 and Hormann's transformed rejection at and above.
     ///
-    /// A non-finite lambda yields 0. Neither reference path offers an answer to copy: the exact
+    /// A non-finite lambda yields 0. The reference paths give no single answer to copy: the exact
     /// path raises, `RandomState.poisson(nan)` giving `ValueError: lam < 0 or lam is NaN` and
     /// `Generator.poisson(inf)` giving `ValueError: lam value too large`, while
     /// `fast_stats.fast_poisson` returns 0 for NaN and `Int64.max` for infinity, both measured.

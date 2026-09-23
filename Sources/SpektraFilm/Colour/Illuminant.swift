@@ -3,8 +3,7 @@ import Foundation
 /// A light source, labelled the way the profile JSONs label it.
 ///
 /// Follows `spektrafilm.model.illuminants.standard_illuminant`. Every spectrum is normalised to a
-/// mean of 1 over the 81 samples, which is what makes exposure factors comparable across
-/// illuminants.
+/// mean of 1 over the 81 samples, so exposure factors are comparable across illuminants.
 public enum Illuminant: Sendable, Hashable {
     /// A CIE standard illuminant tabulated in ``ColourTables``: `"D50"`, `"D55"` or `"D65"`.
     case cie(String)

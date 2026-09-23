@@ -5,14 +5,14 @@ import Testing
 
 /// Checks diffusion, halation and blur against the reference.
 ///
-/// Three things in this subsystem pass a loose check while being wrong, so each has a test that does
-/// not depend on a golden:
+/// Three behaviours here can be wrong and still pass a loose check, so each has a test that does not
+/// depend on a golden:
 ///
-/// - the IIR blur is deliberately 3 to 11 percent wider than its nominal sigma, and uses edge
-///   replication where the FIR path reflects;
+/// - the IIR blur is 3 to 11 percent wider than its nominal sigma, as upstream's is, and replicates
+///   the edge where the FIR path reflects;
 /// - the FIR and IIR paths disagree by about 1e-1 at the sigma 3 crossover, with no blend;
 /// - the diffusion filter's boundary is the mirror fold, and reconstructing it with the other
-///   "reflect" convention lands inside the parity gate on a smooth image.
+///   "reflect" convention falls inside the parity gate on a smooth image.
 @Suite("Diffusion, halation and blur parity")
 struct DiffusionParityTests {
 
@@ -119,9 +119,9 @@ struct DiffusionParityTests {
         try expectParity(result.values, matches: "blur_percth_hdr_mixed_dispatch")
     }
 
-    /// The IIR path is wider than the sigma it is given. Upstream's own numbers are 1.0998 at sigma
-    /// 3 and 1.1112 at sigma 5, measured from the impulse response. Correcting it would move every
-    /// halation golden at sigma 3 and above by about 1e-1.
+    /// The IIR path is wider than the sigma it is given. Upstream measures 1.0998 at sigma 3 and
+    /// 1.1112 at sigma 5 from the impulse response. Correcting it would move every halation golden at
+    /// sigma 3 and above by about 1e-1.
     @Test("the IIR blur stays wider than its nominal sigma")
     func iirExcessWidth() throws {
         let side = 601
@@ -171,7 +171,7 @@ struct DiffusionParityTests {
     }
 
     /// Only the IIR path replicates the edge. Swapping in the FIR path's reflection would change the
-    /// border rows and columns, and nothing else would notice.
+    /// border rows and columns, and no other test would catch it.
     @Test("the IIR path replicates the edge rather than reflecting it")
     func iirEdgeReplication() throws {
         // A ramp: replication and reflection disagree strongly on a monotone signal.
@@ -274,8 +274,8 @@ struct DiffusionParityTests {
         #expect(result.values == hdr.values)
     }
 
-    /// A maximum of exactly zero fills zeros instead of copying, which discards negative values.
-    /// Identical for an all-zero input, different for anything with a negative in it.
+    /// A maximum of exactly zero fills the output with zeros, which discards negative values.
+    /// Copying the input would match for an all-zero input and differ for any input with a negative.
     @Test("a zero maximum fills zeros rather than copying")
     func boostZeroMaximum() throws {
         let input = try image("boost_negatives_input")
@@ -321,8 +321,8 @@ struct DiffusionParityTests {
 
     /// With the scatter pass skipped, blue's strength of 0 makes pass 2 a bit-exact passthrough for
     /// that channel while red moves. The guards are `any`, not `all`, so the loop still runs on all
-    /// three; short-circuiting per channel would be a different computation with the same result
-    /// here and a different one elsewhere.
+    /// three. Short-circuiting per channel would give the same result here and a different one
+    /// elsewhere.
     @Test("halation's guards are per frame, not per channel")
     func halationChannelGuards() throws {
         let hdr = try image("diffusion_hdr_64x96x3")
@@ -366,7 +366,7 @@ struct DiffusionParityTests {
             #expect(moved > 1e-6, "\(label): the scatter pass should still run; largest change \(moved)")
         }
 
-        // Both sizes zero is the only case the guard rejects, and then the input comes back whole.
+        // Both sizes zero is the only case the guard rejects, and then the input is unchanged.
         var neither = params
         neither.scatterCoreMicrons = (0.0, 0.0, 0.0)
         neither.scatterTailMicrons = (0.0, 0.0, 0.0)
@@ -447,8 +447,8 @@ struct DiffusionParityTests {
             Diffusion.applyGaussianBlur(hdr, sigmaPixels: 0.9).values,
             matches: "blur_px_hdr_sigma0p9")
 
-        // The micrometre form short-circuits before dividing, which is what keeps a LUT bake that
-        // never ran the resize stage from needing a pixel size at all.
+        // The micrometre form returns before dividing, so a LUT bake that never ran the resize
+        // stage does not need a pixel size.
         #expect(
             Diffusion.applyGaussianBlur(hdr, sigmaMicrons: 0.0, pixelSizeMicrons: nil).values
                 == hdr.values)
@@ -506,8 +506,7 @@ struct DiffusionParityTests {
         }
         try expectParity(flat, matches: "diffusion_strength_scatter")
 
-        // Clamped, not extrapolated: below the first breakpoint and above the last the fraction
-        // holds at the endpoint value.
+        // Below the first breakpoint and above the last, the fraction holds at the endpoint value.
         for family in DiffusionFilterParams.Family.allCases {
             #expect(
                 Diffusion.strengthToScatter(0.0001, family: family)
@@ -518,9 +517,9 @@ struct DiffusionParityTests {
         }
     }
 
-    /// Cinebloom at its 0.85 family base drives red's innermost weight to -0.105, which clips to 0
-    /// and makes the renormalise do real work. Skipping the clip leaves a negative weight and a
-    /// silently different halo colour.
+    /// Cinebloom at its 0.85 family base drives red's innermost weight to -0.105, which clips to 0,
+    /// so the renormalisation changes the row. Skipping the clip leaves a negative weight and a
+    /// different halo colour, with no error.
     @Test("the halo warmth redistribution matches, clip and renormalise included")
     func haloChannelWeights() throws {
         let uniform = [Double](repeating: 1.0 / 3.0, count: 3)
@@ -536,7 +535,7 @@ struct DiffusionParityTests {
         }
         try expectParity(flat, matches: "diffusion_halo_weights")
 
-        // The clip actually fires for cinebloom's red channel.
+        // The clip fires for cinebloom's red channel.
         let cinebloom = Diffusion.haloChannelWeights(uniform, warmth: 0.85)
         #expect(cinebloom[0][0] == 0.0, "cinebloom red's innermost weight should clip to zero")
     }
@@ -627,8 +626,8 @@ struct DiffusionParityTests {
             matches: "psf_bpm_31x31_scale2")
     }
 
-    /// Two override quirks with teeth: a negative intensity clamps to 0 and the survivors
-    /// renormalise around it, and all three intensities at 0 reverts to the unmodified family,
+    /// Two override quirks that change the output: a negative intensity clamps to 0 and the other
+    /// two renormalise around it, and all three intensities at 0 revert to the unmodified family,
     /// discarding the size overrides with them.
     @Test("the override quirks match")
     func psfOverrides() throws {
@@ -695,7 +694,8 @@ struct DiffusionParityTests {
         #expect(
             Diffusion.diffusionKernelRadius(
                 params, pixelSizeMicrons: 100_000.0, imageHeight: 48, imageWidth: 60) == 5)
-        // The 6000x4000 clamp upstream measures: pro_mist wants 2229, cinebloom 3429, both land here.
+        // The 6000x4000 clamp upstream measures: pro_mist wants 2229 and cinebloom 3429, and both
+        // clamp to 1999.
         params.family = .proMist
         #expect(
             Diffusion.diffusionKernelRadius(
@@ -728,10 +728,9 @@ struct DiffusionParityTests {
         try expectParity(result.values, matches: golden)
     }
 
-    /// The FFT convolution is one way to compute this operator; a direct mirror-boundary correlation
-    /// is another. Gating on both means a wrong boundary fold cannot hide behind the golden, which
-    /// matters because the *other* "reflect" convention lands 4.7e-4 away on this fixture and could
-    /// slip under a looser tolerance on a smoother one.
+    /// Gates a direct mirror-boundary correlation against the same golden as the FFT path, so a wrong
+    /// boundary fold cannot pass on the golden alone. The *other* "reflect" convention is 4.7e-4 away
+    /// on this fixture and could pass a looser tolerance on a smoother one.
     @Test("the diffusion filter's boundary is the mirror fold, not the duplicated-edge reflection")
     func diffusionFilterBoundary() throws {
         let golden = "difffilter_bpm_48x60_px400_s1"
@@ -753,8 +752,8 @@ struct DiffusionParityTests {
             fold: BoundaryIndex.mirrorEdgeShared)
         try expectParity(mirror, matches: golden)
 
-        // The same reconstruction with the FIR blur's fold is wrong, and by enough that this test
-        // would catch the swap.
+        // The same reconstruction with the FIR blur's fold misses the golden by more than the gate,
+        // so this test catches the swap.
         let duplicated = Self.directCorrelate(
             input, psf: psf, radius: radius, scatter: scatter,
             fold: BoundaryIndex.reflectEdgeDuplicated)
@@ -784,8 +783,8 @@ struct DiffusionParityTests {
 
     /// A 6000 px long edge clamps the radius to 1999, a 3999x3999x3 PSF over an 8000x7998 padded
     /// plane, which peaks near 3.8 GB. No FFT arrangement fits that on a phone, and overlap-save does
-    /// not help because a tile cannot be smaller than the kernel. The operator refuses instead of
-    /// allocating, and says how much it wanted.
+    /// not help because a tile cannot be smaller than the kernel. The operator throws before
+    /// allocating and reports how much memory it needed.
     @Test("an oversized radius is refused rather than attempted")
     func diffusionFilterMemoryGuard() throws {
         var params = DiffusionFilterParams()
@@ -822,9 +821,9 @@ struct DiffusionParityTests {
         #expect(FFTConvolve2D.supportedLength(atLeast: 1192) == 1280)
     }
 
-    /// The transform size is free because `fftconvolve` computes the full linear convolution: no
-    /// output sample wraps at any size at or above the linear length. This checks the FFT path
-    /// against a direct sum, which is the claim the whole diffusion filter rests on.
+    /// Any transform size at or above the linear length gives the same result, because
+    /// `fftconvolve` computes the full linear convolution and no output sample wraps. The whole
+    /// diffusion filter depends on this, so the FFT path is checked against a direct sum.
     @Test("the FFT convolution equals a direct sum")
     func fftAgainstDirect() throws {
         let input = try plane("blur_tiny_3x11")
@@ -858,7 +857,7 @@ struct DiffusionParityTests {
     // MARK: - Fixtures
 
     /// Parameters for each `difffilter_*` golden, keyed by its name so the fixture module and the
-    /// test cannot drift apart silently.
+    /// test cannot diverge unnoticed.
     static func diffusionCase(_ golden: String) -> (DiffusionFilterParams, Double) {
         var params = DiffusionFilterParams()
         params.active = true
@@ -902,7 +901,7 @@ struct DiffusionParityTests {
     }
 
     /// The whole diffusion-filter operator by direct correlation, with the boundary fold supplied by
-    /// the caller. Slow, and deliberately shares nothing with the FFT path.
+    /// the caller. Slow, and shares no code with the FFT path by design.
     static func directCorrelate(
         _ image: ImageBuffer, psf: ImageBuffer, radius: Int, scatter: Double,
         fold: (Int, Int) -> Int

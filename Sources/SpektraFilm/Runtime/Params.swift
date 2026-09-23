@@ -1,8 +1,8 @@
 import Foundation
 
-// The full parameter surface, mirroring `spektrafilm.runtime.params_schema`. Every default here is
-// the reference's default, because the defaults define the render: a wrong one shifts every photo.
-// Field names follow Swift convention, and each group documents the Python name it came from.
+// The full parameter surface, mirroring `spektrafilm.runtime.params_schema`. Every default matches
+// the reference. The defaults define the render, so a wrong one shifts every photo. Field names
+// follow Swift convention, and each group documents the Python name it came from.
 
 /// `DiffusionFilterParams`. Models a screw-on diffusion filter.
 public struct DiffusionFilterParams: Sendable, Equatable {
@@ -148,7 +148,7 @@ public struct HalationParams: Sendable, Equatable {
     public var halationAmount: Double = 1.0
     public var halationSpatialScale: Double = 1.0
     /// In-emulsion scatter, an energy-preserving Gaussian core plus an exponential tail.
-    /// `scatterTailMicrons` is the exponential decay constant, dispatched internally to a Gaussian
+    /// `scatterTailMicrons` is the exponential decay constant, applied internally as a Gaussian
     /// mixture.
     public var scatterCoreMicrons: (Double, Double, Double) = (2.2, 2.0, 1.6)
     public var scatterTailMicrons: (Double, Double, Double) = (9.3, 9.7, 9.1)
@@ -284,8 +284,8 @@ public struct InputGamutCompressSpec: Sendable, Equatable {
 }
 
 /// `OutputGamutCompressSpec`. Compresses out-of-gamut chromaticities into the output primaries cube,
-/// and with `lightnessCompression` also pulls above-white pixels back in. With both engaged the
-/// output lands in [0, 1] with no downstream clip.
+/// and with `lightnessCompression` also pulls above-white pixels back in. With both enabled the
+/// output is in [0, 1] without a downstream clip.
 public struct OutputGamutCompressSpec: Sendable, Equatable {
     public enum Algorithm: String, Sendable, CaseIterable {
         /// Passes output RGB through. Nothing else clips in the runtime, so the result can leave
@@ -455,8 +455,8 @@ public struct RuntimePhotoParams: Sendable, Equatable {
         try io.inputGamutCompress.validate()
 
         // The coarse 3D enlarger and scanner LUTs are not ported. They replace the per-pixel
-        // spectral map with an interpolated cube, which the reference itself calls an approximation,
-        // and they default off. Reject them rather than accepting the flag and ignoring it.
+        // spectral map with an interpolated cube, which the reference calls an approximation, and
+        // they default off. Reject them so the flag is never accepted and then ignored.
         if settings.useEnlargerLUT {
             throw SpektraError.unsupportedSetting("settings.use_enlarger_lut", value: "true")
         }
@@ -478,8 +478,8 @@ public struct RuntimePhotoParams: Sendable, Equatable {
 extension RuntimePhotoParams {
     /// `init_params(film_profile:, print_profile:)`.
     ///
-    /// Returns undigested params, the same as upstream. ``Simulator`` runs ``ParamsBuilder/digest``
-    /// on the way in, so callers edit the plain values and the derived ones stay derived.
+    /// Returns undigested params, as upstream does. ``Simulator`` runs ``ParamsBuilder/digest`` on
+    /// construction, so callers edit the plain values and digest derives the rest.
     public static func make(film: String, print: String) throws -> RuntimePhotoParams {
         let params = RuntimePhotoParams(
             film: try ProfileLibrary.load(film),

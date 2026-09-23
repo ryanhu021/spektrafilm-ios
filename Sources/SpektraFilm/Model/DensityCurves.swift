@@ -51,9 +51,9 @@ public enum DensityCurves {
     /// `compute_density_spectral`.
     ///
     /// Expands CMY density into a spectrum per pixel by weighting each dye's absorption curve, then
-    /// adds the base density of the unexposed developed medium. Output has
-    /// `ColourTables.wavelengthCount` channels, so a full frame cannot be converted in one
-    /// allocation; call it through `ImageBuffer.mapPerPixel`.
+    /// adds the base density of the unexposed developed medium. The output has
+    /// `ColourTables.wavelengthCount` channels, too many to convert a full frame in one allocation;
+    /// call it through `ImageBuffer.mapPerPixel`.
     public static func spectralDensity(
         cmy: ImageBuffer,
         channelDensity: [Double],
@@ -100,8 +100,8 @@ public enum DensityCurves {
 
     /// `utils/conversions.density_to_light`.
     ///
-    /// Transmittance is `10^-density`, scaled by the incident light. NaN becomes 0, which is how
-    /// wavelengths the datasheet does not cover end up contributing nothing.
+    /// Transmittance is `10^-density`, scaled by the incident light. NaN becomes 0, so wavelengths
+    /// the datasheet does not cover contribute nothing.
     public static func densityToLight(
         _ density: ImageBuffer, illuminant: [Double]
     ) -> ImageBuffer {

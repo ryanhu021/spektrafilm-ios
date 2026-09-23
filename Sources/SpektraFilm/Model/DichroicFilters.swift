@@ -8,8 +8,8 @@ import Foundation
 public struct DichroicFilters: Sendable {
     /// Which measured or modelled filter set to use.
     public enum Set: String, Sendable, CaseIterable {
-        /// The analytic erf model, and what `color_enlarger` defaults to, so this is the set the
-        /// runtime renders with.
+        /// The analytic erf model. `color_enlarger` defaults to it, so the runtime renders with
+        /// this set.
         case custom
         case thorlabs
         case edmundOptics
@@ -74,9 +74,9 @@ public struct DichroicFilters: Sendable {
 
 /// The enlarger head: which illuminant reaches the paper, under the current filter settings.
 ///
-/// Ports `runtime/services/filter_enlarger_source.py`. The midgray density references it also holds
-/// are computed by the filming stage, since they depend on the film profile, so they are injected
-/// rather than derived here.
+/// Ports `runtime/services/filter_enlarger_source.py`. It also holds the midgray density
+/// references. Those depend on the film profile, so the filming stage computes them and sets them
+/// here.
 public struct EnlargerService: Sendable {
     private let params: EnlargerParams
     private let filters: DichroicFilters

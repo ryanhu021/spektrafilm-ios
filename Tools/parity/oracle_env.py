@@ -31,8 +31,7 @@ def expected() -> dict[str, str]:
 def require(*, strict: bool = True) -> None:
     """Raises SystemExit when an installed version differs from the pin.
 
-    Pass `strict=False` to warn instead, which is useful when deliberately testing a new version
-    before re-pinning.
+    Pass `strict=False` to warn instead, for testing a new version before re-pinning.
     """
     problems = []
     for package, want in expected().items():

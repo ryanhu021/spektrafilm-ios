@@ -1,12 +1,12 @@
 """Goldens for diffusion, halation and blur.
 
 Calls `model/diffusion.py`, `utils/fast_gaussian_filter.py` and `utils/numba_boost_hightlights.py`
-directly, never through `simulate()`: the surrounding stages would add parity risk that has nothing
-to do with this subsystem and would make a failure hard to localise.
+directly, never through `simulate()`. The surrounding stages would add parity risk unrelated to this
+subsystem and make a failure hard to localise.
 
 Pixel sizes come from `film_format_mm * 1000 / max(H, W)` at 35 mm, so `PIXEL_SIZE_UM[edge]` is what
-a frame with that long edge would use. The FIR/IIR dispatch and the PSF radius both key off the
-pixel size, which is why the same parameters need goldens at several of them.
+a frame with that long edge would use. The FIR/IIR dispatch and the PSF radius both depend on the
+pixel size, so the same parameters need goldens at several pixel sizes.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def diffusion_exponential():
     yield "expfilter_n3_hdr_decay5", fast_exponential_filter(hdr, 5.0)
     yield "expfilter_n2_hdr_decay5", fast_exponential_filter(hdr, 5.0, n_gaussians=2)
 
-    # scatter_tail_um / pixel_size_um at a 4000 px long edge. The third component lands at sigma
+    # scatter_tail_um / pixel_size_um at a 4000 px long edge. The third component has sigma
     # (2.9425, 3.0690, 2.8791), so green alone crosses into the IIR.
     decay = np.array([9.3, 9.7, 9.1]) / PIXEL_SIZE_UM[4000]
     yield "expfilter_n3_hdr_decay_4000px", fast_exponential_filter(hdr, decay)

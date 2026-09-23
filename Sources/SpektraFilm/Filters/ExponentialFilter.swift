@@ -7,7 +7,7 @@ import Foundation
 /// three-component mixture makes three independent FIR-or-IIR decisions per channel.
 public enum ExponentialFilter {
 
-    /// How many Gaussians stand in for the exponential. Upstream only has fits for two and three.
+    /// How many Gaussians approximate the exponential. Upstream only has fits for two and three.
     public enum MixtureSize: Int, Sendable, CaseIterable {
         case two = 2
         case three = 3
@@ -86,7 +86,7 @@ public enum ExponentialFilter {
 /// The real ``SpatialFilter``: upstream's `fast_gaussian_filter` and `fast_exponential_filter`.
 ///
 /// `model/couplers.py` calls both with their default arguments, so the defaults are the contract
-/// here. ``NoSpatialFilter`` stays the right choice only when `debug.lutMode` or
+/// here. ``NoSpatialFilter`` is correct only when `debug.lutMode` or
 /// `debug.deactivateSpatialEffects` has already zeroed the kernel sizes.
 public struct FastSpatialFilter: SpatialFilter {
     public init() {}

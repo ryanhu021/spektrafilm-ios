@@ -5,7 +5,7 @@ import Foundation
 /// Ports `runtime/stages/printing.py`. The negative's dye densities become a transmitted spectrum,
 /// the enlarger's filtered lamp shines through it, and the paper's spectral sensitivities integrate
 /// that into an exposure. Paper needs no coupler model: it never samples a scene, so it is designed
-/// with little channel cross-talk to begin with.
+/// with little channel cross-talk.
 public final class PrintingStage {
     private let film: Profile
     private let filmRender: FilmRenderingParams
@@ -170,13 +170,12 @@ public final class PrintingStage {
 /// The spectral map both ``PrintingStage`` and ``ScanningStage`` run over the frame: CMY density to
 /// a spectrum, the spectrum lit by an illuminant, that light projected onto a three-column response.
 ///
-/// Composed from `DensityCurves.spectralDensity`, `densityToLight` and `project`, the middle step
-/// copies its 81-channel input because the caller still holds it, so two spectral buffers are live
-/// at once. Here each pixel's spectrum is formed and contracted in registers, so no spectral buffer
-/// exists at all, and the callers no longer band the frame: `mapPerPixel` was there to bound the
-/// spectral intermediate, and its row-band copies were the only thing left in the budget.
-/// Wavelengths are summed in ascending order, as `project` sums them, so the result is
-/// bit-identical.
+/// Each pixel's spectrum is formed and contracted in registers, so no spectral buffer exists and
+/// the callers do not band the frame. Composing `DensityCurves.spectralDensity`, `densityToLight`
+/// and `project` would keep two spectral buffers live, because the middle step copies its
+/// 81-channel input while the caller still holds it. Banding through `mapPerPixel` bounds that
+/// intermediate, but its row-band copies add to the peak. Wavelengths are summed in ascending
+/// order, as `project` sums them, so the result is bit-identical.
 enum SpectralContraction {
     static func project(
         cmy: ImageBuffer,

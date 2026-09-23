@@ -1,8 +1,8 @@
 """Goldens for input and output gamut compression.
 
 Covers the Reinhard knee, the spectral locus geometry, the four perceptual transforms, the C_max
-chroma envelopes and all five output compressors. The pixels deliberately run well outside the target
-gamut and above white, because that is what the simulation feeds this stage.
+chroma envelopes and all five output compressors. The pixels run well outside the target gamut and
+above white, because the simulation feeds this stage such values.
 """
 
 from __future__ import annotations
@@ -59,11 +59,11 @@ RGB_CASES = np.array([
 
 PERCEPTUAL = ("oklch", "oklrab", "jzazbz", "cam16ucs")
 
-# Non-finite pixels and chromaticities. Nothing upstream should produce them, and they are pinned
+# Non-finite pixels and chromaticities. Nothing upstream should produce them. They are pinned
 # because the reference does not simply propagate them: colour-science's sdiv turns a NaN quotient
 # into 0 and hue_quadrature overwrites a NaN hue angle with 0, so several of these come back as
 # numbers on the reference side. A port that propagates NaN instead disagrees here.
-# The three NaN rows carry distinct finite channels so the aces_rgc path can tell a NaN-propagating
+# The three NaN rows have distinct finite channels so the aces_rgc path can tell a NaN-propagating
 # maximum from one that drops it: np.max propagates, and the pixel then passes through untouched.
 NONFINITE_RGB = np.array([
     [np.nan, 0.3, 0.7],
@@ -193,7 +193,8 @@ def gamut_locus():
     yield "gamut_point_in_polygon", path.contains_points(grid).astype(np.float64)
     # Points exactly on the polygon. matplotlib calls 28 of the 131 vertices and edge midpoints
     # inside; the even-odd crossing rule the port uses calls 51, and the two disagree on 49. The
-    # bisection that builds the envelope never lands on an edge, so the tables still match.
+    # bisection that builds the envelope never samples a point on an edge, so the tables still
+    # match.
     midpoints = 0.5 * (locus[:-1] + locus[1:])
     yield (
         "gamut_point_in_polygon_boundary",
@@ -341,8 +342,8 @@ def gamut_compress_rgb():
             gc.compress_rgb(rgb, OutputGamutCompressSpec(), output_color_space=space),
         )
 
-    # Physically realizable pixels: chromaticities inside the locus at Y in (0, 2], which is the
-    # only distribution that says anything about what the shipping stage does.
+    # Physically realizable pixels: chromaticities inside the locus at Y in (0, 2]. This is the only
+    # distribution representative of what the shipping stage does.
     realizable = realizable_input()
     yield "gamut_realizable_input", realizable
     yield (
@@ -350,8 +351,8 @@ def gamut_compress_rgb():
         gc.compress_rgb(realizable, OutputGamutCompressSpec(), output_color_space="sRGB"),
     )
 
-    # Negative luminance, which CAM16 turns into NaN chroma. Unreachable from the pipeline; pinned
-    # so the port's behaviour on it is recorded rather than accidental.
+    # Negative luminance, which CAM16 turns into NaN chroma. Unreachable from the pipeline, but
+    # pinned so the port's behaviour on it is recorded.
     negative = np.array([
         [-0.5, 0.1, 0.1],
         [-0.5, -0.5, -0.5],
@@ -384,8 +385,8 @@ def gamut_cmax():
     from spektrafilm.utils import gamut_compression as gc
 
     table = gc._get_output_c_max_table("cam16ucs", "sRGB")[2]
-    # Every fourth hue. The full table is gated bit for bit by the hashes in the sidecar; this slice
-    # is what makes a mismatch diagnosable.
+    # Every fourth hue. The sidecar's hashes gate the full table bit for bit; this slice makes a
+    # mismatch diagnosable.
     yield "gamut_cmax_cam16ucs_srgb_h4", table[:, ::4]
 
     for space in ("oklch", "oklrab", "jzazbz"):
@@ -411,8 +412,8 @@ def gamut_cmax_tables() -> str:
     """SHA-256 and statistics of every C_max envelope, as a bit-exactness gate.
 
     The tables are 46 080 float64 each, so committing all seven would add 2.5 MB of goldens. The
-    bisection is deterministic given the same in-gamut predicate, so a hash is the cheaper gate and a
-    stricter one than an elementwise comparison under the 1e-4 tolerance.
+    bisection is deterministic given the same in-gamut predicate, so a hash is a cheaper and
+    stricter gate than an elementwise comparison under the 1e-4 tolerance.
     """
     from spektrafilm.utils import gamut_compression as gc
 

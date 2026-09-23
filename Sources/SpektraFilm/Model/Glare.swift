@@ -4,25 +4,25 @@ import Foundation
 ///
 /// Ports `model/glare.py`. A lognormal field with mean `percent` and standard deviation
 /// `roughness * percent`, blurred, divided by 100, then added as a multiple of the viewing
-/// illuminant. At the shipped defaults the additive term averages `3e-4 * illuminantXYZ`, which is
-/// small but on the default render path.
+/// illuminant. At the shipped defaults the additive term averages `3e-4 * illuminantXYZ`: small,
+/// but on the default render path.
 ///
-/// The reference is not reproducible: `fast_lognormal_from_mean_std` is a Numba kernel whose RNG
-/// state is thread-local and unreachable from `np.random.seed`, so run-to-run `max_abs` on a 16x16
-/// default render is 1.71e-3, seventeen times the parity gate. This draws from the counter-based
-/// Philox instead, keyed by the glare seed and countered by the linear pixel index, so the field is
-/// fixed by the seed and independent of how the frame is split up.
+/// The reference is not reproducible. `fast_lognormal_from_mean_std` is a Numba kernel whose RNG
+/// state is thread-local and unreachable from `np.random.seed`, so two runs of a 16x16 default
+/// render differ by a `max_abs` of 1.71e-3, seventeen times the parity gate. This port draws from
+/// the counter-based Philox, keyed by the glare seed with the linear pixel index as the counter.
+/// The field depends only on the seed, not on how the frame is split up.
 public enum Glare {
 
     /// Sublayer slot the glare field reserves, chosen at the top of ``PhiloxKey``'s 16-bit range so
     /// no grain stream can reach it.
     ///
-    /// Grain's particle streams take sublayer `0 ..< max(3, subLayerCount)` and its clumping field
-    /// takes 3, and `subLayerCount` has no upper bound, so no small index is safe. Sharing a stream
-    /// is not harmless: with `PhiloxKey(seed:)`, which is channel 0 and sublayer 0, the glare field
-    /// drew from the same Philox words as the red channel's first particle sublayer at the same
-    /// pixel index, and the two came out correlated at r = -0.139 over 65536 pixels against a
-    /// sampling scale of 0.004. The reference draws them from unrelated generators.
+    /// Grain's particle streams take sublayers `0 ..< max(3, subLayerCount)` and its clumping field
+    /// takes 3. `subLayerCount` has no upper bound, so no small index is safe. A shared stream
+    /// correlates the two fields: keyed with `PhiloxKey(seed:)` (channel 0, sublayer 0), the glare
+    /// field reads the same Philox words as the red channel's first particle sublayer at each
+    /// pixel, and the two correlate at r = -0.139 over 65536 pixels, against a sampling scale of
+    /// 0.004. The reference draws them from unrelated generators.
     static let stream = 0xFFFF
 
     /// Stream the glare field draws from. Channel is zero: the field is 2D and shared across the
@@ -59,7 +59,7 @@ public enum Glare {
         }
 
         // The reference blurs unconditionally and relies on `fast_gaussian_filter` returning a copy
-        // at a non-positive sigma. Same result, without depending on that guard.
+        // at a non-positive sigma. Skipping the call gives the same result.
         if blur > 0 {
             field = spatial.gaussian(field, sigma: blur)
         }
@@ -76,8 +76,8 @@ public enum Glare {
     /// Called from the scanning stage on `[H, W, 3]` XYZ, after the black-and-white XYZ correction
     /// and before `XYZ_to_RGB`. `illuminantXYZ` is the viewing illuminant normalised to `Y = 1`.
     ///
-    /// - Parameter glare: `nil` on the scan-film branch, where the reference passes no glare at
-    ///   all. `film_render.glare` is dead; the print branch passes `print_render.glare`.
+    /// - Parameter glare: `nil` on the scan-film branch, where the reference passes no glare.
+    ///   `film_render.glare` is unused; the print branch passes `print_render.glare`.
     public static func add(
         _ xyz: ImageBuffer,
         illuminantXYZ: [Double],

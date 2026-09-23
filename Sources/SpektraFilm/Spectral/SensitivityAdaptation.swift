@@ -6,12 +6,12 @@ import Foundation
 /// `compute_hanatos2025_tc_lut` calls it.
 ///
 /// **The sigma is in array samples, not nanometres.** The reference's dataclass comment and the GUI
-/// tooltip both say nm; the code passes the value straight to `gaussian_filter`, whose axis has a
-/// 5 nm step. `spectralGaussianBlur = 4` is therefore 20 nm of blur. Verified against the oracle.
+/// tooltip both say nm, but the code passes the value straight to `gaussian_filter`, whose axis has
+/// a 5 nm step. `spectralGaussianBlur = 4` is therefore 20 nm of blur. Verified against the oracle.
 /// Porting the docstring instead of the code would divide every non-zero blur by 5.
 ///
-/// `truncate` is `gaussian_filter`'s default 4.0, which is **not** the 3.0 the spatial blur in
-/// `fast_gaussian_filter.py` uses, and the boundary is half-sample `reflect`, which is
+/// `truncate` is `gaussian_filter`'s default 4.0. The spatial blur in `fast_gaussian_filter.py`
+/// uses 3.0. The boundary is half-sample `reflect`, which is
 /// ``BoundaryIndex/reflectEdgeDuplicated(_:count:)``. Both differ from the spatial filter, so this
 /// stays a separate function.
 public struct HanatosSpectralBlur: Sendable {
@@ -150,14 +150,14 @@ public enum SpectralBandpassWindow: String, Sendable, CaseIterable {
 /// The per-chromaticity log-exposure correction multiplied into the contracted LUT.
 ///
 /// `eval_log_exposure_correction_surface`. `compute_hanatos2025_tc_lut` never passes a model, so
-/// ``poly4`` is the only reachable one. ``poly4WarpXY`` needs 16 coefficients per channel and no
-/// shipped profile has them; it is ported because it is the only other fitted model.
+/// ``poly4`` is the only reachable one. ``poly4WarpXY`` needs 16 coefficients per channel, and no
+/// shipped profile has them. It is ported because it is the only other fitted model.
 public enum LogExposureCorrectionSurface: String, Sendable, CaseIterable {
     case poly4
     case poly4WarpXY = "poly4_warp_xy"
 
-    /// The fit's bound, `_HANATOS2025_MAX_CORRECTION_STOPS`, so the surface lands in `(-2, 2)`
-    /// stops and `exp2(surface)` in `(0.25, 4)`.
+    /// The fit's bound, `_HANATOS2025_MAX_CORRECTION_STOPS`, so the surface is in `(-2, 2)` stops
+    /// and `exp2(surface)` in `(0.25, 4)`.
     public static let maxCorrectionStops = 2.0
 
     /// Coefficients per channel: 15 for ``poly4``, 16 for ``poly4WarpXY`` (the extra one is the warp
@@ -203,8 +203,8 @@ public enum LogExposureCorrectionSurface: String, Sendable, CaseIterable {
         return out
     }
 
-    /// `poly2d_deg4`. `params[0]` is deliberately unused: dropping the constant term forces zero
-    /// correction at the illuminant chromaticity, which is what keeps white in place.
+    /// `poly2d_deg4`. `params[0]` is unused. Dropping the constant term forces zero correction at
+    /// the illuminant chromaticity, which keeps white in place.
     static func poly2dDeg4(_ tc: TCCoordinate, params p: [Double], centre: TCCoordinate) -> Double {
         let x = tc.x - centre.x
         let y = tc.y - centre.y
@@ -245,8 +245,8 @@ extension Hanatos2025SensitivityAdaptation {
     /// `tc_lut` is supplied.
     ///
     /// The reference leaves `reference_illuminant` as `None` here. Nothing reads it with both flags
-    /// off, so the Swift record carries D55 to satisfy the non-optional field; changing it cannot
-    /// change a result.
+    /// off, so the Swift record holds D55 to fill the non-optional field. Changing it cannot change
+    /// a result.
     public static let noAdaptation = Hanatos2025SensitivityAdaptation(
         windowParams: [],
         surfaceParams: [],

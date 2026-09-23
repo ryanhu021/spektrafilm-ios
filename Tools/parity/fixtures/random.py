@@ -2,7 +2,7 @@
 
 Byte-exact parity is impossible here: the Swift engine uses Philox4x32-10 and the reference uses
 NumPy's MT19937 (and, on the `use_fast_stats` path, a Numba thread-local stream that no seed
-reaches). So these fixtures carry two different kinds of number.
+reaches). So these fixtures hold two kinds of number.
 
 Deterministic, gated tight:
   the log-space parameter inversion of `fast_lognormal_from_mean_std`, which is pure arithmetic.
@@ -16,7 +16,7 @@ Statistical, used to calibrate tolerances:
 `fast_lognormal_from_mean_std` itself cannot be sampled into a committed fixture: its Numba kernel
 has no seeding hook, so the numbers would change on every regeneration. `Generator.lognormal` with
 mu and sigma from the reference's own inversion is the same distribution and is reproducible, so
-that is what the lognormal moments come from.
+the lognormal moments come from it.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ REPEATS = 256
 SEED = 20260922
 
 # Spans both branches of the Swift sampler (Knuth below 10, transformed rejection at and above)
-# and the range the grain model actually reaches: lambda ~ 4.5 at the low end, up to ~1.2e8 when
+# and the range the grain model reaches: lambda ~ 4.5 at the low end, up to ~1.2e8 when
 # `uniformity` is 1 and the density saturates (grain.md section 4.1).
 POISSON_LAMBDAS = np.array(
     [0.5, 2.0, 4.5, 9.0, 9.999, 10.0, 12.0, 20.0, 30.0, 1.0e3, 1.0e6, 1.2e8]
@@ -42,16 +42,16 @@ POISSON_LAMBDAS = np.array(
 PMF_LAMBDAS = np.array([0.5, 2.0, 4.5, 9.0, 12.0, 20.0])
 PMF_BINS = 72
 
-# (linear mean, linear std) pairs for the lognormal inversion. Covers the two production call
-# sites, grain's clumping field at its default and forced-on settings and glare's (0.03, 0.7*0.03),
-# plus the two degenerate branches: `mean <= 0` yields mu = sigma = 0, and `sigma < 1e-6` skips the
-# normal draw entirely.
+# (linear mean, linear std) pairs for the lognormal inversion. Covers both production call sites:
+# grain's clumping field at its default and forced-on settings, and glare's (0.03, 0.7*0.03). Also
+# covers the two degenerate branches: `mean <= 0` yields mu = sigma = 0, and `sigma < 1e-6` skips
+# the normal draw entirely.
 #
 # The last row pins the NaN corner. `m <= 0` is false for NaN, so a NaN mean reaches the arithmetic
 # and both outputs stay NaN; a port guarding on `m > 0` instead would return (0, 0) here and
 # `Golden`'s NaN-mismatch count catches it.
 #
-# The infinite-mean corners are asserted in `RandomTests` instead of here. `parity()` computes
+# The infinite-mean corners are asserted in `RandomTests`. `parity()` computes
 # `abs(inf - inf)`, which is NaN, so any golden holding an infinity fails on RMS however well the
 # two sides agree.
 LOGNORMAL_PARAMS = np.array(
@@ -70,7 +70,7 @@ LOGNORMAL_PARAMS = np.array(
     ]
 )
 
-# The rows above that actually draw a normal variate, so their sample moments are non-degenerate.
+# The rows above that draw a normal variate, so their sample moments are non-degenerate.
 LOGNORMAL_SAMPLED = np.array(
     [
         [1.0, 0.3],
@@ -151,9 +151,9 @@ def random_lognormal():
     """The deterministic log-space inversion, and the moments it implies."""
     from spektrafilm.utils.fast_stats import fast_lognormal_from_mean_std
 
-    # Transcribed from fast_stats.py:166, so the golden carries the reference's own arithmetic
+    # Transcribed from fast_stats.py:166, so the golden records the reference's own arithmetic
     # instead of the textbook identity. `mean` and `std` arrive as np.float64, so a division by
-    # zero yields inf or NaN here exactly as it does in the njit kernel.
+    # zero yields inf or NaN here as it does in the njit kernel.
     def log_params(mean: float, std: float) -> tuple[float, float]:
         if mean <= 0:
             return 0.0, 0.0
@@ -180,9 +180,9 @@ def random_lognormal():
     yield "random_lognormal_moments", single
     yield "random_lognormal_moment_sd", spread
 
-    # The reference kernel is non-reproducible, so it cannot be a committed fixture. Comparing its
+    # The reference kernel is not reproducible, so it cannot be a committed fixture. Comparing its
     # moments against the Generator.lognormal row above at generation time still catches a
-    # misreading of the inversion, and the tolerance is loose enough to be stable.
+    # misreading of the inversion. The tolerance is loose enough to be stable.
     for i, (mean, std) in enumerate(LOGNORMAL_SAMPLED):
         sampled = fast_lognormal_from_mean_std(
             np.full(SAMPLES, mean), np.full(SAMPLES, std)

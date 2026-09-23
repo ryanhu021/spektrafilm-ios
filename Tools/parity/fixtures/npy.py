@@ -139,7 +139,8 @@ def npy_case_values():
         if stem in UNGOLDENED:
             continue
         with np.errstate(invalid="ignore"):
-            # Casting a signalling float16 NaN raises FPE_INVALID; the quieted result is the point.
+            # Casting a signalling float16 NaN raises FPE_INVALID. The golden records the quieted
+            # result.
             widened = np.double(array)
         # The .spkg container needs a rank, and a 0-d array has none. Ship it as (1,).
         yield f"{stem}_values", np.atleast_1d(widened)

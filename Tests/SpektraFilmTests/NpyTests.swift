@@ -6,13 +6,13 @@ import Testing
 
 /// Checks the `.npy` reader against NumPy.
 ///
-/// Two gates. The synthetic files under `Goldens/` cover the header variants: v1 and v2, all three
-/// dtypes, empty, 0-d, 1-D, 3-D, and the three headers that must be refused. The real 192x192x81
-/// float16 spectra LUT covers the strides and the widening at scale.
+/// Two kinds of fixture. The synthetic files under `Goldens/` cover the header variants: v1 and v2,
+/// all three dtypes, empty, 0-d, 1-D, 3-D, and the three headers that must be refused. The real
+/// 192x192x81 float16 spectra LUT covers the strides and the widening at scale.
 ///
 /// Tolerance is zero throughout. Every finite Float16 and Float32 widens to `Double` exactly, and
-/// the NaN and infinity patterns are pinned by their own cases, so bit equality with
-/// `np.double(np.load(...))` is the whole contract; rounding never enters.
+/// the NaN and infinity patterns are pinned by their own cases, so the contract is bit equality
+/// with `np.double(np.load(...))`, with no rounding.
 @Suite("NumPy array reader")
 struct NpyTests {
 
@@ -35,7 +35,7 @@ struct NpyTests {
         try NumpyArrayReader.bundled("irradiance_xy_tc", subdirectory: lutSubdirectory)
     }
 
-    /// Bit equality against a golden, which `expectParity` cannot give: it treats NaN as a skip,
+    /// Bit equality against a golden. `expectParity` cannot check this: it treats NaN as a skip,
     /// `-0.0 == 0.0`, and `inf - inf` as NaN, so the widening's three special branches would all
     /// pass unchecked.
     private func expectBitIdentical(
@@ -64,7 +64,7 @@ struct NpyTests {
 
     /// Builds a `.npy` blob around `dict`, padded and newline-terminated the way NumPy writes it.
     ///
-    /// Lets a test reach header shapes no fixture carries: a v2 length above 65535, a declared
+    /// Lets a test reach header shapes no fixture has: a v2 length above 65535, a declared
     /// shape with no payload behind it.
     private static func blob(
         dict: String, major: UInt8, padTo: Int = 0, payload: Data = Data()
@@ -114,8 +114,8 @@ struct NpyTests {
         try expectBitIdentical(array.values(), matches: "\(stem)_values")
     }
 
-    /// The v2 preamble is 12 bytes with a uint32 length; v1 is 10 with a uint16. Same array, so
-    /// mixing the two up shows as a shifted payload.
+    /// The v2 preamble is 12 bytes with a uint32 length; v1 is 10 with a uint16. Both files hold
+    /// the same array, so confusing the two shows as a shifted payload.
     @Test("v1 and v2 headers over the same array give the same values")
     func versionsAgree() throws {
         for (v1, v2) in [
@@ -173,8 +173,8 @@ struct NpyTests {
             Issue.record("npy_case_bad_fortran.npy is not in the test bundle")
             return
         }
-        // A 3x4 F-ordered payload has the same length as a C-ordered one, so nothing but the
-        // header flag distinguishes them and a silent transpose would read plausible numbers.
+        // A 3x4 F-ordered payload has the same length as a C-ordered one, so only the header flag
+        // distinguishes them. A transposed read would silently return plausible numbers.
         let error = #expect(throws: SpektraError.self) { try NumpyArrayReader.mapped(at: url) }
         #expect(String(describing: error).contains("fortran_order"))
     }
@@ -248,8 +248,8 @@ struct NpyTests {
         #expect(throws: SpektraError.self) { try NumpyArrayReader.parse(wider, source: "t") }
     }
 
-    /// The whole reason format 2.0 exists is a header too long for a uint16. Every v2 fixture has a
-    /// short header, so without this a reader that ignored the top two length bytes would pass.
+    /// Format 2.0 exists for headers too long for a uint16. Every v2 fixture has a short header, so
+    /// without this test a reader that ignored the top two length bytes would pass.
     @Test("a v2 header longer than 65535 bytes uses the full uint32 length")
     func readsLongV2Header() throws {
         let values = [0.0, 1.0 / 3, -2.5, 1e300, -0.0, .pi]
@@ -281,8 +281,8 @@ struct NpyTests {
         #expect(lut.payloadByteCount == 5_971_968)
     }
 
-    /// `(0, 0)` and `(0, 191)` both decode to `xy = (1, 0)` but store different spectra, so a
-    /// reader that collapsed axis 0 would still look plausible without them.
+    /// `(0, 0)` and `(0, 191)` both decode to `xy = (1, 0)` but store different spectra. Without
+    /// them, a reader that collapsed axis 0 would still look plausible.
     @Test("LUT corners and centre match numpy.load")
     func lutCorners() throws {
         let lut = try Self.lut()
@@ -314,7 +314,7 @@ struct NpyTests {
 
     /// Reads every element the way a consumer should: through the raw payload, widening one at a
     /// time, with no 22.8 MiB intermediate. The sum runs left to right over the flat C-order
-    /// array, which is the order the fixture sums in.
+    /// array, the same order the fixture sums in.
     @Test("LUT extrema and sum over all 2 985 984 elements match numpy")
     func lutExtrema() throws {
         let lut = try Self.lut()
@@ -350,12 +350,12 @@ struct NpyTests {
     // MARK: - Memory
 
     /// The cost the spec flags: 5.97 MB of float16 on disk becomes 22.8 MiB of `Double` if the
-    /// whole table is materialised. Mapping and widening per element avoids it, and this measures
-    /// both so the claim is not just arithmetic.
+    /// whole table is materialised. Mapping and widening per element avoids it. This test measures
+    /// both costs.
     ///
-    /// `phys_footprint` is what the iOS jetsam limit counts. Clean file-backed pages do not
-    /// contribute, which is why mapping is nearly free here. The bound is loose because other
-    /// tests allocate in the same process; the point is the order of magnitude.
+    /// `phys_footprint` is what the iOS jetsam limit counts. Clean file-backed pages do not count
+    /// toward it, so mapping is nearly free. The bound is loose because other tests allocate in the
+    /// same process; it checks only the order of magnitude.
     @Test("mapping the LUT costs far less than widening it")
     func footprint() throws {
         let baseline = physFootprint()
@@ -375,7 +375,7 @@ struct NpyTests {
             "npy footprint: mapped + 192 lookups \(mapped) B, values() \(widened) B, "
                 + "payload on disk \(lut.payloadByteCount) B")
         // 2 985 984 doubles is 23 887 872 B. Large allocations come from fresh mmap'd regions, so
-        // the growth cannot be hidden by reuse of another test's freed memory.
+        // reuse of another test's freed memory cannot hide the growth.
         #expect(widened >= 8 << 20, "widening the LUT grew the footprint by only \(widened) B")
     }
 

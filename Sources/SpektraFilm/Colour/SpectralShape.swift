@@ -2,10 +2,10 @@
 ///
 /// Every spectral array in the reference is aligned to this grid before it reaches the engine, so
 /// there is no resampling anywhere in the pipeline and no second grid to reconcile. The numbers come
-/// from ``ColourTables``, which the extractor writes from colour-science itself.
+/// from ``ColourTables``, which the extractor writes from colour-science.
 ///
-/// Units are nanometres everywhere. The one place metres are needed is Planck's law, which is why
-/// ``wavelengthsMetres`` exists; do not carry metres anywhere else.
+/// Units are nanometres everywhere except Planck's law, which uses ``wavelengthsMetres``. Do not
+/// use metres anywhere else.
 public enum SpectralShape {
     public static let count = ColourTables.wavelengthCount
     public static let startNm = ColourTables.wavelengthStart
@@ -80,8 +80,8 @@ public struct Spectrum: Sendable, Equatable {
 /// Mallett basis.
 ///
 /// NumPy shape `(81, 3)`, flattened `[wavelength][channel]` row-major, so channel `c` at wavelength
-/// index `i` is at `i * 3 + c`. Same order as ``ColourTables`` and as NumPy's C order, and a
-/// transposed spectral table is the most likely way to produce a plausible-looking wrong render.
+/// index `i` is at `i * 3 + c`. Same order as ``ColourTables`` and NumPy's C order. A transposed
+/// spectral table is the most likely way to produce a render that looks plausible but is wrong.
 public struct SpectralMatrix: Sendable, Equatable {
     public static let channels = 3
 

@@ -4,15 +4,15 @@ import Foundation
 // lightness, JzAzBz and CAM16-UCS, forward and inverse.
 //
 // Transcribed from `Tools/parity/reference/gamut_compression_reference.py`, a flat NumPy
-// transcription of the colour-science call graph that the oracle reports bit-identical for Oklab and
-// JzAzBz and equal to 1.3e-13 for CAM16-UCS. colour-science reaches these transforms through five
-// layers of generic Iab/CAM plumbing with domain-range scaling, and the flat form is what the
-// arithmetic here follows, term by term and in the same order.
+// transcription of the colour-science call graph. The oracle reports it bit-identical for Oklab
+// and JzAzBz and equal to within 1.3e-13 for CAM16-UCS. colour-science reaches these transforms
+// through five layers of generic Iab/CAM plumbing with domain-range scaling. The arithmetic here
+// follows the flat form term by term, in the same order.
 //
-// Except in CAM16, where the flat form is not faithful enough and this follows colour-science
-// directly. One divergence is behavioural: the flat form selects the inverse's opponent axes with a
-// single mask, which sends a NaN hue down the wrong branch. Five more are rounding order, each marked
-// at its line, and together they are the 1.3e-13 the flat form reports.
+// CAM16 is the exception: there the flat form is not faithful enough, and this code follows
+// colour-science directly. One divergence is behavioural: the flat form selects the inverse's
+// opponent axes with a single mask, which sends a NaN hue down the wrong branch. Five more are
+// rounding order, each marked at its line. Together they account for the flat form's 1.3e-13.
 //
 // Every power is `spow`, colour-science's signed power, because `spow_enable` is on by default
 // there. `pow(-0.5, 1.0/3.0)` is NaN in C, and these transforms see negative operands on ordinary
@@ -67,7 +67,7 @@ public enum Oklab {
 /// Safdar et al. 2017 JzAzBz, on **absolute** XYZ in cd/m².
 ///
 /// The PQ curve is ST 2084's with JzAzBz's re-optimised `m_2 = 1.7 * 2523 / 32`, which is not the
-/// broadcast 78.84375. `ColourTables` carries it as a literal because `134.034375` is a different
+/// broadcast 78.84375. `ColourTables` stores it as a literal because `134.034375` is a different
 /// double from the product.
 public enum JzAzBz {
     static let xyzToLMS = Matrix3(rows: ColourTables.jzazbzXYZToLMS)
@@ -120,7 +120,7 @@ public enum JzAzBz {
         let lms = (pqDecode(lmsPrime.0), pqDecode(lmsPrime.1), pqDecode(lmsPrime.2))
         let p = lmsToXYZ.apply(lms)
         let X = (p.0 + (b - 1.0) * p.2) / b
-        // The Y line consumes the reconstructed X, not X'. Using X' instead is a silent hue shift.
+        // The Y line uses the reconstructed X, not X'. Using X' is a silent hue shift.
         let Y = (p.1 + (g - 1.0) * X) / g
         return (X, Y, p.2)
     }
@@ -258,7 +258,7 @@ public enum CAM16UCS {
         // `A` gives J = 0 instead of NaN. Reachable from a NaN or infinite input channel, which
         // turns the post-adaptation response into NaN.
         let J = 100.0 * spow(safeDivide(A, vc.A_w), vc.c * vc.z)
-        // The constant factor multiplies the quotient; it is not folded into the numerator. And the
+        // The constant factor multiplies the quotient; it is not folded into the numerator. The
         // quotient is an `sdiv`, so a zero denominator gives 0.
         let t =
             ((50000.0 / 13.0) * vc.N_c * vc.N_cb)
@@ -275,9 +275,9 @@ public enum CAM16UCS {
 
     /// `(Jp, ap, bp)` back to XYZ at Y = 1.
     ///
-    /// The reference routes UCS to `JMh` and lets `CAM16_to_XYZ` derive `C` from `M`, which is what
-    /// this does. Five divisions go through colour-science's `sdiv` in its default
-    /// "ignore zero conversion" mode, where a non-finite quotient becomes 0; without that the four
+    /// Like the reference, this routes UCS to `JMh` and derives `C` from `M` as `CAM16_to_XYZ`
+    /// does. Five divisions go through colour-science's `sdiv` in its default
+    /// "ignore zero conversion" mode, where a non-finite quotient becomes 0. Without it the four
     /// hue axes (0°, 90°, 180°, 270°) come back NaN.
     public static func inverse(
         _ jab: (Double, Double, Double), _ vc: CAM16ViewingConditions
@@ -351,9 +351,9 @@ public enum CAM16UCS {
 
 /// xy to XYZ at Y = 1, the gamut module's `_xy_to_xyz_unit_y`.
 ///
-/// Deliberately not ``Chromaticity/XYZ``, which multiplies by the reciprocal of `y` and forms
+/// Do not replace with ``Chromaticity/XYZ``, which multiplies by the reciprocal of `y` and forms
 /// `1 - (x + y)`. Both spellings differ from these divisions in the last bit, and the `C_max`
-/// bisection turns on an inside/outside predicate that a last-bit difference can flip.
+/// bisection depends on an inside/outside predicate that a last-bit difference can flip.
 func xyToXYZUnitY(x: Double, y: Double) -> (Double, Double, Double) {
     let safeY = npFmax(y, 1e-12)
     return (x / safeY, 1.0, (1.0 - x - y) / safeY)
@@ -368,8 +368,8 @@ func signum(_ x: Double) -> Double {
 }
 
 /// colour-science's `sdiv` in its default "ignore zero conversion" mode: divide, then map a
-/// non-finite quotient to 0. NumPy raises a warning and `nan_to_num`s the result; the value is what
-/// matters here.
+/// non-finite quotient to 0. NumPy raises a warning and `nan_to_num`s the result; only the value is
+/// ported.
 @inlinable
 func safeDivide(_ a: Double, _ b: Double) -> Double {
     let q = a / b

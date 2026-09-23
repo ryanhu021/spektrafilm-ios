@@ -3,12 +3,13 @@
 # The .xcodeproj is generated and not committed, since a project file is unreadable in a diff and
 # conflicts on every parallel change. `make project` regenerates it and CI does the same before
 # building, so this file is the only thing to review.
+#
 # The project is called SpektrafilmApp because Xcode names its Intermediates.noindex directories
 # after the project and the Swift package, and the engine package is SpektraFilm. Two names
 # differing by one letter's case merge into a single directory on a case-insensitive filesystem,
 # where the targets overwrite each other's output file maps and the build fails with "unable to open
-# dependencies file". macOS is case-insensitive by default, CI runners included, so this only shows
-# up off a case-sensitive volume. Users see CFBundleDisplayName.
+# dependencies file". macOS is case-insensitive by default, CI runners included, so the build fails
+# everywhere except on a case-sensitive volume. Users see CFBundleDisplayName.
 name: SpektrafilmApp
 options:
   bundleIdPrefix: dev.ryanhu.spektrafilm
@@ -19,8 +20,8 @@ options:
 
 packages:
   SpektraFilm:
-    # The engine package at the repository root. A local path, since the engine and the app ship
-    # and get reviewed together.
+    # The engine package at the repository root. A local path, since the engine and the app are
+    # shipped and reviewed together.
     path: ..
 
 settings:
@@ -65,7 +66,6 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # The app reads the photo the user picks.
         NSPhotoLibraryUsageDescription:
           Spektrafilm reads the photo you choose so it can run the film simulation on it.
         NSPhotoLibraryAddUsageDescription:

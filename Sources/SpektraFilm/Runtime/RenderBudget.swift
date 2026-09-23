@@ -4,7 +4,7 @@ import Foundation
 import os
 #endif
 
-/// How large a frame this device can actually render.
+/// How large a frame this device can render.
 ///
 /// The engine is float64 and holds several full-frame buffers at once, so peak memory is about
 /// 125 MB per megapixel. Measured in release, one measurement per process:
@@ -16,23 +16,22 @@ import os
 /// | 12 MP | 1471 MB | 25.7 s |
 ///
 /// iOS terminates a foreground app that crosses its jetsam limit, roughly 1.4 GB on a 6 GB device.
-/// 6 MP now fits with room; 12 MP sits on the line, so the cap still bites there.
+/// 6 MP fits with room to spare. 12 MP is at the limit, so the cap applies there.
 ///
 /// Per-tap, at 2 MP: the decoded input is 26 MB/MP, filming.expose reaches 79, and filming.develop
 /// reaches 125 and sets the peak. Printing and scanning add nothing on top.
 ///
-/// Getting here took removing concurrently-live frames rather than allocating less overall: the
-/// spectral upsampling held five frames where two suffice, the coupler correction held eight, grain
-/// materialised the whole sublayer split, and halation held the input, a copy and two blurs. All four
-/// now work a channel plane at a time or consume their input. Peak is what gets an app killed, so
-/// what matters is how many frames are alive at one instant, not how many are allocated in total.
-///
+/// Peak is what gets an app killed, so what matters is how many frames are alive at one instant,
+/// not how many are allocated in total. Spectral upsampling, the coupler correction, grain and
+/// halation each work a channel plane at a time or consume their input. Holding whole frames
+/// instead keeps five alive in the upsampling (two suffice), eight in the coupler correction, the
+/// whole sublayer split in grain, and the input, a copy and two blurs in halation.
 public enum RenderBudget {
 
     /// Measured peak footprint per megapixel, in bytes.
     public static let bytesPerMegapixel = 125 * 1_048_576
 
-    /// Fraction of the available allowance to actually spend.
+    /// Fraction of the available allowance to spend.
     ///
     /// The rest covers the decoded source image, the UI, and the fact that the footprint figure is a
     /// high-water mark rather than a steady state.

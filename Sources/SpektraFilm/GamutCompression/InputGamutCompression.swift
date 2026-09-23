@@ -18,12 +18,12 @@ public enum SpectralLocus {
 
     /// Even-odd crossing test, standing in for `matplotlib.path.Path.contains_points`.
     ///
-    /// Agrees with matplotlib everywhere off the polygon: zero disagreements over a 81 x 81 grid of
-    /// `[-0.1, 1.0]²`, and the spec reports the same over 200 000 random points. Points exactly on the
-    /// polygon are a coin toss in both implementations and the two disagree on 49 of the 131 vertices
-    /// and edge midpoints. It makes no difference to the only consumer: the bisection that builds
-    /// ``InputGamutCompression/locusEnvelope`` never lands on an edge, and that table comes out
-    /// byte-identical to the oracle's.
+    /// Agrees with matplotlib everywhere off the polygon: zero disagreements over an 81 x 81 grid of
+    /// `[-0.1, 1.0]²`, and the spec reports the same over 200 000 random points. For points exactly
+    /// on the polygon both implementations are arbitrary, and the two disagree on 49 of the 131
+    /// vertices and edge midpoints. This does not affect the only consumer: the bisection that
+    /// builds ``InputGamutCompression/locusEnvelope`` never tests a point on an edge, and that table
+    /// is byte-identical to the oracle's.
     public static func contains(x: Double, y: Double) -> Bool {
         var inside = false
         for k in 0..<(vertices.count - 1) {
@@ -40,9 +40,9 @@ public enum SpectralLocus {
     /// Smallest positive parametric distance from `origin` along a unit `direction` to the polygon.
     ///
     /// Returns `+infinity` when no edge is hit, which happens only if the origin is outside the
-    /// locus. `compressXYRadial` then multiplies `0 * infinity` and produces NaN. That is the
-    /// reference's behaviour and the precondition it relies on: every film reference illuminant
-    /// (D55, TH-KG3, T) sits well inside the locus.
+    /// locus. `compressXYRadial` then multiplies `0 * infinity` and produces NaN. The reference
+    /// behaves the same way and relies on every film reference illuminant (D55, TH-KG3, T) sitting
+    /// well inside the locus.
     public static func rayDistance(
         originX: Double, originY: Double, directionX: Double, directionY: Double
     ) -> Double {
@@ -134,7 +134,7 @@ public enum InputGamutCompression {
 
     /// Chroma reduction at constant Oklch lightness and hue, against the locus envelope.
     ///
-    /// The reference takes `white_xy` here too and ignores it, for API symmetry; this signature drops
+    /// The reference takes `white_xy` here too and ignores it, for API symmetry. This signature drops
     /// it. White does not round-trip exactly on this path: the Oklab forward and inverse are not
     /// exact at `C = 0`, so `(1/3, 1/3)` comes back as `(0.33333333304, 0.33333333328)`.
     static func oklchChroma(_ xy: (x: Double, y: Double), knee: Knee) -> (x: Double, y: Double) {
@@ -153,12 +153,12 @@ public enum InputGamutCompression {
     /// Its lightness grid starts at 0.05, where the output envelopes start at 0.02 (Oklab), 0.002
     /// (JzAzBz) or 1.0 (CAM16-UCS).
     ///
-    /// Known reference artefact, reproduced deliberately: 12 772 of the 46 080 cells (27.7%) run into
-    /// the `hi = 0.5` bisection ceiling. At Y = 1 a near-monochromatic chromaticity has Oklch chroma
-    /// well above 0.5, so over those cells the algorithm compresses against a flat 0.5 envelope
-    /// instead of the locus, and the table records 0.49999809265136719 as its maximum. The band starts
-    /// at lightness row 23 (`L = 0.3968253968253968`) with 3 of 720 hues and widens to 476 at the top
-    /// row; no row saturates completely. Do not raise the bound; it would break parity.
+    /// A reference artefact, reproduced for parity: 12 772 of the 46 080 cells (27.7%) run into the
+    /// `hi = 0.5` bisection ceiling. At Y = 1 a near-monochromatic chromaticity has Oklch chroma well
+    /// above 0.5, so over those cells the algorithm compresses against a flat 0.5 envelope instead of
+    /// the locus, and the table records 0.49999809265136719 as its maximum. The band starts at
+    /// lightness row 23 (`L = 0.3968253968253968`) with 3 of 720 hues and widens to 476 at the top
+    /// row. No row saturates completely. Do not raise the bound: it would break parity.
     static let locusEnvelope = ChromaEnvelope(
         lightnessGrid: linspace(0.05, 1.0, count: ChromaEnvelope.lightnessCount),
         chromaUpper: 0.5

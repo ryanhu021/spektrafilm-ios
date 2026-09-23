@@ -2,10 +2,10 @@ import Foundation
 
 /// Identity of one random stream.
 ///
-/// Philox4x32 takes a 64-bit key and a 128-bit counter, which is more input than
-/// `(seed, channel, sublayer, pixel)` needs, so nothing has to be hashed together: the seed fills
-/// the key, the pixel index and a block index fill the low counter words, and `channel` and
-/// `sublayer` are packed into the top counter word. Two distinct streams therefore never collide.
+/// Philox4x32 takes a 64-bit key and a 128-bit counter, enough room for
+/// `(seed, channel, sublayer, pixel)` without hashing. The seed fills the key. The pixel index and
+/// a block index fill the low counter words, and `channel` and `sublayer` are packed into the top
+/// counter word. Two distinct streams never collide.
 public struct PhiloxKey: Hashable, Sendable {
     public let seed: UInt64
     public let channel: UInt32
@@ -30,12 +30,12 @@ public struct PhiloxKey: Hashable, Sendable {
 ///
 /// The values at a given counter depend only on the key and the counter, so a render split into
 /// tiles across any number of threads produces the same noise as a single-threaded pass over the
-/// whole frame. Reproducible exports are a product requirement and a sequential generator cannot
-/// meet it: upstream's `use_fast_stats` path draws from Numba's thread-local state and its output
-/// changes with the thread count (`grain.md` section 8.2).
+/// whole frame. Exports must be reproducible, and a sequential generator cannot guarantee that:
+/// upstream's `use_fast_stats` path draws from Numba's thread-local state, and its output changes
+/// with the thread count (`grain.md` section 8.2).
 ///
-/// Grain and glare go through this protocol so the planned Metal path can supply a GPU generator
-/// with the same key and counter contract and land on the same values.
+/// Grain and glare use this protocol so the planned Metal path can supply a GPU generator with the
+/// same key and counter contract and produce the same values.
 public protocol RandomSource {
     /// Restarts the stream at `counter`, discarding any partly consumed block.
     mutating func reset(counter: UInt64)
@@ -45,8 +45,8 @@ public protocol RandomSource {
 }
 
 extension RandomSource {
-    /// Uniform on `[0, 1)` with 53 significant bits, matching what NumPy's `next_double` hands the
-    /// samplers it ports.
+    /// Uniform on `[0, 1)` with 53 significant bits, the same as NumPy's `next_double`, which the
+    /// ported samplers consume.
     @inlinable
     public mutating func nextUniform() -> Double {
         let high = UInt64(nextBits())
@@ -66,9 +66,9 @@ extension RandomSource {
 /// Philox4x32-10, the counter-based generator from Salmon et al., "Parallel Random Numbers: As Easy
 /// as 1, 2, 3" (SC11), as implemented in Random123.
 ///
-/// Ten rounds of a two-word Feistel network over four 32-bit counter words. It passes BigCrush,
-/// costs about twenty integer operations per word, and needs no state beyond the key and the
-/// counter, which is the property the render depends on.
+/// Ten rounds of a two-word Feistel network over four 32-bit counter words. It passes BigCrush
+/// and costs about twenty integer operations per word. The render relies on it needing no state
+/// beyond the key and the counter.
 public struct Philox4x32: RandomSource, Sendable {
 
     /// Round multipliers and key bumps from Random123's `philox.h`. The bumps are the fractional

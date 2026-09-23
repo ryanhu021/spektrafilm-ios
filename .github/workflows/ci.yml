@@ -46,10 +46,10 @@ jobs:
       - name: Generate project
         run: make project
       # -quiet keeps warnings and errors in full. Piping through tail would drop the middle of the
-      # log, which is where a compile diagnostic lands.
+      # log, which is where a compile diagnostic appears.
       #
-      # Signing stays on. A simulator build signs ad hoc, needing no identity or profile, and turning
-      # it off once hid a resource bundle that codesign rejected outright.
+      # Signing stays on. A simulator build signs ad hoc and needs no identity or profile, and with
+      # signing on, CI catches a resource bundle that codesign rejects.
       - name: Build for simulator
         run: |
           xcodebuild build -quiet \

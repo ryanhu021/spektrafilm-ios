@@ -80,8 +80,8 @@ public struct IrradianceSpectraLUT: Sendable {
     /// `contract('ijl,lm->ijm', spectra_lut, operand)`, optionally blurring along the wavelength
     /// axis first.
     ///
-    /// The whole point of the subsystem: one 192 x 192 x 3 table per film, so nothing spectral
-    /// happens per pixel. `(36864, 81) @ (81, 3)` is 9 MFLOP.
+    /// The result is one 192 x 192 x 3 table per film, so nothing spectral happens per pixel.
+    /// `(36864, 81) @ (81, 3)` is 9 MFLOP.
     ///
     /// Blurring per cell before the dot product is the same arithmetic as blurring the whole table
     /// and contracting after, and avoids materialising a second 22.8 MiB copy.

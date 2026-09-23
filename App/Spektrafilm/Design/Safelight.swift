@@ -2,15 +2,14 @@ import SwiftUI
 
 /// The visual language: a darkroom under safelight.
 ///
-/// Amber on near-black is not a style choice borrowed from dark mode. It is what a colour darkroom
-/// looks like, because amber is the one wavelength band that does not fog print paper. Everything in
-/// the room is dim and warm except the thing under the enlarger lamp, so in this app the print is
-/// the only fully-lit surface and every control sits back in the dark.
+/// A colour darkroom is lit by a dim amber safelight, the band print paper is least sensitive to.
+/// Everything is dark and warm except the paper under the enlarger lamp. In this app the print is
+/// the only brightly lit surface, and the controls stay dim.
 enum Safelight {
 
     // MARK: - Surfaces
 
-    /// Room black, warm rather than neutral. A true #000 reads as electronics, not a room.
+    /// Room black, slightly warm.
     static let ink = Color(red: 0.043, green: 0.035, blue: 0.031)
     /// A raised panel, as on the side of an enlarger column.
     static let panel = Color(red: 0.082, green: 0.067, blue: 0.063)
@@ -82,8 +81,7 @@ extension View {
 
 /// A static dither field, drawn once into an image and tiled.
 ///
-/// Grain here is decoration, deliberately unrelated to the engine's stochastic grain model. Naming
-/// it separately keeps the two from being confused in a screenshot discussion.
+/// Decoration only. It has nothing to do with the engine's grain model.
 private struct GrainOverlay: View {
     var body: some View {
         Canvas { context, size in

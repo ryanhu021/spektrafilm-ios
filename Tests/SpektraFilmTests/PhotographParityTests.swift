@@ -4,12 +4,11 @@ import Testing
 
 /// A real photograph through four film and paper combinations.
 ///
-/// The synthetic ramps and patches elsewhere cover the arithmetic one operator at a time. This covers
-/// the thing a user sees: skin, foliage, specular highlights and deep shadow, all in one frame. A hue
-/// shift in the midtones or a crushed toe shows up here and in none of the other suites.
+/// The synthetic ramps and patches in other suites test one operator at a time. This suite tests
+/// what a user sees: skin, foliage, specular highlights and deep shadow in one frame. A midtone hue
+/// shift or a crushed toe shows up here and in no other suite.
 ///
-/// The negative tap is included because the app displays it, so it is a shipped surface rather than a
-/// diagnostic.
+/// The negative tap is included because the app displays it.
 @Suite("Photograph parity")
 struct PhotographParityTests {
 
@@ -17,7 +16,7 @@ struct PhotographParityTests {
         ("portra400_endura", "kodak_portra_400", "kodak_portra_endura"),
         // A slide printed onto negative paper. The result is pale and low contrast, because a
         // positive's base density is far higher than the enlarger exposure assumes. Nothing clips,
-        // and the negative tap carries a normal image, so this still exercises the positive-film
+        // and the negative tap holds a normal image, so this still exercises the positive-film
         // coupler path end to end.
         ("velvia_endura", "fujifilm_velvia_100", "kodak_portra_endura"),
         ("vision3_500t_2383", "kodak_vision3_500t", "kodak_2383"),
@@ -48,11 +47,11 @@ struct PhotographParityTests {
         try expectParity(out.values, matches: "photo_\(combination.label)_negative")
     }
 
-    /// Different stocks have to actually render differently. A wiring bug that ignored the profile
-    /// would pass every per-operator test and every parity fixture that compares one stock to itself.
+    /// Different stocks must render differently. A wiring bug that ignored the profile would pass
+    /// every per-operator test and every parity fixture that compares one stock to itself.
     ///
-    /// The closest pair, Portra 400 and Gold 200, differs by 0.0725 at its worst pixel, so the gate
-    /// below has room without being loose enough to pass on two identical renders.
+    /// The closest pair, Portra 400 and Gold 200, differs by 0.0725 at its worst pixel. The 0.02
+    /// gate leaves margin below that and still fails two identical renders.
     @Test("the four combinations are distinguishable from each other")
     func stocksDiffer() throws {
         var renders: [String: [Double]] = [:]

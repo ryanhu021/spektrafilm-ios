@@ -8,8 +8,8 @@ import numpy as np
 from fixture_registry import fixture
 
 # Covers the awkward parts of every transfer function: below zero, where signed powers and
-# NaN-producing gamma functions disagree; the piecewise breakpoints; and above 1.0, where the
-# simulation routinely lands before gamut compression.
+# NaN-producing gamma functions disagree; the piecewise breakpoints; and above 1.0, where
+# simulated values often sit before gamut compression.
 TRANSFER_SWEEP = np.concatenate([
     np.array([-1.0, -0.5, -0.04045, -0.0031308, -1e-9, 0.0]),
     np.array([1e-9, 1e-6, 0.0031308, 0.00390625, 0.001953125, 0.018, 0.04045, 0.081]),
@@ -108,7 +108,7 @@ def colour_conversions():
             )
             yield f"colour_xyz_to_rgb_{slug}_{label.lower()}", np.asarray(rgb)
 
-    # Upstream runs the output transfer function through RGB_to_RGB with input == output, which
+    # Upstream runs the output transfer function through RGB_to_RGB with input == output. The call
     # still multiplies by fromXYZ·(CAT·toXYZ), which is near identity but not identity.
     rgb = rng.uniform(0.0, 1.0, size=(8, 8, 3))
     yield "colour_rgb_input", rgb
