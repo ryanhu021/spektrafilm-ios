@@ -10,8 +10,8 @@ reference generates at a pinned commit, to `max_abs <= 1e-4`.
 
 ## Install
 
-There is no release yet. Once there is, add this source in [SideStore](https://sidestore.io) and
-install Spektrafilm from it. No paid developer account is needed.
+Add this source in [SideStore](https://sidestore.io) and install Spektrafilm from it. No paid
+developer account is needed.
 
 ```
 https://github.com/ryanhu021/spektrafilm-ios/releases/latest/download/sidestore-source.json
