@@ -84,7 +84,9 @@ enum MetalElementwise {
         }
     }
 
-    private static func unary(_ c: MetalContext, _ kernel: String, _ x: GPUFrame, _ s: Double)
+    private static func unary(
+        _ c: MetalContext, _ kernel: String, _ x: GPUFrame, _ s: Double
+    )
         throws
     {
         var scale = Float(s)
