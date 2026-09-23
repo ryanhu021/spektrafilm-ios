@@ -1,4 +1,315 @@
 {
+  "autoexposure_ev": {
+    "shape": [
+      7
+    ],
+    "bytes": 72,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "autoexposure_ev_black": {
+    "shape": [
+      7
+    ],
+    "bytes": 72,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "autoexposure_input": {
+    "shape": [
+      37,
+      61,
+      3
+    ],
+    "bytes": 54192,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "autoexposure_luminance_prophoto_rgb": {
+    "shape": [
+      37,
+      61
+    ],
+    "bytes": 18080,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "autoexposure_luminance_srgb": {
+    "shape": [
+      37,
+      61
+    ],
+    "bytes": 18080,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "autoexposure_luminance_srgb_decoded": {
+    "shape": [
+      37,
+      61
+    ],
+    "bytes": 18080,
+    "group": "autoexposure",
+    "nan_count": 0
+  },
+  "blur_fir_plane_sigma0p032": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_plane_sigma0p5": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_plane_sigma1p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_plane_sigma2p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_plane_sigma2p99": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_row_1x40_sigma2p99": {
+    "shape": [
+      1,
+      40
+    ],
+    "bytes": 344,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_fir_tiny_3x11_sigma2p99": {
+    "shape": [
+      3,
+      11
+    ],
+    "bytes": 288,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_iir_impulse_rows": {
+    "shape": [
+      2,
+      601
+    ],
+    "bytes": 9640,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_iir_plane_sigma20p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_iir_plane_sigma3p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_iir_plane_sigma5p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_iir_plane_sigma65p0": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_kernel_1d_sigma0p7": {
+    "shape": [
+      5
+    ],
+    "bytes": 56,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_kernel_1d_sigma1p0": {
+    "shape": [
+      7
+    ],
+    "bytes": 72,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_kernel_1d_sigma2p0": {
+    "shape": [
+      13
+    ],
+    "bytes": 120,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_percth_hdr_mixed_dispatch": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_plane_64x80": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_px_hdr_sigma0p9": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_lens_blur",
+    "nan_count": 0
+  },
+  "blur_row_1x40": {
+    "shape": [
+      1,
+      40
+    ],
+    "bytes": 344,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_tiny_3x11": {
+    "shape": [
+      3,
+      11
+    ],
+    "bytes": 288,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "blur_um_hdr_sigma30_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_lens_blur",
+    "nan_count": 0
+  },
+  "blur_yvv_coeffs": {
+    "shape": [
+      7,
+      4
+    ],
+    "bytes": 248,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "boost_curve_geomspace": {
+    "shape": [
+      512,
+      1,
+      3
+    ],
+    "bytes": 12312,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
+  "boost_hdr_ev1_r1p0_p2": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
+  "boost_hdr_ev3_r0p3_p4": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
+  "boost_hdr_ev6_r0p0_p0": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
+  "boost_negatives_input": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
+  "boost_negatives_maxzero": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "diffusion_boost",
+    "nan_count": 0
+  },
   "boundary_clamp_edge_n1": {
     "shape": [
       11
@@ -444,6 +755,169 @@
     "group": "density_curves",
     "nan_count": 0
   },
+  "difffilter_bpm_120x160_px100": {
+    "shape": [
+      120,
+      160,
+      3
+    ],
+    "bytes": 460824,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_bpm_48x60_px400_s1": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_bpm_step_edge_px200": {
+    "shape": [
+      64,
+      64,
+      3
+    ],
+    "bytes": 98328,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_cinebloom_48x60_px400_warmth": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_glimmerglass_48x60_px400_s0p0625": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_glimmerglass_48x60_px512edge_s2": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "difffilter_promist_48x60_px400_overrides": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_filter_apply",
+    "nan_count": 0
+  },
+  "diffusion_expand_tables": {
+    "shape": [
+      72
+    ],
+    "bytes": 592,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_halo_weights": {
+    "shape": [
+      4,
+      3,
+      3
+    ],
+    "bytes": 312,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_hdr_64x96x3": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "diffusion_radial_profile_bpm": {
+    "shape": [
+      3,
+      64
+    ],
+    "bytes": 1560,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_radial_profile_cinebloom_overrides": {
+    "shape": [
+      3,
+      64
+    ],
+    "bytes": 1560,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_radial_radius_um": {
+    "shape": [
+      64
+    ],
+    "bytes": 528,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_rand_48x60x3": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "diffusion_step_edge_64x64x3": {
+    "shape": [
+      64,
+      64,
+      3
+    ],
+    "bytes": 98328,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
+  "diffusion_strength_scatter": {
+    "shape": [
+      4,
+      11
+    ],
+    "bytes": 376,
+    "group": "diffusion_filter_tables",
+    "nan_count": 0
+  },
+  "diffusion_wide_120x160x3": {
+    "shape": [
+      120,
+      160,
+      3
+    ],
+    "bytes": 460824,
+    "group": "diffusion_blur",
+    "nan_count": 0
+  },
   "enlarger_cc_heavy": {
     "shape": [
       81
@@ -532,6 +1006,45 @@
     "group": "enlarger",
     "nan_count": 0
   },
+  "expfilter_n2_hdr_decay5": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_exponential",
+    "nan_count": 0
+  },
+  "expfilter_n3_hdr_decay5": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_exponential",
+    "nan_count": 0
+  },
+  "expfilter_n3_hdr_decay_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_exponential",
+    "nan_count": 0
+  },
+  "expfilter_n3_plane_decay8": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_exponential",
+    "nan_count": 0
+  },
   "filter_bandpass_active": {
     "shape": [
       81
@@ -606,6 +1119,846 @@
     ],
     "bytes": 664,
     "group": "filters",
+    "nan_count": 0
+  },
+  "gamut_cam16_viewing_conditions": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_cam16ucs_forward": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_cam16ucs_inverse": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_cmax_cam16ucs_srgb_h4": {
+    "shape": [
+      64,
+      180
+    ],
+    "bytes": 92184,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_jzazbz_srgb_rows": {
+    "shape": [
+      5,
+      720
+    ],
+    "bytes": 28824,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_locus_rows": {
+    "shape": [
+      5,
+      720
+    ],
+    "bytes": 28824,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_lookup_h": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_lookup_l": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_lookup_oklch_srgb": {
+    "shape": [
+      9
+    ],
+    "bytes": 88,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_oklch_srgb_rows": {
+    "shape": [
+      5,
+      720
+    ],
+    "bytes": 28824,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_cmax_oklrab_srgb_rows": {
+    "shape": [
+      5,
+      720
+    ],
+    "bytes": 28824,
+    "group": "gamut_cmax",
+    "nan_count": 0
+  },
+  "gamut_jzazbz_forward": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_jzazbz_inverse": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_knee_default": {
+    "shape": [
+      135
+    ],
+    "bytes": 1096,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_knee_input": {
+    "shape": [
+      135
+    ],
+    "bytes": 1096,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_knee_late": {
+    "shape": [
+      135
+    ],
+    "bytes": 1096,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_knee_soft": {
+    "shape": [
+      135
+    ],
+    "bytes": 1096,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_lightness_input": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_lightness_white1": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_lightness_white100": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_lightness_whitejz": {
+    "shape": [
+      12
+    ],
+    "bytes": 112,
+    "group": "gamut_knee",
+    "nan_count": 0
+  },
+  "gamut_negative_cam16ucs": {
+    "shape": [
+      4,
+      3
+    ],
+    "bytes": 120,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_negative_input": {
+    "shape": [
+      4,
+      3
+    ],
+    "bytes": 120,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_oklab_forward": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_oklab_inverse": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_oklrab_l_from_lr": {
+    "shape": [
+      10
+    ],
+    "bytes": 96,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_oklrab_l_input": {
+    "shape": [
+      10
+    ],
+    "bytes": 96,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_oklrab_lr": {
+    "shape": [
+      10
+    ],
+    "bytes": 96,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "gamut_point_in_polygon": {
+    "shape": [
+      6561
+    ],
+    "bytes": 52504,
+    "group": "gamut_locus",
+    "nan_count": 0
+  },
+  "gamut_point_in_polygon_boundary": {
+    "shape": [
+      131
+    ],
+    "bytes": 1064,
+    "group": "gamut_locus",
+    "nan_count": 0
+  },
+  "gamut_ray_distance_d55": {
+    "shape": [
+      72
+    ],
+    "bytes": 592,
+    "group": "gamut_locus",
+    "nan_count": 0
+  },
+  "gamut_ray_distance_white_e": {
+    "shape": [
+      72
+    ],
+    "bytes": 592,
+    "group": "gamut_locus",
+    "nan_count": 0
+  },
+  "gamut_realizable_cam16ucs": {
+    "shape": [
+      2048,
+      3
+    ],
+    "bytes": 49176,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_realizable_input": {
+    "shape": [
+      2048,
+      3
+    ],
+    "bytes": 49176,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_aces_rgc": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_aces_rgc_soft": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_cam16ucs_bt2020": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_cam16ucs_display_p3": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_cam16ucs_srgb": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_cam16ucs_srgb_nolightness": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_input": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_jzazbz_srgb": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_jzazbz_srgb_nolightness": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_off": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_oklch_srgb": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_oklch_srgb_nolightness": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_oklrab_srgb": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_rgb_oklrab_srgb_nolightness": {
+    "shape": [
+      1032,
+      3
+    ],
+    "bytes": 24792,
+    "group": "gamut_compress_rgb",
+    "nan_count": 0
+  },
+  "gamut_spectral_locus": {
+    "shape": [
+      66,
+      2
+    ],
+    "bytes": 1080,
+    "group": "gamut_locus",
+    "nan_count": 0
+  },
+  "gamut_xy_inactive": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_input": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_oklch_d55": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_oklch_white_e": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_xy_d55": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_xy_white_e": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xy_xy_white_e_soft": {
+    "shape": [
+      1608,
+      2
+    ],
+    "bytes": 25752,
+    "group": "gamut_compress_xy",
+    "nan_count": 0
+  },
+  "gamut_xyz_input": {
+    "shape": [
+      518,
+      3
+    ],
+    "bytes": 12456,
+    "group": "gamut_perceptual",
+    "nan_count": 0
+  },
+  "glare_moment_sd": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "grain_clumping_and_glare",
+    "nan_count": 0
+  },
+  "glare_moments": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "grain_clumping_and_glare",
+    "nan_count": 0
+  },
+  "glare_moments_params": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "grain_clumping_and_glare",
+    "nan_count": 0
+  },
+  "grain_closed_form_layers_kodak_portra_400": {
+    "shape": [
+      6,
+      3,
+      4
+    ],
+    "bytes": 600,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_closed_form_levels": {
+    "shape": [
+      6
+    ],
+    "bytes": 64,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_closed_form_single_sub1_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      4
+    ],
+    "bytes": 312,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_closed_form_single_sub3_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      4
+    ],
+    "bytes": 312,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_clumping_moments": {
+    "shape": [
+      3,
+      3
+    ],
+    "bytes": 96,
+    "group": "grain_clumping_and_glare",
+    "nan_count": 0
+  },
+  "grain_density_plane_input": {
+    "shape": [
+      8,
+      9
+    ],
+    "bytes": 600,
+    "group": "grain_model",
+    "nan_count": 1
+  },
+  "grain_derived_layers_kodak_portra_400": {
+    "shape": [
+      8,
+      3,
+      3
+    ],
+    "bytes": 600,
+    "group": "grain_derived",
+    "nan_count": 0
+  },
+  "grain_derived_layers_total_kodak_portra_400": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "grain_derived",
+    "nan_count": 0
+  },
+  "grain_derived_micro_gates": {
+    "shape": [
+      14,
+      5
+    ],
+    "bytes": 584,
+    "group": "grain_derived",
+    "nan_count": 0
+  },
+  "grain_derived_single_kodak_portra_400": {
+    "shape": [
+      5,
+      3
+    ],
+    "bytes": 144,
+    "group": "grain_derived",
+    "nan_count": 0
+  },
+  "grain_derived_single_sub3_kodak_portra_400": {
+    "shape": [
+      5,
+      3
+    ],
+    "bytes": 144,
+    "group": "grain_derived",
+    "nan_count": 0
+  },
+  "grain_layered_moment_sd_kodak_portra_400": {
+    "shape": [
+      6,
+      3,
+      3
+    ],
+    "bytes": 456,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_oracle_layered_moments_kodak_portra_400": {
+    "shape": [
+      6,
+      3,
+      3
+    ],
+    "bytes": 456,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_oracle_single_moments_sub1_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      3
+    ],
+    "bytes": 240,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_oracle_single_moments_sub3_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      3
+    ],
+    "bytes": 240,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_p_sat": {
+    "shape": [
+      4,
+      2,
+      8,
+      9
+    ],
+    "bytes": 4640,
+    "group": "grain_model",
+    "nan_count": 8
+  },
+  "grain_p_sat_params": {
+    "shape": [
+      4,
+      2
+    ],
+    "bytes": 88,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_rms_granularity_default_kodak_portra_400": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_rms_granularity_quiet_kodak_portra_400": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_single_layer_levels": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_single_moment_sd_sub1_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      3
+    ],
+    "bytes": 240,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_single_moment_sd_sub3_kodak_portra_400": {
+    "shape": [
+      3,
+      3,
+      3
+    ],
+    "bytes": 240,
+    "group": "grain_statistics",
+    "nan_count": 0
+  },
+  "grain_sublayer_input": {
+    "shape": [
+      6,
+      7,
+      3
+    ],
+    "bytes": 1032,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_sublayer_split_fujifilm_velvia_100": {
+    "shape": [
+      6,
+      7,
+      3,
+      3
+    ],
+    "bytes": 3056,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "grain_sublayer_split_kodak_portra_400": {
+    "shape": [
+      6,
+      7,
+      3,
+      3
+    ],
+    "bytes": 3056,
+    "group": "grain_model",
+    "nan_count": 0
+  },
+  "halation_hdr_default_1024px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_default_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_default_512px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_no_bounce_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_no_renorm_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_no_scatter_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_hdr_tuned_4000px": {
+    "shape": [
+      64,
+      96,
+      3
+    ],
+    "bytes": 147480,
+    "group": "diffusion_halation",
+    "nan_count": 0
+  },
+  "halation_step_edge_4000px": {
+    "shape": [
+      64,
+      64,
+      3
+    ],
+    "bytes": 98328,
+    "group": "diffusion_halation",
     "nan_count": 0
   },
   "illuminant_spectra": {
@@ -797,6 +2150,14 @@
     "group": "npy_case_values",
     "nan_count": 0
   },
+  "npy_case_v1_f4_specials_values": {
+    "shape": [
+      19
+    ],
+    "bytes": 168,
+    "group": "npy_case_values",
+    "nan_count": 6
+  },
   "npy_case_v1_f8_2d_values": {
     "shape": [
       3,
@@ -813,6 +2174,14 @@
     "bytes": 24,
     "group": "npy_case_values",
     "nan_count": 0
+  },
+  "npy_case_v1_f8_specials_values": {
+    "shape": [
+      14
+    ],
+    "bytes": 128,
+    "group": "npy_case_values",
+    "nan_count": 4
   },
   "npy_case_v2_f2_3d_values": {
     "shape": [
@@ -1075,6 +2444,386 @@
     "group": "observer",
     "nan_count": 0
   },
+  "pipeline_portra400_endura_p3_cmy_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_p3_cmy_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_p3_log_e_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_p3_log_e_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_p3_rgb_out": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_p3_rgb_pre": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_cmy_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_cmy_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_log_e_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_log_e_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_rgb_out": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_portra400_endura_srgb_rgb_pre": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_ramp_input": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_scanfilm_portra400_cmy_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_scanfilm_portra400_log_e_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_scanfilm_portra400_rgb_out": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_scanfilm_portra400_rgb_pre": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_cmy_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_cmy_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_log_e_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_log_e_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_rgb_out": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_velvia_endura_srgb_rgb_pre": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_cmy_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_cmy_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_log_e_film": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_log_e_print": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_rgb_out": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "pipeline_vision3_500t_2383_srgb_rgb_pre": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "pipeline_taps",
+    "nan_count": 0
+  },
+  "psf_black_pro_mist_31x31_px150": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_bpm_29x29_px100": {
+    "shape": [
+      29,
+      29,
+      3
+    ],
+    "bytes": 20208,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_bpm_31x31_scale2": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_bpm_31x31_warmth_m1p2": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_bpm_31x31_zero_intensities": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_cinebloom_31x31_overrides": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_cinebloom_31x31_px150": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_glimmerglass_31x31_px150": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
+  "psf_pro_mist_31x31_px150": {
+    "shape": [
+      31,
+      31,
+      3
+    ],
+    "bytes": 23088,
+    "group": "diffusion_filter_psf",
+    "nan_count": 0
+  },
   "random_chi2_critical_1em3": {
     "shape": [
       128
@@ -1093,12 +2842,12 @@
   },
   "random_lognormal_log_params": {
     "shape": [
-      10,
+      11,
       4
     ],
-    "bytes": 344,
+    "bytes": 376,
     "group": "random_lognormal",
-    "nan_count": 0
+    "nan_count": 3
   },
   "random_lognormal_moment_sd": {
     "shape": [
@@ -1301,11 +3050,400 @@
     "group": "spectral_shape",
     "nan_count": 0
   },
-  "transcendental_bracket_roots": {
+  "su_erf4_normalization": {
     "shape": [
       3
     ],
     "bytes": 40,
+    "group": "spectral_adaptation_window",
+    "nan_count": 0
+  },
+  "su_erf4_window": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "spectral_adaptation_window",
+    "nan_count": 0
+  },
+  "su_erf4_window_normalised": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "spectral_adaptation_window",
+    "nan_count": 0
+  },
+  "su_illuminant_tc": {
+    "shape": [
+      8,
+      2
+    ],
+    "bytes": 152,
+    "group": "spectral_illuminant_chromaticity",
+    "nan_count": 0
+  },
+  "su_illuminant_xy": {
+    "shape": [
+      8,
+      2
+    ],
+    "bytes": 152,
+    "group": "spectral_illuminant_chromaticity",
+    "nan_count": 0
+  },
+  "su_logiflex8_window": {
+    "shape": [
+      81,
+      3
+    ],
+    "bytes": 1968,
+    "group": "spectral_adaptation_window",
+    "nan_count": 0
+  },
+  "su_lut2d_degenerate": {
+    "shape": [
+      4,
+      4,
+      3
+    ],
+    "bytes": 408,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_degenerate_input": {
+    "shape": [
+      4,
+      4,
+      2
+    ],
+    "bytes": 280,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_edges": {
+    "shape": [
+      1,
+      14,
+      3
+    ],
+    "bytes": 360,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_edges_input": {
+    "shape": [
+      1,
+      14,
+      2
+    ],
+    "bytes": 248,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_grid": {
+    "shape": [
+      192,
+      192,
+      3
+    ],
+    "bytes": 884760,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_random": {
+    "shape": [
+      64,
+      64,
+      3
+    ],
+    "bytes": 98328,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_lut2d_random_input": {
+    "shape": [
+      64,
+      64,
+      2
+    ],
+    "bytes": 65560,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_mitchell_weights": {
+    "shape": [
+      37
+    ],
+    "bytes": 312,
+    "group": "spectral_lut2d_mitchell",
+    "nan_count": 0
+  },
+  "su_poly4_surface": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_adaptation_surface",
+    "nan_count": 0
+  },
+  "su_poly4_surface_cells": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "spectral_adaptation_surface",
+    "nan_count": 0
+  },
+  "su_poly4_surface_extrema": {
+    "shape": [
+      2,
+      3
+    ],
+    "bytes": 72,
+    "group": "spectral_adaptation_surface",
+    "nan_count": 0
+  },
+  "su_poly4_warp_surface": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_adaptation_surface",
+    "nan_count": 0
+  },
+  "su_quad2tri": {
+    "shape": [
+      9,
+      2
+    ],
+    "bytes": 168,
+    "group": "spectral_chromaticity",
+    "nan_count": 0
+  },
+  "su_raw_hanatos2025": {
+    "shape": [
+      4,
+      4,
+      3
+    ],
+    "bytes": 408,
+    "group": "spectral_rgb_to_raw",
+    "nan_count": 0
+  },
+  "su_raw_hanatos2025_fallback": {
+    "shape": [
+      4,
+      4,
+      3
+    ],
+    "bytes": 408,
+    "group": "spectral_rgb_to_raw",
+    "nan_count": 0
+  },
+  "su_rgb_to_tc_b_matrices": {
+    "shape": [
+      14,
+      3,
+      3
+    ],
+    "bytes": 1032,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 0
+  },
+  "su_spectra_lut_cells": {
+    "shape": [
+      6,
+      81
+    ],
+    "bytes": 3912,
+    "group": "spectral_irradiance_lut",
+    "nan_count": 0
+  },
+  "su_spectra_lut_stats_scaled": {
+    "shape": [
+      3
+    ],
+    "bytes": 40,
+    "group": "spectral_irradiance_lut",
+    "nan_count": 0
+  },
+  "su_spectral_blur_delta": {
+    "shape": [
+      3,
+      81
+    ],
+    "bytes": 1968,
+    "group": "spectral_blur",
+    "nan_count": 0
+  },
+  "su_spectral_blur_s1p0": {
+    "shape": [
+      4,
+      4,
+      81
+    ],
+    "bytes": 10392,
+    "group": "spectral_blur",
+    "nan_count": 0
+  },
+  "su_spectral_blur_s2p0": {
+    "shape": [
+      4,
+      4,
+      81
+    ],
+    "bytes": 10392,
+    "group": "spectral_blur",
+    "nan_count": 0
+  },
+  "su_spectral_blur_s4p0": {
+    "shape": [
+      4,
+      4,
+      81
+    ],
+    "bytes": 10392,
+    "group": "spectral_blur",
+    "nan_count": 0
+  },
+  "su_tc_lut_blur4": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tc_lut_no_adaptation": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tc_lut_vision3_500t": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tc_lut_window_only": {
+    "shape": [
+      192,
+      192,
+      3
+    ],
+    "bytes": 884760,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tc_lut_window_only_cells": {
+    "shape": [
+      6,
+      3
+    ],
+    "bytes": 168,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tc_lut_window_surface": {
+    "shape": [
+      25,
+      25,
+      3
+    ],
+    "bytes": 15024,
+    "group": "spectral_tc_lut",
+    "nan_count": 0
+  },
+  "su_tcb_aces_b": {
+    "shape": [
+      4,
+      4
+    ],
+    "bytes": 152,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 0
+  },
+  "su_tcb_aces_tc": {
+    "shape": [
+      4,
+      4,
+      2
+    ],
+    "bytes": 280,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 2
+  },
+  "su_tcb_input": {
+    "shape": [
+      4,
+      4,
+      3
+    ],
+    "bytes": 408,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 1
+  },
+  "su_tcb_prophoto_b": {
+    "shape": [
+      4,
+      4
+    ],
+    "bytes": 152,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 0
+  },
+  "su_tcb_prophoto_tc": {
+    "shape": [
+      4,
+      4,
+      2
+    ],
+    "bytes": 280,
+    "group": "spectral_rgb_to_tc_b",
+    "nan_count": 2
+  },
+  "su_tri2quad": {
+    "shape": [
+      9,
+      2
+    ],
+    "bytes": 168,
+    "group": "spectral_chromaticity",
+    "nan_count": 0
+  },
+  "su_tri2quad_input": {
+    "shape": [
+      9,
+      2
+    ],
+    "bytes": 168,
+    "group": "spectral_chromaticity",
+    "nan_count": 0
+  },
+  "transcendental_bracket_roots": {
+    "shape": [
+      6
+    ],
+    "bytes": 64,
     "group": "transcendental",
     "nan_count": 0
   },
@@ -1513,6 +3651,25 @@
     ],
     "bytes": 696,
     "group": "transfer_functions",
+    "nan_count": 0
+  },
+  "unsharp_plane_64x80_s0p7_a0p7": {
+    "shape": [
+      64,
+      80
+    ],
+    "bytes": 40984,
+    "group": "diffusion_lens_blur",
+    "nan_count": 0
+  },
+  "unsharp_rgb_48x60_s1p5_a1p2": {
+    "shape": [
+      48,
+      60,
+      3
+    ],
+    "bytes": 69144,
+    "group": "diffusion_lens_blur",
     "nan_count": 0
   }
 }

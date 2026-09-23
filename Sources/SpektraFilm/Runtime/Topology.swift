@@ -18,17 +18,21 @@ public enum Tap: String, Sendable, CaseIterable {
 ///
 /// A node declares the taps it reads and writes. The dispatcher fires it once every tap it reads is
 /// present in the state.
-public struct Node: Sendable {
+///
+/// Not `Sendable`: a node closes over the stage that runs it, and the stages hold caches and the
+/// references the print balance needs. One render is single-threaded, and parallelism lives inside
+/// the operators.
+public struct Node {
     public let reads: [Tap]
     public let writes: [Tap]
     public let label: String
-    public let run: @Sendable ([ImageBuffer]) throws -> [ImageBuffer]
+    public let run: ([ImageBuffer]) throws -> [ImageBuffer]
 
     public init(
         reads: [Tap],
         writes: [Tap],
         label: String,
-        run: @escaping @Sendable ([ImageBuffer]) throws -> [ImageBuffer]
+        run: @escaping ([ImageBuffer]) throws -> [ImageBuffer]
     ) {
         self.reads = reads
         self.writes = writes
@@ -42,7 +46,7 @@ public struct Node: Sendable {
         from input: Tap,
         to output: Tap,
         label: String,
-        run: @escaping @Sendable (ImageBuffer) throws -> ImageBuffer
+        run: @escaping (ImageBuffer) throws -> ImageBuffer
     ) {
         self.init(reads: [input], writes: [output], label: label) { inputs in
             [try run(inputs[0])]

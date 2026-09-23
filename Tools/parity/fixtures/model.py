@@ -160,3 +160,84 @@ def enlarger():
     yield "enlarger_service_filtered", service.enlarger_filtered_illuminant(lamp)
     yield "enlarger_service_neutral", service.enlarger_neutral_illuminant(lamp)
     yield "enlarger_service_preflash", service.preflash_filtered_illuminant(lamp)
+
+
+@fixture
+def autoexposure():
+    """All seven metering methods, plus the luminance they all start from."""
+    from spektrafilm.utils.autoexposure import _luminance_y, measure_autoexposure_ev
+
+    rng = np.random.default_rng(88123)
+    # Non-square, so the long-edge normalisation of the coordinate grid matters, and large enough
+    # that the 5x5 matrix grid has full cells.
+    image = np.ascontiguousarray(rng.uniform(0.0, 1.4, size=(37, 61, 3)))
+    yield "autoexposure_input", image
+
+    for space, decode in (("sRGB", False), ("ProPhoto RGB", False), ("sRGB", True)):
+        slug = space.lower().replace(" ", "_") + ("_decoded" if decode else "")
+        yield f"autoexposure_luminance_{slug}", _luminance_y(image, space, decode)
+
+    methods = [
+        "average", "median", "center_weighted", "partial",
+        "matrix", "multi_zone", "highlight_weighted",
+    ]
+    yield (
+        "autoexposure_ev",
+        np.array([
+            measure_autoexposure_ev(image, "ProPhoto RGB", False, method=m) for m in methods
+        ]),
+    )
+
+    # A fully black frame, where the reference guards against a -inf result.
+    black = np.zeros((8, 8, 3))
+    yield "autoexposure_ev_black", np.array([
+        measure_autoexposure_ev(black, "ProPhoto RGB", False, method=m) for m in methods
+    ])
+
+
+# Per-stage taps, and the end-to-end render. These are the fixtures that say the stages are wired
+# in the right order, as opposed to each being individually correct.
+TAPS = ["rgb_pre", "log_e_film", "cmy_film", "log_e_print", "cmy_print", "rgb_out"]
+
+# lut_mode makes the pipeline a deterministic per-pixel transform, so these fixtures are stable and
+# do not depend on the RNG. The spatial and stochastic stages get their own gates elsewhere.
+TAP_CASES = [
+    ("portra400_endura_srgb", "kodak_portra_400", "kodak_portra_endura", "sRGB"),
+    ("velvia_endura_srgb", "fujifilm_velvia_100", "kodak_portra_endura", "sRGB"),
+    ("vision3_500t_2383_srgb", "kodak_vision3_500t", "kodak_2383", "sRGB"),
+    ("portra400_endura_p3", "kodak_portra_400", "kodak_portra_endura", "Display P3"),
+]
+
+
+@fixture
+def pipeline_taps():
+    """Every tap for four film, paper and output-space combinations, plus a grey ramp end to end."""
+    from spektrafilm.runtime.params_builder import init_params
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+
+    # A patch per distinct input value, so one fixture covers shadows through highlights without
+    # needing a real photograph in git.
+    values = [0.02, 0.09, 0.184, 0.4, 0.9, 2.0]
+    ramp = np.zeros((2, 3, 3))
+    for i, v in enumerate(values):
+        ramp[i // 3, i % 3, :] = v
+    yield "pipeline_ramp_input", ramp
+
+    for label, film, paper, output_space in TAP_CASES:
+        params = init_params(film_profile=film, print_profile=paper)
+        params.camera.auto_exposure = False
+        params.debug.lut_mode = True
+        params.io.output_color_space = output_space
+
+        for tap in TAPS:
+            pipeline = SimulationPipeline(params)
+            yield f"pipeline_{label}_{tap}", pipeline.process(ramp, collect=tap)
+
+    # Scanning the negative directly, which takes a different topology.
+    params = init_params(film_profile="kodak_portra_400", print_profile="kodak_portra_endura")
+    params.camera.auto_exposure = False
+    params.debug.lut_mode = True
+    params.io.scan_film = True
+    for tap in ["rgb_pre", "log_e_film", "cmy_film", "rgb_out"]:
+        pipeline = SimulationPipeline(params)
+        yield f"pipeline_scanfilm_portra400_{tap}", pipeline.process(ramp, collect=tap)
