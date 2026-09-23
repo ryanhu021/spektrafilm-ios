@@ -6,27 +6,31 @@ import os
 
 /// How large a frame this device can actually render.
 ///
-/// The engine is float64 and holds several full-frame buffers at once, so peak memory is roughly
-/// 230 MB per megapixel. Measured in release, with dead pipeline taps already freed:
+/// The engine is float64 and holds several full-frame buffers at once, so peak memory is about
+/// 125 MB per megapixel. Measured in release, one measurement per process:
 ///
-/// | Frame | Peak footprint |
-/// |---|---|
-/// | 2 MP | 583 MB |
-/// | 6 MP | 1457 MB |
-/// | 12 MP | 2805 MB |
+/// | Frame | Peak footprint | Time |
+/// |---|---|---|
+/// | 2 MP | 250 MB | 3.9 s |
+/// | 6 MP | 738 MB | 12.4 s |
+/// | 12 MP | 1471 MB | 25.7 s |
 ///
-/// iOS terminates a foreground app that crosses its jetsam limit, which is roughly 1.4 GB on a 6 GB
-/// device, so a 12 MP export would be killed rather than finish. Until the per-stage copies come
-/// down, the size is capped from the memory the process is actually allowed, and the caller is told
-/// what it got.
+/// iOS terminates a foreground app that crosses its jetsam limit, roughly 1.4 GB on a 6 GB device.
+/// 6 MP now fits with room; 12 MP sits on the line, so the cap still bites there.
 ///
-/// The cost per megapixel is dominated by the coupler correction, which allocates five full-frame
-/// buffers, and by the stage-by-stage copies in expose and develop. Bringing those down is the work
-/// that raises this ceiling; the number here is a measurement, not a target.
+/// Per-tap, at 2 MP: the decoded input is 26 MB/MP, filming.expose reaches 79, and filming.develop
+/// reaches 125 and sets the peak. Printing and scanning add nothing on top.
+///
+/// Getting here took removing concurrently-live frames rather than allocating less overall: the
+/// spectral upsampling held five frames where two suffice, the coupler correction held eight, grain
+/// materialised the whole sublayer split, and halation held the input, a copy and two blurs. All four
+/// now work a channel plane at a time or consume their input. Peak is what gets an app killed, so
+/// what matters is how many frames are alive at one instant, not how many are allocated in total.
+///
 public enum RenderBudget {
 
     /// Measured peak footprint per megapixel, in bytes.
-    public static let bytesPerMegapixel = 230 * 1_048_576
+    public static let bytesPerMegapixel = 125 * 1_048_576
 
     /// Fraction of the available allowance to actually spend.
     ///

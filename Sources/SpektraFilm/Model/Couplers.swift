@@ -107,9 +107,12 @@ public enum Couplers {
     ///
     /// Returns the log exposure the emulsion effectively saw, reduced by the inhibitor released
     /// around each pixel.
+    ///
+    /// Consumes `density` and returns its storage, written over. Nothing else may hold a reference,
+    /// or the first write copies a whole frame.
     public static func correctedLogExposure(
         logRaw: ImageBuffer,
-        density: ImageBuffer,
+        density: consuming ImageBuffer,
         densityMax: [Double],
         matrix: Matrix3,
         diffusionSizePixels: Double,
@@ -121,25 +124,18 @@ public enum Couplers {
     ) -> ImageBuffer {
         precondition(logRaw.channels == 3 && density.channels == 3)
 
-        var silver = density
-        silver.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in stride(from: 0, to: buf.count, by: 3) {
-                for c in 0..<3 {
-                    var d = positive ? densityMax[c] - p[i + c] : p[i + c]
-                    d += highExposureShift * d * d
-                    p[i + c] = d
-                }
-            }
-        }
-
-        var correction = silver
+        // Silver and the inhibitor it releases share one buffer. The matrix mixes the three channels
+        // of a pixel, so all three silver values are read before any of them is overwritten.
+        var correction = consume density
         correction.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }
             for i in stride(from: 0, to: buf.count, by: 3) {
-                let r = p[i]
-                let g = p[i + 1]
-                let b = p[i + 2]
+                var r = positive ? densityMax[0] - p[i] : p[i]
+                var g = positive ? densityMax[1] - p[i + 1] : p[i + 1]
+                var b = positive ? densityMax[2] - p[i + 2] : p[i + 2]
+                r += highExposureShift * r * r
+                g += highExposureShift * g * g
+                b += highExposureShift * b * b
                 for m in 0..<3 {
                     p[i + m] = r * matrix[0, m] + g * matrix[1, m] + b * matrix[2, m]
                 }
@@ -147,24 +143,57 @@ public enum Couplers {
         }
 
         if diffusionSizePixels > 0 {
-            let core = spatial.gaussian(correction, sigma: diffusionSizePixels)
-            let tail = spatial.exponential(correction, decay: diffusionTailSizePixels)
-            var mixed = core
-            mixed.values.withUnsafeMutableBufferPointer { buf in
-                guard let p = buf.baseAddress else { return }
-                for i in 0..<buf.count {
-                    p[i] = (1 - diffusionTailWeight) * p[i] + diffusionTailWeight * tail.values[i]
-                }
-            }
-            correction = mixed
+            diffuseInPlace(
+                &correction,
+                sigma: diffusionSizePixels,
+                decay: diffusionTailSizePixels,
+                tailWeight: diffusionTailWeight,
+                spatial: spatial)
         }
 
-        var out = logRaw
-        out.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] -= correction.values[i] }
+        correction.combineInPlace(with: logRaw) { inhibitor, raw in raw - inhibitor }
+        return correction
+    }
+
+    /// The Gaussian core and the exponential tail, blended and written back over `image`.
+    ///
+    /// Runs one channel at a time. Both whole-buffer filters dispatch per channel internally, so the
+    /// arithmetic is unchanged, but the core, the tail and the mixture are single planes instead of
+    /// three more full frames.
+    private static func diffuseInPlace(
+        _ image: inout ImageBuffer,
+        sigma: Double,
+        decay: Double,
+        tailWeight: Double,
+        spatial: some SpatialFilter
+    ) {
+        for channel in 0..<image.channels {
+            let plane = channelPlane(image, channel: channel)
+            // The tail is a three-Gaussian mixture and allocates the most scratch, so it runs
+            // before the core plane exists.
+            let tail = spatial.exponential(plane, decay: decay)
+            var mixed = spatial.gaussian(plane, sigma: sigma)
+            mixed.combineInPlace(with: tail) { core, tail in
+                (1 - tailWeight) * core + tailWeight * tail
+            }
+            write(plane: mixed, into: &image, channel: channel)
         }
-        return out
+    }
+
+    private static func channelPlane(_ image: ImageBuffer, channel: Int) -> ImageBuffer {
+        var plane = ImageBuffer(height: image.height, width: image.width, channels: 1)
+        let stride = image.channels
+        for pixel in 0..<image.pixelCount {
+            plane.values[pixel] = image.values[pixel * stride + channel]
+        }
+        return plane
+    }
+
+    private static func write(plane: ImageBuffer, into image: inout ImageBuffer, channel: Int) {
+        let stride = image.channels
+        for pixel in 0..<image.pixelCount {
+            image.values[pixel * stride + channel] = plane.values[pixel]
+        }
     }
 
     /// `apply_density_correction_dir_couplers`.
@@ -175,7 +204,7 @@ public enum Couplers {
     ///     for LUT bakes. The reference gates the conversion to pixel units on
     ///     `diffusion_size_um > 0` for exactly this case, so the non-spatial chemistry still runs.
     public static func applyDensityCorrection(
-        density: ImageBuffer,
+        density: consuming ImageBuffer,
         logRaw: ImageBuffer,
         pixelSizeMicrons: Double?,
         logExposure: [Double],
@@ -214,7 +243,7 @@ public enum Couplers {
 
         let corrected = correctedLogExposure(
             logRaw: logRaw,
-            density: density,
+            density: consume density,
             densityMax: maxima,
             matrix: matrix,
             diffusionSizePixels: sizePixels,

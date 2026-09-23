@@ -65,29 +65,20 @@ public final class PrintingStage {
         colourReference.logRawPrintBlack = filmCMYToPrintLogRaw(black)
         colourReference.logRawPrintWhite = filmCMYToPrintLogRaw(white)
 
-        let bandRows = ImageBuffer.bandRows(
-            width: cmyFilmDensity.width, channels: ColourTables.wavelengthCount)
-        let logRawPrint = cmyFilmDensity.mapPerPixel(bandRows: bandRows, channelsOut: 3) { band in
-            filmCMYToPrintLogRaw(band)
-        }
+        // One binding for the frame: a second one keeps the storage shared, and the in-place passes
+        // below then copy it.
+        var raw = filmCMYToPrintLogRaw(cmyFilmDensity)
 
-        var raw = logRawPrint
         let exposureScale =
             enlargerParams.printExposure * (try colourReference.printingExposureCorrection())
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = Foundation.pow(10.0, p[i]) * exposureScale }
-        }
+        raw.transformInPlace { Foundation.pow(10.0, $0) * exposureScale }
 
         if enlargerParams.diffusionFilter.active, let pixelSize = resizing.pixelSizeMicrons {
             raw = try Diffusion.applyDiffusionFilter(
                 raw, enlargerParams.diffusionFilter, pixelSizeMicrons: pixelSize)
         }
 
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = log10Guard(p[i]) }
-        }
+        raw.transformInPlace { log10Guard($0) }
         return raw
     }
 
@@ -101,27 +92,20 @@ public final class PrintingStage {
 
     /// `_film_cmy_to_print_log_raw`.
     private func filmCMYToPrintLogRaw(_ cmyFilmDensity: ImageBuffer) -> ImageBuffer {
-        let spectral = DensityCurves.spectralDensity(
+        let printIlluminant = enlarger.filteredIlluminant(lampSpectrum)
+        var raw = SpectralContraction.project(
             cmy: cmyFilmDensity,
             channelDensity: film.data.channelDensity,
-            baseDensity: film.data.baseDensity)
-        let printIlluminant = enlarger.filteredIlluminant(lampSpectrum)
-        let light = DensityCurves.densityToLight(spectral, illuminant: printIlluminant)
-        var raw = DensityCurves.project(light, onto: paperSensitivity)
+            baseDensity: film.data.baseDensity,
+            illuminant: printIlluminant,
+            response: paperSensitivity)
 
         let midgrayFactor = exposureFactorMidgray(printIlluminant: printIlluminant)
         let preflash = rawPreflash(printIlluminant: printIlluminant)
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in stride(from: 0, to: buf.count, by: 3) {
-                for c in 0..<3 { p[i + c] = p[i + c] * midgrayFactor[c] + preflash[c] }
-            }
+        raw.transformInPlace { channel, value in
+            value * midgrayFactor[channel] + preflash[channel]
         }
-
-        raw.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = log10Guard(p[i]) }
-        }
+        raw.transformInPlace { log10Guard($0) }
         return raw
     }
 
@@ -180,5 +164,81 @@ public final class PrintingStage {
         for c in 0..<3 { logSum += Foundation.log(max(raw.values[c], 1e-10)) }
         let geometricMean = Foundation.exp(logSum / 3.0)
         return [Double](repeating: 1.0 / geometricMean, count: 3)
+    }
+}
+
+/// The spectral map both ``PrintingStage`` and ``ScanningStage`` run over the frame: CMY density to
+/// a spectrum, the spectrum lit by an illuminant, that light projected onto a three-column response.
+///
+/// Composed from `DensityCurves.spectralDensity`, `densityToLight` and `project`, the middle step
+/// copies its 81-channel input because the caller still holds it, so two spectral buffers are live
+/// at once. Here each pixel's spectrum is formed and contracted in registers, so no spectral buffer
+/// exists at all, and the callers no longer band the frame: `mapPerPixel` was there to bound the
+/// spectral intermediate, and its row-band copies were the only thing left in the budget.
+/// Wavelengths are summed in ascending order, as `project` sums them, so the result is
+/// bit-identical.
+enum SpectralContraction {
+    static func project(
+        cmy: ImageBuffer,
+        channelDensity: [Double],
+        baseDensity: [Double],
+        illuminant: [Double],
+        response: [Double],
+        scale: Double = 1.0
+    ) -> ImageBuffer {
+        let wavelengths = ColourTables.wavelengthCount
+        precondition(cmy.channels == 3, "density buffer must have 3 channels")
+        precondition(
+            channelDensity.count == wavelengths * 3, "channel_density must be \(wavelengths) x 3")
+        precondition(baseDensity.count == wavelengths, "base_density must be \(wavelengths)")
+        precondition(
+            illuminant.count == wavelengths,
+            "illuminant has \(illuminant.count) samples, expected \(wavelengths)")
+        precondition(response.count == wavelengths * 3, "response must be \(wavelengths) x 3")
+
+        // One row per wavelength: the three dye weights, the base density, the incident light, and
+        // the three response columns. Interleaving them keeps the inner loop to a single stride.
+        var table = [Double](repeating: 0, count: wavelengths * 8)
+        for l in 0..<wavelengths {
+            table[l * 8] = channelDensity[l * 3]
+            table[l * 8 + 1] = channelDensity[l * 3 + 1]
+            table[l * 8 + 2] = channelDensity[l * 3 + 2]
+            table[l * 8 + 3] = baseDensity[l]
+            table[l * 8 + 4] = illuminant[l]
+            table[l * 8 + 5] = response[l * 3]
+            table[l * 8 + 6] = response[l * 3 + 1]
+            table[l * 8 + 7] = response[l * 3 + 2]
+        }
+
+        var out = ImageBuffer(height: cmy.height, width: cmy.width, channels: 3)
+        cmy.values.withUnsafeBufferPointer { src in
+            table.withUnsafeBufferPointer { weights in
+                out.values.withUnsafeMutableBufferPointer { dst in
+                    let s = src.baseAddress!
+                    let t = weights.baseAddress!
+                    let d = dst.baseAddress!
+                    for p in 0..<cmy.pixelCount {
+                        let c = s[p * 3]
+                        let m = s[p * 3 + 1]
+                        let y = s[p * 3 + 2]
+                        var acc = (0.0, 0.0, 0.0)
+                        for l in 0..<wavelengths {
+                            let w = l * 8
+                            var density = c * t[w] + m * t[w + 1] + y * t[w + 2]
+                            density += t[w + 3]
+                            let transmitted = Foundation.pow(10.0, -density) * t[w + 4]
+                            let light = transmitted.isNaN ? 0 : transmitted
+                            acc.0 += light * t[w + 5]
+                            acc.1 += light * t[w + 6]
+                            acc.2 += light * t[w + 7]
+                        }
+                        d[p * 3] = acc.0 * scale
+                        d[p * 3 + 1] = acc.1 * scale
+                        d[p * 3 + 2] = acc.2 * scale
+                    }
+                }
+            }
+        }
+        return out
     }
 }

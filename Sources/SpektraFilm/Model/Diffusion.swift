@@ -134,14 +134,23 @@ public enum Diffusion {
     /// goes through the filter with its width floored to 1e-6. At that width the FIR radius is 0, a
     /// single unit tap, so the pass is an exact copy for that channel. Short-circuiting per channel
     /// instead would change the arithmetic.
+    /// `apply_halation_um`: in-emulsion scatter, then back-reflection off the film base.
+    ///
+    /// Works one channel plane at a time, and consumes `raw`.
+    ///
+    /// Both passes need the unscattered image while producing a blurred copy of it, so a whole-frame
+    /// version holds the input, the result and two blurs at once. That made halation the single
+    /// largest allocation in the pipeline, worth one full frame of peak footprint, which is what caps
+    /// export size on iOS. A plane is a third of a frame, and both filters already take one parameter
+    /// per channel, so processing per plane changes no arithmetic.
     public static func applyHalation(
-        _ raw: ImageBuffer, _ halation: HalationParams, pixelSizeMicrons: Double
+        _ raw: consuming ImageBuffer, _ halation: HalationParams, pixelSizeMicrons: Double
     ) -> ImageBuffer {
         guard halation.active else { return raw }
         precondition(raw.channels == 3, "halation needs an RGB image, got \(raw.channels) channels")
         precondition(pixelSizeMicrons > 0, "pixel size must be positive")
 
-        var result = raw
+        var result = consume raw
 
         // Pass 1: an energy-preserving mixture of a Gaussian core and an exponential tail, blended
         // with the identity by scatterAmount.
@@ -156,20 +165,23 @@ public enum Diffusion {
         if scatterAmount > 0
             && (coreSigma.contains { $0 > 0 } || tailLambda.contains { $0 > 0 })
         {
-            let core = GaussianFilter.apply(
-                result, sigmaPerChannel: coreSigma.map { Swift.max($0, 1e-6) })
-            let tail = ExponentialFilter.apply(
-                result, decayPerChannel: tailLambda.map { Swift.max($0, 1e-6) })
-            result.values.withUnsafeMutableBufferPointer { dst in
-                core.values.withUnsafeBufferPointer { c in
-                    tail.values.withUnsafeBufferPointer { t in
-                        for i in stride(from: 0, to: dst.count, by: 3) {
-                            for channel in 0..<3 {
-                                let w = tailWeight[channel]
-                                let scattered = (1.0 - w) * c[i + channel] + w * t[i + channel]
-                                dst[i + channel] =
-                                    (1.0 - scatterAmount) * dst[i + channel]
-                                    + scatterAmount * scattered
+            for channel in 0..<3 {
+                let plane = halationPlane(result, channel: channel)
+                // The tail is a three-Gaussian mixture and holds the most scratch, so it runs while
+                // the core's result does not yet exist.
+                let tail = ExponentialFilter.apply(
+                    plane, decayPerChannel: [Swift.max(tailLambda[channel], 1e-6)])
+                let core = GaussianFilter.apply(
+                    plane, sigmaPerChannel: [Swift.max(coreSigma[channel], 1e-6)])
+                let w = tailWeight[channel]
+                result.values.withUnsafeMutableBufferPointer { dst in
+                    core.values.withUnsafeBufferPointer { c in
+                        tail.values.withUnsafeBufferPointer { tl in
+                            for pixel in 0..<c.count {
+                                let scattered = (1.0 - w) * c[pixel] + w * tl[pixel]
+                                let index = pixel * 3 + channel
+                                dst[index] =
+                                    (1.0 - scatterAmount) * dst[index] + scatterAmount * scattered
                             }
                         }
                     }
@@ -188,37 +200,50 @@ public enum Diffusion {
             let decayTotal = decay.reduce(0, +)
             for i in decay.indices { decay[i] /= decayTotal }
 
-            var blur = ImageBuffer(height: raw.height, width: raw.width, channels: 3)
-            for k in 1...bounces {
-                let width = Double(k).squareRoot()
-                let component = GaussianFilter.apply(
-                    result, sigmaPerChannel: firstSigma.map { Swift.max($0 * width, 1e-6) })
-                let weight = decay[k - 1]
-                blur.values.withUnsafeMutableBufferPointer { dst in
+            for channel in 0..<3 {
+                let plane = halationPlane(result, channel: channel)
+                var accumulated = [Double](repeating: 0, count: plane.count)
+                for k in 1...bounces {
+                    let width = Double(k).squareRoot()
+                    let component = GaussianFilter.apply(
+                        plane, sigmaPerChannel: [Swift.max(firstSigma[channel] * width, 1e-6)])
+                    let weight = decay[k - 1]
                     component.values.withUnsafeBufferPointer { src in
-                        for i in 0..<dst.count { dst[i] += weight * src[i] }
+                        for i in 0..<src.count { accumulated[i] += weight * src[i] }
                     }
                 }
-            }
-            result.values.withUnsafeMutableBufferPointer { dst in
-                blur.values.withUnsafeBufferPointer { src in
-                    for i in stride(from: 0, to: dst.count, by: 3) {
-                        for channel in 0..<3 {
-                            dst[i + channel] += strength[channel] * src[i + channel]
-                        }
-                    }
-                }
-            }
-            if halation.halationRenormalize {
+                let s = strength[channel]
+                let renormalise = halation.halationRenormalize
                 result.values.withUnsafeMutableBufferPointer { dst in
-                    for i in stride(from: 0, to: dst.count, by: 3) {
-                        for channel in 0..<3 { dst[i + channel] /= 1.0 + strength[channel] }
+                    for pixel in 0..<accumulated.count {
+                        let index = pixel * 3 + channel
+                        var value = dst[index] + s * accumulated[pixel]
+                        // Divide, do not multiply by a precomputed reciprocal. The two differ in the
+                        // last bit and `renormalising divides by 1 + strength, exactly` asserts the
+                        // exact quotient.
+                        if renormalise { value /= 1.0 + s }
+                        dst[index] = value
                     }
                 }
             }
         }
 
         return result
+    }
+
+    /// One channel of an RGB buffer, as a single-channel buffer.
+    ///
+    /// A third of a frame, which is the point: see ``applyHalation(_:_:pixelSizeMicrons:)``.
+    private static func halationPlane(_ image: ImageBuffer, channel: Int) -> ImageBuffer {
+        var plane = ImageBuffer(height: image.height, width: image.width, channels: 1)
+        let channels = image.channels
+        image.values.withUnsafeBufferPointer { src in
+            plane.values.withUnsafeMutableBufferPointer { dst in
+                guard let s = src.baseAddress, let d = dst.baseAddress else { return }
+                for pixel in 0..<dst.count { d[pixel] = s[pixel * channels + channel] }
+            }
+        }
+        return plane
     }
 
     // MARK: - Diffusion-filter PSF families

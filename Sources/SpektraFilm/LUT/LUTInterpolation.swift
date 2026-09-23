@@ -7,20 +7,51 @@ import Foundation
 /// to reproduce ``MitchellLUT2DSampler`` exactly, including the non-interpolating kernel; an
 /// `MTLSampler` bicubic is a different filter and shifts every pixel.
 public protocol LUT2DSampler: Sendable {
+    /// Samples one pixel at a time, so a caller that derives its coordinates from another buffer
+    /// never has to materialise them as a frame.
+    ///
+    /// - Parameters:
+    ///   - lut: `[gridX][gridY][channel]`, square in its two grid axes.
+    ///   - destination: `[height][width][lut.channels]`, overwritten.
+    ///   - coordinate: for one pixel index, the grid coordinates normalised to `[0, 1]` and a gain
+    ///     applied to every fetched channel.
+    func sample(
+        lut: ImageBuffer,
+        into destination: inout ImageBuffer,
+        coordinate: (Int) -> (x: Double, y: Double, gain: Double)
+    )
+}
+
+extension LUT2DSampler {
     /// - Parameters:
     ///   - lut: `[gridX][gridY][channel]`, square in its two grid axes.
     ///   - coordinates: `[height][width][>= 2]`. Channel 0 is the x coordinate, channel 1 the y,
     ///     both normalised to `[0, 1]`. Further channels are ignored.
     /// - Returns: `[height][width][lut.channels]`.
-    func sample(lut: ImageBuffer, coordinates: ImageBuffer) -> ImageBuffer
+    public func sample(lut: ImageBuffer, coordinates: ImageBuffer) -> ImageBuffer {
+        precondition(coordinates.channels >= 2, "LUT coordinates need at least 2 channels")
+        let inChannels = coordinates.channels
+        var out = ImageBuffer(
+            height: coordinates.height, width: coordinates.width, channels: lut.channels)
+        coordinates.values.withUnsafeBufferPointer { source in
+            sample(lut: lut, into: &out) { pixel in
+                (source[pixel * inChannels], source[pixel * inChannels + 1], 1.0)
+            }
+        }
+        return out
+    }
 }
 
 /// `fast_interp_lut.apply_lut_cubic_2d`: a Mitchell-Netravali fetch with B = C = 1/3.
 public struct MitchellLUT2DSampler: LUT2DSampler {
     public init() {}
 
-    public func sample(lut: ImageBuffer, coordinates: ImageBuffer) -> ImageBuffer {
-        LUTInterpolation.applyLUTCubic2D(lut: lut, coordinates: coordinates)
+    public func sample(
+        lut: ImageBuffer,
+        into destination: inout ImageBuffer,
+        coordinate: (Int) -> (x: Double, y: Double, gain: Double)
+    ) {
+        LUTInterpolation.sampleCubic2D(lut: lut, into: &destination, coordinate: coordinate)
     }
 }
 
@@ -183,88 +214,98 @@ public enum LUTInterpolation {
     /// `apply_lut_cubic_2d`, including its fall-through to bilinear for a degenerate LUT.
     ///
     /// Only channels 0 and 1 of `coordinates` are read; the output carries the LUT's channel count.
+    public static func applyLUTCubic2D(lut: ImageBuffer, coordinates: ImageBuffer) -> ImageBuffer {
+        MitchellLUT2DSampler().sample(lut: lut, coordinates: coordinates)
+    }
+
+    /// `apply_lut_cubic_2d` with the coordinates generated per pixel and the fetch scaled per pixel,
+    /// including its fall-through to bilinear for a degenerate LUT.
+    ///
+    /// The caller supplies `destination` and produces coordinates on demand, so neither the
+    /// coordinates nor the gains are ever a frame. At 12 MP the coordinates alone are 183 MB.
     ///
     /// This is the subsystem's only per-pixel work, so the tap loop runs on raw pointers: 43 ms per
     /// megapixel with 3 output channels on an M-series core, against 58 ms for the same loop through
-    /// `ImageBuffer`'s bounds-checked subscript. The reference quotes 14.8 ms per megapixel for a
+    /// ``ImageBuffer``'s bounds-checked subscript. The reference quotes 14.8 ms per megapixel for a
     /// Numba kernel with `parallel=True` across rows; output pixels are independent here too, so
     /// row-parallelism is available behind ``LUT2DSampler`` when a caller needs it.
-    public static func applyLUTCubic2D(lut: ImageBuffer, coordinates: ImageBuffer) -> ImageBuffer {
+    public static func sampleCubic2D(
+        lut: ImageBuffer,
+        into destination: inout ImageBuffer,
+        coordinate: (Int) -> (x: Double, y: Double, gain: Double)
+    ) {
         precondition(
             lut.height == lut.width,
             "a 2D LUT must be square; got \(lut.height)x\(lut.width)")
-        precondition(coordinates.channels >= 2, "LUT coordinates need at least 2 channels")
+        precondition(
+            destination.channels == lut.channels,
+            "destination carries \(destination.channels) channels, LUT has \(lut.channels)")
         let size = lut.height
         let channels = lut.channels
         let scale = Double(size - 1)
-        let inChannels = coordinates.channels
-        let pixelCount = coordinates.pixelCount
-        var out = ImageBuffer(
-            height: coordinates.height, width: coordinates.width, channels: channels)
+        let pixelCount = destination.pixelCount
 
         if size < 2 {
             var pixel = [Double](repeating: 0, count: channels)
             for index in 0..<pixelCount {
-                linearInterpLUT2D(
-                    lut: lut, x: coordinates.values[index * inChannels] * scale,
-                    y: coordinates.values[index * inChannels + 1] * scale, into: &pixel)
-                for c in 0..<channels { out.values[index * channels + c] = pixel[c] }
+                let (x, y, gain) = coordinate(index)
+                linearInterpLUT2D(lut: lut, x: x * scale, y: y * scale, into: &pixel)
+                for c in 0..<channels {
+                    destination.values[index * channels + c] = pixel[c] * gain
+                }
             }
-            return out
+            return
         }
 
         lut.values.withUnsafeBufferPointer { table in
-            coordinates.values.withUnsafeBufferPointer { source in
-                out.values.withUnsafeMutableBufferPointer { destination in
-                    let rowStride = size * channels
-                    for index in 0..<pixelCount {
-                        let (xBase, xFrac) = cubicCoordinateBaseFraction(
-                            source[index * inChannels] * scale, size: size)
-                        let (yBase, yFrac) = cubicCoordinateBaseFraction(
-                            source[index * inChannels + 1] * scale, size: size)
-                        let wx = (
-                            mitchellWeight(xFrac + 1), mitchellWeight(xFrac),
-                            mitchellWeight(xFrac - 1), mitchellWeight(xFrac - 2)
-                        )
-                        let wy = (
-                            mitchellWeight(yFrac + 1), mitchellWeight(yFrac),
-                            mitchellWeight(yFrac - 1), mitchellWeight(yFrac - 2)
-                        )
-                        let rows = (
-                            safeIndex(xBase - 1, size: size) * rowStride,
-                            safeIndex(xBase, size: size) * rowStride,
-                            safeIndex(xBase + 1, size: size) * rowStride,
-                            safeIndex(xBase + 2, size: size) * rowStride
-                        )
-                        let columns = (
-                            safeIndex(yBase - 1, size: size) * channels,
-                            safeIndex(yBase, size: size) * channels,
-                            safeIndex(yBase + 1, size: size) * channels,
-                            safeIndex(yBase + 2, size: size) * channels
-                        )
-                        let base = index * channels
-                        for c in 0..<channels { destination[base + c] = 0 }
-                        var weightSum = 0.0
-                        for i in 0..<4 {
-                            let row = tupleElement(rows, i)
-                            let weightX = tupleElement(wx, i)
-                            for j in 0..<4 {
-                                let weight = weightX * tupleElement(wy, j)
-                                weightSum += weight
-                                let cell = row + tupleElement(columns, j)
-                                for c in 0..<channels {
-                                    destination[base + c] += weight * table[cell + c]
-                                }
+            destination.values.withUnsafeMutableBufferPointer { destination in
+                let rowStride = size * channels
+                for index in 0..<pixelCount {
+                    let (x, y, gain) = coordinate(index)
+                    let (xBase, xFrac) = cubicCoordinateBaseFraction(x * scale, size: size)
+                    let (yBase, yFrac) = cubicCoordinateBaseFraction(y * scale, size: size)
+                    let wx = (
+                        mitchellWeight(xFrac + 1), mitchellWeight(xFrac),
+                        mitchellWeight(xFrac - 1), mitchellWeight(xFrac - 2)
+                    )
+                    let wy = (
+                        mitchellWeight(yFrac + 1), mitchellWeight(yFrac),
+                        mitchellWeight(yFrac - 1), mitchellWeight(yFrac - 2)
+                    )
+                    let rows = (
+                        safeIndex(xBase - 1, size: size) * rowStride,
+                        safeIndex(xBase, size: size) * rowStride,
+                        safeIndex(xBase + 1, size: size) * rowStride,
+                        safeIndex(xBase + 2, size: size) * rowStride
+                    )
+                    let columns = (
+                        safeIndex(yBase - 1, size: size) * channels,
+                        safeIndex(yBase, size: size) * channels,
+                        safeIndex(yBase + 1, size: size) * channels,
+                        safeIndex(yBase + 2, size: size) * channels
+                    )
+                    let base = index * channels
+                    for c in 0..<channels { destination[base + c] = 0 }
+                    var weightSum = 0.0
+                    for i in 0..<4 {
+                        let row = tupleElement(rows, i)
+                        let weightX = tupleElement(wx, i)
+                        for j in 0..<4 {
+                            let weight = weightX * tupleElement(wy, j)
+                            weightSum += weight
+                            let cell = row + tupleElement(columns, j)
+                            for c in 0..<channels {
+                                destination[base + c] += weight * table[cell + c]
                             }
                         }
-                        if weightSum != 0 {
-                            for c in 0..<channels { destination[base + c] /= weightSum }
-                        }
                     }
+                    if weightSum != 0 {
+                        for c in 0..<channels { destination[base + c] /= weightSum }
+                    }
+                    for c in 0..<channels { destination[base + c] *= gain }
                 }
             }
         }
-        return out
     }
 
     @inlinable

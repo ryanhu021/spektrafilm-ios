@@ -132,38 +132,56 @@ public struct Hanatos2025RawConverter: Sendable {
     /// negative or NaN `b` sends `tc` off to a clamped corner while `b` keeps its sign.
     public func tcAndBrightness(rgb: ImageBuffer) -> (tc: ImageBuffer, brightness: [Double]) {
         precondition(rgb.channels == 3, "RGB buffer must have 3 channels")
-        var working = rgb
-        if applyCCTFDecoding { transfer.decode(&working) }
-        matrix.apply(to: &working)
-
         var tc = ImageBuffer(height: rgb.height, width: rgb.width, channels: 2)
         var brightness = [Double](repeating: 0, count: rgb.pixelCount)
-        for pixel in 0..<working.pixelCount {
-            let x = working.values[pixel * 3]
-            let y = working.values[pixel * 3 + 1]
-            let z = working.values[pixel * 3 + 2]
-            let b = x + y + z
-            let scale = npFmax(b, 1e-10)
-            let coordinate = ChromaticityCoordinates.triToQuad(x: x / scale, y: y / scale)
-            tc.values[pixel * 2] = coordinate.x
-            tc.values[pixel * 2 + 1] = coordinate.y
-            brightness[pixel] = nanToNum(b)
+        rgb.values.withUnsafeBufferPointer { source in
+            for pixel in 0..<rgb.pixelCount {
+                let value = tcPixel(source, pixel)
+                tc.values[pixel * 2] = value.x
+                tc.values[pixel * 2 + 1] = value.y
+                brightness[pixel] = value.brightness
+            }
         }
         return (tc, brightness)
     }
 
     /// `rgb_to_raw_hanatos2025` with a prebuilt LUT.
+    ///
+    /// One pass. Decoding, the matrix, the chromaticity divide and the brightness multiply all happen
+    /// inside the LUT fetch, so the only full-frame buffer this allocates is the result: no decoded
+    /// copy of the input, no `tc` frame and no brightness frame.
     public func raw(rgb: ImageBuffer) -> ImageBuffer {
         guard let tcLUT else {
             preconditionFailure("Hanatos2025RawConverter.raw needs a tc_lut")
         }
-        let (tc, brightness) = tcAndBrightness(rgb: rgb)
-        var out = sampler.sample(lut: tcLUT, coordinates: tc)
-        let channels = out.channels
-        for pixel in 0..<out.pixelCount {
-            let b = brightness[pixel]
-            for c in 0..<channels { out.values[pixel * channels + c] *= b }
+        precondition(rgb.channels == 3, "RGB buffer must have 3 channels")
+        var out = ImageBuffer(height: rgb.height, width: rgb.width, channels: tcLUT.channels)
+        rgb.values.withUnsafeBufferPointer { source in
+            sampler.sample(lut: tcLUT, into: &out) { pixel in
+                let value = tcPixel(source, pixel)
+                return (value.x, value.y, value.brightness)
+            }
         }
         return out
+    }
+
+    /// The `tc` coordinates and the brightness of one pixel of a 3-channel RGB buffer.
+    ///
+    /// Shared by ``tcAndBrightness(rgb:)`` and ``raw(rgb:)`` so the buffered and the fused path
+    /// cannot drift apart.
+    @inline(__always)
+    private func tcPixel(
+        _ source: UnsafeBufferPointer<Double>, _ pixel: Int
+    ) -> (x: Double, y: Double, brightness: Double) {
+        let base = pixel * 3
+        var rgb = (source[base], source[base + 1], source[base + 2])
+        if applyCCTFDecoding {
+            rgb = (transfer.decode(rgb.0), transfer.decode(rgb.1), transfer.decode(rgb.2))
+        }
+        let (x, y, z) = matrix.apply(rgb)
+        let b = x + y + z
+        let scale = npFmax(b, 1e-10)
+        let coordinate = ChromaticityCoordinates.triToQuad(x: x / scale, y: y / scale)
+        return (coordinate.x, coordinate.y, nanToNum(b))
     }
 }

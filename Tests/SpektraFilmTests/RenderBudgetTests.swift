@@ -4,7 +4,7 @@ import Testing
 
 /// Checks the memory ceiling that keeps a full-resolution export from being terminated.
 ///
-/// Peak footprint is about 230 MB per megapixel, measured in release. A 12 MP frame needs 2.8 GB,
+/// Peak footprint is about 148 MB per megapixel, measured in release. A 12 MP frame needs 1.7 GB,
 /// and iOS terminates a foreground app at roughly 1.4 GB, so the ceiling is load-bearing: too high
 /// and export crashes, too low and it quietly shrinks the user's photo.
 @Suite("Render budget")
@@ -46,8 +46,9 @@ struct RenderBudgetTests {
     @Test("the measured cost per megapixel is what the ceiling divides by")
     func costIsRecorded() {
         // Pinned so a change to the constant is a deliberate edit with a new measurement behind it,
-        // not a drifting guess. 230 MB/MP comes from 583 MB at 2 MP, 1457 at 6 and 2805 at 12.
-        #expect(RenderBudget.bytesPerMegapixel == 230 * 1_048_576)
+        // not a drifting guess. 125 MB/MP comes from 250 MB at 2 MP, 738 at 6 and 1471 at 12, measured
+        // in release with Tools/memprofile, one measurement per process.
+        #expect(RenderBudget.bytesPerMegapixel == 125 * 1_048_576)
         #expect(RenderBudget.safetyFraction > 0 && RenderBudget.safetyFraction < 1)
     }
 

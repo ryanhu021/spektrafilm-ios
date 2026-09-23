@@ -44,12 +44,14 @@ public enum Develop {
         let normalised = DensityCurves.normalized(
             curves: data.densityCurves, minima: data.densityCurveMinima)
 
-        var density = DensityCurves.densityFromLogExposure(
+        let density = DensityCurves.densityFromLogExposure(
             logExposure: logRaw, curves: normalised, axis: data.logExposure,
             gammaFactor: gammaFactor)
 
-        density = Couplers.applyDensityCorrection(
-            density: density,
+        // `consume` throughout: each of these takes the frame it is handed and writes over it, which
+        // it can only do while nothing else holds a reference.
+        let developed = Couplers.applyDensityCorrection(
+            density: consume density,
             logRaw: logRaw,
             pixelSizeMicrons: pixelSizeMicrons,
             logExposure: data.logExposure,
@@ -60,10 +62,10 @@ public enum Develop {
             spatial: spatial
         )
 
-        guard let pixelSizeMicrons else { return density }
+        guard let pixelSizeMicrons else { return developed }
 
         return Grain.apply(
-            density,
+            consume developed,
             pixelSizeMicrons: pixelSizeMicrons,
             params: grain,
             densityCurves: normalised,

@@ -319,7 +319,7 @@ public enum Grain {
     ///   - blurDyeClouds: `blur_dye_clouds_um`, dimensionless. Gated on the parameter, not on the
     ///     sigma it produces, which is what the reference does.
     public static func layerParticleModel(
-        _ density: ImageBuffer,
+        _ density: consuming ImageBuffer,
         densityMax: Double,
         particlesPerPixel: Double,
         uniformity: Double,
@@ -330,7 +330,7 @@ public enum Grain {
         precondition(density.channels == 1, "the particle model works on single-channel planes")
         let odParticle = densityMax / particlesPerPixel
 
-        var out = density
+        var out = consume density
         out.values.withUnsafeMutableBufferPointer { buffer in
             guard let plane = buffer.baseAddress else { return }
             var source = Philox4x32(key: key)
@@ -363,7 +363,7 @@ public enum Grain {
     /// The field has shape `[H, W, 3]`, so each channel gets its own realisation. Mean preserving
     /// before the blur and after it.
     public static func addMicroStructure(
-        _ image: ImageBuffer,
+        _ image: consuming ImageBuffer,
         microStructure: (Double, Double),
         pixelSizeMicrons: Double,
         seed: UInt64,
@@ -391,7 +391,7 @@ public enum Grain {
             clumping = spatial.gaussian(clumping, sigma: blurPixels)
         }
 
-        var out = image
+        var out = consume image
         out.values.withUnsafeMutableBufferPointer { buffer in
             guard let p = buffer.baseAddress else { return }
             for i in 0..<buffer.count { p[i] *= clumping.values[i] }
@@ -410,8 +410,11 @@ public enum Grain {
     /// For positive stocks both the query and the axis are negated so the axis ascends; the
     /// sublayer values are not negated.
     ///
-    /// Lives here rather than in ``DensityCurves`` because the layered grain path is its only
-    /// caller.
+    /// Lives here rather than in ``DensityCurves`` because only the layered grain path splits a
+    /// density into sublayers. The render path does not call this, since the nine planes together
+    /// are three full frames; it takes them one at a time from
+    /// ``sublayerPlane(_:channel:sublayer:densityCurves:densityCurvesLayers:positive:)``. This is
+    /// the shape the reference returns and the shape the parity tests compare.
     public static func sublayerDensities(
         _ density: ImageBuffer,
         densityCurves: [Double],
@@ -425,26 +428,85 @@ public enum Grain {
             "density_curves_layers must be \(steps) x 3 x 3")
 
         return (0..<3).map { channel in
-            var query = ImageBuffer(
+            var out = ImageBuffer(
                 height: density.height, width: density.width, channels: sublayerCount)
-            for pixel in 0..<density.pixelCount {
-                let value = density.values[pixel * 3 + channel]
-                let x = positive ? -value : value
-                for sublayer in 0..<sublayerCount {
-                    query.values[pixel * sublayerCount + sublayer] = x
-                }
+            for sublayer in 0..<sublayerCount {
+                let plane = sublayerPlane(
+                    density,
+                    channel: channel,
+                    sublayer: sublayer,
+                    densityCurves: densityCurves,
+                    densityCurvesLayers: densityCurvesLayers,
+                    positive: positive)
+                writePlane(plane, into: &out, channel: sublayer)
             }
-            var axis = (0..<steps).map { densityCurves[$0 * 3 + channel] }
-            if positive { for i in axis.indices { axis[i] = -axis[i] } }
-            var values = [Double](repeating: 0, count: steps * sublayerCount)
-            for step in 0..<steps {
-                for sublayer in 0..<sublayerCount {
-                    values[step * sublayerCount + sublayer] =
-                        densityCurvesLayers[step * 9 + sublayer * 3 + channel]
-                }
-            }
-            return Interpolation.fastInterp(query, axis: axis, values: values)
+            return out
         }
+    }
+
+    /// One `(channel, sublayer)` plane of interpolated sublayer density.
+    ///
+    /// The nine planes are three full frames when materialised together, which is what
+    /// ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` hands back. The grain
+    /// loop needs one at a time, so it interpolates them one at a time.
+    ///
+    /// Arithmetic copied from ``Interpolation/fastInterp(_:axis:values:)``'s shared-axis path, down
+    /// to the reciprocal interval widths and the clamp to the endpoint values, so the two agree bit
+    /// for bit.
+    static func sublayerPlane(
+        _ density: ImageBuffer,
+        channel: Int,
+        sublayer: Int,
+        densityCurves: [Double],
+        densityCurvesLayers: [Double],
+        positive: Bool
+    ) -> ImageBuffer {
+        let steps = densityCurves.count / 3
+        precondition(steps >= 2, "axis needs at least two samples")
+
+        var axis = (0..<steps).map { densityCurves[$0 * 3 + channel] }
+        if positive { for i in axis.indices { axis[i] = -axis[i] } }
+        let curve = (0..<steps).map { densityCurvesLayers[$0 * 9 + sublayer * 3 + channel] }
+        var invDx = [Double](repeating: 0, count: steps - 1)
+        for i in 0..<(steps - 1) {
+            let d = axis[i + 1] - axis[i]
+            invDx[i] = d != 0 ? 1.0 / d : 0.0
+        }
+
+        var plane = ImageBuffer(height: density.height, width: density.width, channels: 1)
+        density.values.withUnsafeBufferPointer { src in
+            axis.withUnsafeBufferPointer { ax in
+                curve.withUnsafeBufferPointer { ys in
+                    invDx.withUnsafeBufferPointer { inv in
+                        plane.values.withUnsafeMutableBufferPointer { dst in
+                            let s = src.baseAddress!
+                            let a = ax.baseAddress!
+                            let y = ys.baseAddress!
+                            let iv = inv.baseAddress!
+                            let d = dst.baseAddress!
+                            let first = a[0]
+                            let last = a[steps - 1]
+
+                            for pixel in 0..<density.pixelCount {
+                                let value = s[pixel * 3 + channel]
+                                let x = positive ? -value : value
+                                if x.isNaN || x <= first {
+                                    d[pixel] = y[0]
+                                } else if x >= last {
+                                    d[pixel] = y[steps - 1]
+                                } else {
+                                    let low =
+                                        Interpolation.upperBound(x, a, stride: 1, count: steps) - 1
+                                    let t = (x - a[low]) * iv[low]
+                                    d[pixel] = y[low] + t * (y[low + 1] - y[low])
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return plane
     }
 
     // MARK: - Topologies
@@ -460,8 +522,10 @@ public enum Grain {
     ///
     /// Returns the input unchanged when grain is off or bypassed, matching the reference, which
     /// returns the same object.
+    ///
+    /// Consumes `density`. A caller that still needs it gets a copy, and pays a frame for it.
     public static func apply(
-        _ density: ImageBuffer,
+        _ density: consuming ImageBuffer,
         pixelSizeMicrons: Double,
         params: GrainParams,
         densityCurves: [Double],
@@ -478,19 +542,89 @@ public enum Grain {
                 params: params,
                 pixelSizeMicrons: pixelSizeMicrons,
                 densityMaxCurves: nanMax(densityCurves, channels: 3))
-            return applyToDensity(density, derived: derived, seed: seed, spatial: spatial)
+            return applyToDensity(consume density, derived: derived, seed: seed, spatial: spatial)
         }
 
-        let layers = sublayerDensities(
-            density,
-            densityCurves: densityCurves,
-            densityCurvesLayers: densityCurvesLayers,
-            positive: positive)
         let derived = LayeredParameters(
             params: params,
             pixelSizeMicrons: pixelSizeMicrons,
             densityMaxLayers: nanMax(densityCurvesLayers, channels: 9))
-        return applyToDensityLayers(layers, derived: derived, seed: seed, spatial: spatial)
+        // The density frame is released when this returns, before the closing blur allocates.
+        let grain = accumulateLayers(
+            consume density,
+            derived: derived,
+            densityCurves: densityCurves,
+            densityCurvesLayers: densityCurvesLayers,
+            positive: positive,
+            seed: seed,
+            spatial: spatial)
+        return finishLayers(consume grain, derived: derived, seed: seed, spatial: spatial)
+    }
+
+    /// Sums the nine `(channel, sublayer)` particle populations, interpolating each sublayer plane
+    /// as it is needed.
+    static func accumulateLayers(
+        _ density: consuming ImageBuffer,
+        derived: LayeredParameters,
+        densityCurves: [Double],
+        densityCurvesLayers: [Double],
+        positive: Bool,
+        seed: UInt64,
+        spatial: some SpatialFilter
+    ) -> ImageBuffer {
+        precondition(density.channels == 3, "density must have 3 channels")
+
+        var out = ImageBuffer(height: density.height, width: density.width, channels: 3)
+        for channel in 0..<3 {
+            for sublayer in 0..<sublayerCount {
+                let i = sublayer * 3 + channel
+                var plane = sublayerPlane(
+                    density,
+                    channel: channel,
+                    sublayer: sublayer,
+                    densityCurves: densityCurves,
+                    densityCurvesLayers: densityCurvesLayers,
+                    positive: positive)
+                addInPlace(&plane, derived.densityMinLayers[i])
+                let grain = layerParticleModel(
+                    consume plane,
+                    densityMax: derived.densityMaxLayers[i],
+                    particlesPerPixel: derived.particlesPerPixel[i],
+                    uniformity: derived.uniformity[channel],
+                    key: PhiloxKey(seed: seed, channel: channel, sublayer: sublayer),
+                    blurDyeClouds: derived.blurDyeClouds,
+                    spatial: spatial)
+                accumulatePlane(grain, into: &out, channel: channel)
+            }
+        }
+        return out
+    }
+
+    /// The clumping field, the fog subtraction and the closing blur, in that order.
+    static func finishLayers(
+        _ grain: consuming ImageBuffer,
+        derived: LayeredParameters,
+        seed: UInt64,
+        spatial: some SpatialFilter
+    ) -> ImageBuffer {
+        var out = addMicroStructure(
+            consume grain,
+            microStructure: derived.microStructure,
+            pixelSizeMicrons: derived.pixelSizeMicrons,
+            seed: seed,
+            spatial: spatial)
+
+        out.values.withUnsafeMutableBufferPointer { buffer in
+            guard let p = buffer.baseAddress else { return }
+            for i in stride(from: 0, to: buffer.count, by: 3) {
+                for channel in 0..<3 { p[i + channel] -= derived.densityMin[channel] }
+            }
+        }
+
+        if derived.blurSigmaPixels > 0 {
+            blurInPlace(&out, sigma: derived.blurSigmaPixels, spatial: spatial)
+        }
+        return out
     }
 
     /// `apply_grain_to_density`: one particle population per channel, applied to the total channel
@@ -551,7 +685,9 @@ public enum Grain {
     /// subtraction balances.
     ///
     /// - Parameter layers: one buffer per RGB channel, three sublayers deep, as
-    ///   ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` returns.
+    ///   ``sublayerDensities(_:densityCurves:densityCurvesLayers:positive:)`` returns. ``apply``
+    ///   goes through ``accumulateLayers(_:derived:densityCurves:densityCurvesLayers:positive:seed:spatial:)``
+    ///   instead, which never holds the whole split at once.
     public static func applyToDensityLayers(
         _ layers: [ImageBuffer],
         derived: LayeredParameters,
@@ -570,7 +706,7 @@ public enum Grain {
                 var plane = extractPlane(layers[channel], channel: sublayer)
                 addInPlace(&plane, derived.densityMinLayers[i])
                 let grain = layerParticleModel(
-                    plane,
+                    consume plane,
                     densityMax: derived.densityMaxLayers[i],
                     particlesPerPixel: derived.particlesPerPixel[i],
                     uniformity: derived.uniformity[channel],
@@ -580,25 +716,7 @@ public enum Grain {
                 accumulatePlane(grain, into: &out, channel: channel)
             }
         }
-
-        out = addMicroStructure(
-            out,
-            microStructure: derived.microStructure,
-            pixelSizeMicrons: derived.pixelSizeMicrons,
-            seed: seed,
-            spatial: spatial)
-
-        out.values.withUnsafeMutableBufferPointer { buffer in
-            guard let p = buffer.baseAddress else { return }
-            for i in stride(from: 0, to: buffer.count, by: 3) {
-                for channel in 0..<3 { p[i + channel] -= derived.densityMin[channel] }
-            }
-        }
-
-        if derived.blurSigmaPixels > 0 {
-            out = spatial.gaussian(out, sigma: derived.blurSigmaPixels)
-        }
-        return out
+        return finishLayers(consume out, derived: derived, seed: seed, spatial: spatial)
     }
 
     // MARK: - Plane helpers
@@ -612,6 +730,26 @@ public enum Grain {
             plane.values[pixel] = image.values[pixel * stride + channel]
         }
         return plane
+    }
+
+    static func writePlane(_ plane: ImageBuffer, into image: inout ImageBuffer, channel: Int) {
+        let stride = image.channels
+        for pixel in 0..<image.pixelCount {
+            image.values[pixel * stride + channel] = plane.values[pixel]
+        }
+    }
+
+    /// Blurs each channel in place.
+    ///
+    /// ``SpatialFilter/gaussian(_:sigma:)`` dispatches per channel internally, so this is the same
+    /// arithmetic with one plane live instead of a second full frame.
+    static func blurInPlace(
+        _ image: inout ImageBuffer, sigma: Double, spatial: some SpatialFilter
+    ) {
+        for channel in 0..<image.channels {
+            let filtered = spatial.gaussian(extractPlane(image, channel: channel), sigma: sigma)
+            writePlane(filtered, into: &image, channel: channel)
+        }
     }
 
     static func accumulatePlane(_ plane: ImageBuffer, into image: inout ImageBuffer, channel: Int) {

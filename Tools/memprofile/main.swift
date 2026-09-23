@@ -1,14 +1,17 @@
 // Peak-memory profiler for the render pipeline.
 //
-// Reports the high-water footprint and wall time for one frame size, in a fresh process so peaks do
-// not accumulate across measurements. This is the instrument for the memory-reduction work: peak
-// footprint is about 230 MB per megapixel, which caps export size on iOS well below what users
-// expect (see Sources/SpektraFilm/Runtime/RenderBudget.swift).
+// Reports the high-water footprint and wall time for one frame size. This is the instrument for the
+// memory-reduction work: peak footprint is about 148 MB per megapixel, which still caps export size
+// on iOS below a 12 MP frame (see Sources/SpektraFilm/Runtime/RenderBudget.swift).
 //
 // Build and run:
 //   swift build -c release --product memprofile
-//   .build/release/memprofile 2          # megapixels
-//   .build/release/memprofile 2 --stage  # per-stage peaks, which is where to look next
+//   .build/release/memprofile 2                  # megapixels, whole render
+//   .build/release/memprofile 2 --tap cmy_film   # peak to reach one tap
+//   .build/release/memprofile 2 --spectral       # the spectral upsampling call alone
+//
+// One measurement per process, and the three modes are mutually exclusive: phys_footprint is a
+// whole-process high-water mark, so anything measured after something larger reads the larger figure.
 //
 // Always measure in release. Debug keeps bounds checks on every ImageBuffer subscript and the same
 // render takes over an order of magnitude longer.
@@ -67,7 +70,6 @@ final class PeakSampler {
 
 let arguments = CommandLine.arguments
 let megapixelTarget = Double(arguments.count > 1 ? arguments[1] : "2") ?? 2
-let perStage = arguments.contains("--stage")
 
 // A 4:3 frame of the requested size.
 let height = Int((megapixelTarget * 1e6 / (4.0 / 3.0)).squareRoot().rounded())
@@ -100,9 +102,10 @@ let image = ImageBuffer(height: height, width: width, channels: 3, values: value
 let withInput = footprintBytes()
 
 let megapixels = Double(width * height) / 1e6
-let isolating = arguments.contains("--spectral") || arguments.contains("--tap")
+let spectralOnly = arguments.contains("--spectral")
+let tapOnly = arguments.contains("--tap")
 
-if !isolating {
+if !spectralOnly && !tapOnly {
     let sampler = PeakSampler()
     sampler.start()
     let started = DispatchTime.now().uptimeNanoseconds
@@ -120,7 +123,11 @@ if !isolating {
 }
 
 // Isolates the spectral upsampling call, which the bisection above points at.
-if isolating {
+//
+// `--tap` must not reach here. The bindings below are top level, so they are globals that live for
+// the rest of the process: `tc`, `brightness` and `sampled` are 96 MB of them at 2 MP, and a tap
+// measured afterwards reads that on top of its own frames.
+if spectralOnly {
     print("frame          \(width) x \(height)  (\(String(format: "%.2f", megapixels)) MP)")
     print("input buffer   \(megabytes(withInput - baseline))")
     // The profiler is outside the module, so build the sensitivity the same way the stage does.
@@ -137,7 +144,9 @@ if isolating {
         referenceIlluminant: try Illuminant(label: params.film.info.referenceIlluminant),
         tcLUT: lut)
 
-    print("\nspectral upsampling in isolation:")
+    // Cumulative, because `tc`, `brightness` and `sampled` are globals too: only the first line is a
+    // reading of one call. Comparing the second or third across a change needs a separate process.
+    print("\nspectral upsampling, cumulative high-water:")
     var s = PeakSampler()
     s.start()
     let (tc, brightness) = converter.tcAndBrightness(rgb: image)

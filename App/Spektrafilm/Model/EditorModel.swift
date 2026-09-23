@@ -159,8 +159,8 @@ final class EditorModel {
 
     /// Renders as large as this device allows and writes to the photo library.
     ///
-    /// Roughly 2.3 s per megapixel. The size is capped by ``RenderBudget``: peak footprint is about
-    /// 230 MB per megapixel, so a 12 MP frame would need 2.8 GB and be terminated. When the cap bites
+    /// Roughly 2.0 s per megapixel. The size is capped by ``RenderBudget``: peak footprint is about
+    /// 148 MB per megapixel, so a 12 MP frame would need 1.7 GB and be terminated. When the cap bites
     /// the result says so, because silently exporting something smaller than the source is the kind
     /// of thing a user discovers much later.
     func export() async {

@@ -19,8 +19,8 @@ actor RenderService {
         case settle
         /// 640 px with grain and the spatial effects. Measured at 623 ms.
         case proof
-        /// The largest size this device's memory allowance permits, everything on. Roughly 2.3 s per
-        /// megapixel, and capped by ``RenderBudget`` because peak footprint is about 230 MB per
+        /// The largest size this device's memory allowance permits, everything on. Roughly 2.0 s per
+        /// megapixel, and capped by ``RenderBudget`` because peak footprint is about 148 MB per
         /// megapixel and iOS terminates a foreground app that crosses its jetsam limit.
         case full
 

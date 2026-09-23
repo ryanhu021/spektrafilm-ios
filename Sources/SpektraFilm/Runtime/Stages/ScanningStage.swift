@@ -70,30 +70,23 @@ public final class ScanningStage {
     /// `scan`.
     public func scan(_ density: ImageBuffer) throws -> ImageBuffer {
         var rgb = try densityToRGB(density)
-        rgb = applyBlurAndUnsharp(rgb)
-        return applyCCTFEncoding(rgb)
+        applyBlurAndUnsharp(&rgb)
+        applyCCTFEncoding(&rgb)
+        return rgb
     }
 
     // MARK: - Density to RGB
 
     private func densityToRGB(_ density: ImageBuffer) throws -> ImageBuffer {
-        let glare = io.scanFilm ? nil : printRender.glare
-
-        let logXYZ = spectralCompute(density)
-        var xyz = logXYZ
-        xyz.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = Foundation.pow(10.0, p[i]) }
-        }
+        // One binding for the frame: a second one keeps the storage shared, and the in-place pass
+        // below then copies it.
+        var xyz = spectralCompute(density)
+        xyz.transformInPlace { Foundation.pow(10.0, $0) }
         xyz = try colourReference.correctXYZ(xyz)
 
         let illuminantXYZ = Observer.illuminantXYZ(scanIlluminant)
         let illuminantXY = Colour.XYZToxy(illuminantXYZ)
-        xyz = Glare.add(
-            xyz,
-            illuminantXYZ: [illuminantXYZ.0, illuminantXYZ.1, illuminantXYZ.2],
-            glare: glare,
-            spatial: spatial)
+        addGlare(&xyz, illuminantXYZ: illuminantXYZ)
 
         Colour.XYZToRGB(&xyz, colourspace: outputColourSpace, illuminant: illuminantXY)
         try OutputGamutCompression.compress(
@@ -101,18 +94,42 @@ public final class ScanningStage {
         return xyz
     }
 
-    /// The per-pixel spectral map, in row bands.
+    /// `add_glare`, applied in place.
+    ///
+    /// ``Glare/add(_:illuminantXYZ:glare:seed:spatial:)`` returns a new frame while this stage still
+    /// holds the old one, so the two overlap. The field stays: it is one channel, and the blur needs
+    /// the whole plane.
+    private func addGlare(_ xyz: inout ImageBuffer, illuminantXYZ: (Double, Double, Double)) {
+        // The reference passes no glare on the scan-film branch. `film_render.glare` is dead.
+        guard !io.scanFilm else { return }
+        let params = printRender.glare
+        guard params.active, params.percent > 0 else { return }
+
+        let field = Glare.randomAmount(
+            amount: params.percent,
+            roughness: params.roughness,
+            blur: params.blur,
+            height: xyz.height,
+            width: xyz.width,
+            spatial: spatial)
+        let illuminant = [illuminantXYZ.0, illuminantXYZ.1, illuminantXYZ.2]
+        xyz.values.withUnsafeMutableBufferPointer { buffer in
+            guard let p = buffer.baseAddress else { return }
+            for pixel in 0..<field.values.count {
+                let flare = field.values[pixel]
+                for channel in 0..<3 { p[pixel * 3 + channel] += flare * illuminant[channel] }
+            }
+        }
+    }
+
+    /// The per-pixel spectral map.
     ///
     /// `use_scanner_lut` replaces this with a coarse 3D LUT in the reference. It defaults off and
     /// the reference itself calls the LUT an approximation, so the direct path is the only one here.
     private func spectralCompute(_ density: ImageBuffer) -> ImageBuffer {
-        let bandRows = ImageBuffer.bandRows(
-            width: density.width, channels: ColourTables.wavelengthCount)
-        return density.mapPerPixel(bandRows: bandRows, channelsOut: 3) { band in
-            Self.cmyToLogXYZ(
-                band, channelDensity: channelDensity, baseDensity: baseDensity,
-                illuminant: scanIlluminant, normalisation: normalisation)
-        }
+        Self.cmyToLogXYZ(
+            density, channelDensity: channelDensity, baseDensity: baseDensity,
+            illuminant: scanIlluminant, normalisation: normalisation)
     }
 
     /// `cmy_to_log_xyz`. Density to spectrum, spectrum to transmitted light, light to XYZ.
@@ -123,38 +140,35 @@ public final class ScanningStage {
         illuminant: [Double],
         normalisation: Double
     ) -> ImageBuffer {
-        let spectral = DensityCurves.spectralDensity(
-            cmy: cmy, channelDensity: channelDensity, baseDensity: baseDensity)
-        let light = DensityCurves.densityToLight(spectral, illuminant: illuminant)
-        var xyz = DensityCurves.project(light, onto: Observer.cmfs, scale: 1.0 / normalisation)
-        xyz.values.withUnsafeMutableBufferPointer { buf in
-            guard let p = buf.baseAddress else { return }
-            for i in 0..<buf.count { p[i] = log10Guard(p[i]) }
-        }
+        var xyz = SpectralContraction.project(
+            cmy: cmy, channelDensity: channelDensity, baseDensity: baseDensity,
+            illuminant: illuminant, response: Observer.cmfs, scale: 1.0 / normalisation)
+        xyz.transformInPlace { log10Guard($0) }
         return xyz
     }
 
     // MARK: - Sharpening
 
-    private func applyBlurAndUnsharp(_ rgb: ImageBuffer) -> ImageBuffer {
-        var out = rgb
+    /// The unsharp mask is expanded here instead of calling
+    /// ``Diffusion/applyUnsharpMask(_:sigma:amount:)``, which returns a new frame while this stage
+    /// still holds the old one and the blur, three frames at once.
+    private func applyBlurAndUnsharp(_ rgb: inout ImageBuffer) {
         if scanner.lensBlur > 0 {
-            out = Diffusion.applyGaussianBlur(out, sigmaPixels: scanner.lensBlur)
+            rgb = Diffusion.applyGaussianBlur(rgb, sigmaPixels: scanner.lensBlur)
         }
         let (sigma, amount) = scanner.unsharpMask
-        if sigma > 0 && amount > 0 {
-            out = Diffusion.applyUnsharpMask(out, sigma: sigma, amount: amount)
+        guard sigma > 0 && amount > 0 else { return }
+        let blurred = Diffusion.applyGaussianBlur(rgb, sigmaPixels: sigma)
+        rgb.combineInPlace(with: blurred) { value, blurredValue in
+            value + amount * (value - blurredValue)
         }
-        return out
     }
 
-    private func applyCCTFEncoding(_ rgb: ImageBuffer) -> ImageBuffer {
-        guard io.outputCCTFEncoding else { return rgb }
-        var out = rgb
+    private func applyCCTFEncoding(_ rgb: inout ImageBuffer) {
+        guard io.outputCCTFEncoding else { return }
         // The reference routes this through RGB_to_RGB with the same space in and out, which applies
         // a near-identity matrix before the transfer function.
         Colour.RGBToRGB(
-            &out, from: outputColourSpace, to: outputColourSpace, applyEncoding: true)
-        return out
+            &rgb, from: outputColourSpace, to: outputColourSpace, applyEncoding: true)
     }
 }

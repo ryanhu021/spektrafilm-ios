@@ -107,20 +107,28 @@ so these are the numbers the app is designed around rather than a target to beat
 | 320 px preview, grain off | 83 ms | |
 | 640 px preview, grain off | 343 ms | |
 | 640 px with grain and spatial effects | 623 ms | |
-| 2 MP | 4.2 s | 583 MB |
-| 6 MP | 13.5 s | 1457 MB |
-| 12 MP | 27.5 s | 2805 MB |
+| 2 MP | 3.9 s | 250 MB |
+| 6 MP | 12.4 s | 738 MB |
+| 12 MP | 25.7 s | 1471 MB |
 
 The app uses the first three as an interaction ladder: a control being dragged renders at 320 px, a
 release renders at 640 px, and export renders as large as the device allows.
 
-**Memory is the binding constraint, not time.** Peak footprint is about 230 MB per megapixel, and
-iOS terminates a foreground app at roughly 1.4 GB, so a 12 MP export would be killed rather than
-finish. `RenderBudget` reads the process's actual allowance and caps the export size, and the app
-says when the cap bit. Raising that ceiling means cutting the per-stage copies: the DIR-coupler
-correction alone allocates five full-frame buffers, and `expose` and `develop` each copy between
-steps. That work, and a Metal path for the scanning spectral map and grain, are the two things that
-would change these numbers.
+Memory is the binding constraint, not time. iOS terminates a foreground app at roughly 1.4 GB, so
+`RenderBudget` reads the process's real allowance and caps the export size, and the app says when the
+cap bit. Peak footprint started at 299 MB per megapixel, which made a 12 MP export 2.8 GB and
+guaranteed a kill; it is now 125, so 6 MP fits with room and 12 MP sits on the line.
+
+That came from removing concurrently-live frames, not from allocating less in total. Spectral
+upsampling held five frames where two suffice, the coupler correction held eight, grain materialised
+the whole sublayer split, and halation held its input, a copy and two blurs. Each now works a channel
+plane at a time or consumes its input. What matters for peak is how many frames are alive at one
+instant.
+
+`Tools/memprofile` is the instrument. It takes one measurement per process, because `phys_footprint`
+is a high-water mark and measuring several things in one run reports the largest so far for every one
+of them. Three separate rounds of this measurement mislocated the cost that way before the tool was
+fixed.
 
 ## Licensing
 
