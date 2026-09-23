@@ -3,7 +3,8 @@ SHELL := /bin/bash
 
 PROJECT := App/SpektrafilmApp.xcodeproj
 SCHEME  := Spektrafilm
-SIM     := 'platform=iOS Simulator,name=iPhone 17 Pro'
+BUNDLE  := dev.ryanhu.spektrafilm
+APP     := .build/xcode/Build/Products/Release-iphonesimulator/SpektrafilmApp.app
 
 .PHONY: help
 help: ## List targets
@@ -19,11 +20,11 @@ test: ## Run engine + parity tests
 
 .PHONY: format
 format: ## Format Swift sources in place
-	swift format --in-place --recursive Sources Tests App/Spektrafilm Package.swift
+	swift format --in-place --recursive Sources Tests App/Spektrafilm Tools Package.swift
 
 .PHONY: lint
 lint: ## Check formatting without writing
-	swift format lint --strict --recursive Sources Tests App/Spektrafilm Package.swift
+	swift format lint --strict --recursive Sources Tests App/Spektrafilm Tools Package.swift
 
 .PHONY: project
 project: ## Generate App/SpektrafilmApp.xcodeproj from project.yml
@@ -32,13 +33,15 @@ project: ## Generate App/SpektrafilmApp.xcodeproj from project.yml
 .PHONY: app
 app: project ## Build the iOS app for the simulator
 	xcodebuild build -quiet -project $(PROJECT) -scheme $(SCHEME) \
-		-destination 'generic/platform=iOS Simulator' -derivedDataPath .build/xcode \
-		CODE_SIGNING_ALLOWED=NO
+		-destination 'generic/platform=iOS Simulator' -derivedDataPath .build/xcode
 
+# Release, because Debug keeps bounds checks on every buffer access and renders 40x slower.
 .PHONY: run
-run: project ## Build and launch the app in the simulator
-	xcodebuild build -quiet -project $(PROJECT) -scheme $(SCHEME) \
-		-destination $(SIM) -derivedDataPath .build/xcode CODE_SIGNING_ALLOWED=NO
+run: project ## Build in release and launch on the booted simulator, with the sample scene
+	xcodebuild build -quiet -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
+		-destination 'generic/platform=iOS Simulator' -derivedDataPath .build/xcode
+	xcrun simctl install booted $(APP)
+	xcrun simctl launch booted $(BUNDLE) -sample
 
 .PHONY: oracle
 oracle: ## Create the pinned Python oracle venv under Tools/parity/oracle
