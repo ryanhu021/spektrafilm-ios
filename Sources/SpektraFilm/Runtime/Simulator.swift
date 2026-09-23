@@ -15,7 +15,9 @@ import Foundation
 public final class Simulator {
     private let pipeline: SimulationPipeline
 
-    public init(_ params: RuntimePhotoParams, resampler: any Resampler = UnavailableResampler())
+    public init(
+        _ params: RuntimePhotoParams, resampler: any Resampler = UnavailableResampler()
+    )
         throws
     {
         pipeline = try SimulationPipeline(params: params, resampler: resampler)
