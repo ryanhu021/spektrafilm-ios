@@ -9,6 +9,10 @@
 //   .build/release/memprofile 2                  # megapixels, whole render
 //   .build/release/memprofile 2 --tap cmy_film   # peak to reach one tap
 //   .build/release/memprofile 2 --spectral       # the spectral upsampling call alone
+//   .build/release/memprofile 2 --warm           # time a second render, after one-time setup
+//
+// Environment toggles: SPK_PREVIEW=1 for the app's preview tiers, and SPK_NO_HALATION, SPK_NO_GRAIN,
+// SPK_NO_COUPLERS, SPK_NO_GLARE to switch one operator off.
 //
 // One measurement per process, and the three modes are mutually exclusive. phys_footprint is a
 // whole-process high-water mark, so anything measured after something larger reads the larger figure.
@@ -92,8 +96,14 @@ if ProcessInfo.processInfo.environment["SPK_NO_COUPLERS"] != nil {
 if ProcessInfo.processInfo.environment["SPK_NO_GLARE"] != nil {
     params.printRender.glare.active = false
 }
+// The app's scrub and settle tiers.
+if ProcessInfo.processInfo.environment["SPK_PREVIEW"] != nil {
+    params.settings.previewMode = true
+}
 
+let constructionStarted = DispatchTime.now().uptimeNanoseconds
 let simulator = try Simulator(params, resampler: SkimageResampler())
+let constructionSeconds = Double(DispatchTime.now().uptimeNanoseconds - constructionStarted) / 1e9
 
 let baseline = footprintBytes()
 var values = [Double](repeating: 0, count: width * height * 3)
@@ -106,6 +116,9 @@ let spectralOnly = arguments.contains("--spectral")
 let tapOnly = arguments.contains("--tap")
 
 if !spectralOnly && !tapOnly {
+    // `--warm` renders once untimed first, so one-time work (the gamut envelopes, which are cached
+    // for the process) is excluded, as it is for every render after the app's first.
+    if arguments.contains("--warm") { _ = try simulator.process(image) }
     let sampler = PeakSampler()
     sampler.start()
     let started = DispatchTime.now().uptimeNanoseconds
@@ -118,8 +131,14 @@ if !spectralOnly && !tapOnly {
     print("input buffer   \(megabytes(withInput - baseline))")
     print("peak           \(megabytes(peak))")
     print("peak per MP    \(megabytes(Int(Double(peak) / megapixels)))")
-    print("time           \(String(format: "%.2f s  (%.2f s/MP)", seconds, seconds / megapixels))")
+    print("construction   \(String(format: "%.1f ms", constructionSeconds * 1000))")
+    print("time           \(String(format: "%.3f s  (%.2f s/MP)", seconds, seconds / megapixels))")
     print("checksum       \(String(format: "%.9f", output.values[0]))")
+    print("\nstages, longest first:")
+    for (stage, stageSeconds) in simulator.timings.sorted(by: { $0.value > $1.value }) {
+        let name = stage.padding(toLength: 28, withPad: " ", startingAt: 0)
+        print("  \(name) \(String(format: "%6.3f s", stageSeconds))")
+    }
 }
 
 // Isolates the spectral upsampling call.
