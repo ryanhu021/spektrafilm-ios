@@ -4,9 +4,7 @@ import SwiftUI
 
 /// The darkroom.
 ///
-/// One screen: the print on the easel above, the bench below, and the pipeline between them as a row
-/// of stops you can inspect. There is no navigation stack because there is nowhere else to go, and a
-/// darkroom is one room.
+/// One screen: the print above, the controls below, and the pipeline stages between them.
 struct RootView: View {
     @State private var model = EditorModel()
     @State private var pickedItem: PhotosPickerItem?
@@ -22,7 +20,7 @@ struct RootView: View {
                 PrintView(
                     image: model.rendered,
                     isRendering: model.isRendering,
-                    tap: model.tap,
+                    tap: model.renderedTap,
                     quality: model.renderedQuality,
                     failure: model.failure
                 )
@@ -43,9 +41,10 @@ struct RootView: View {
         .preferredColorScheme(.dark)
         .task {
             if SampleScene.isRequested, let image = SampleScene.make(width: 2400, height: 3200) {
+                if let tap = SampleScene.requestedTap { model.tap = tap }
                 model.load(image, named: "sample")
-                // `-export` drives the export path without a tap, so the full tier and the memory cap
-                // can be exercised from a script.
+                // `-export` runs the export without a tap on the screen, for scripted testing of the
+                // full tier and the memory cap.
                 if ProcessInfo.processInfo.arguments.contains("-export") {
                     try? await Task.sleep(for: .seconds(3))
                     await model.export()
@@ -162,7 +161,7 @@ struct RootView: View {
                         Text("Developing at full size")
                             .font(Safelight.display(16))
                             .foregroundStyle(Safelight.paper)
-                        // The engine reports no progress, so the UI does not invent a bar.
+                        // The engine reports no progress, so there is no progress bar.
                         Text("about 2 seconds per megapixel")
                             .safelightLabel()
                     case .saving:
@@ -176,8 +175,6 @@ struct RootView: View {
                             .foregroundStyle(Safelight.paper)
                         Text(pixels).safelightLabel()
                         if capped {
-                            // Saying so beats letting someone find out later that the export was
-                            // smaller than the photo they put in.
                             Text("limited by this device's memory")
                                 .font(Safelight.readout(10))
                                 .foregroundStyle(Safelight.amberDim)
@@ -241,10 +238,7 @@ private struct DevelopingIndicator: View {
     }
 }
 
-/// Where the render time actually went.
-///
-/// Shown because the per-stage split is the useful thing when a render feels slow, and the engine
-/// already records it.
+/// The last render's time, split by stage.
 private struct DiagnosticsSheet: View {
     let model: EditorModel
 

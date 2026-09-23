@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// The enlarger's colour head, as three filter dials.
+/// One filter of the enlarger's colour head.
 ///
-/// A real colour head has three dichroic filters you crank into the light path, calibrated in Kodak
-/// CC units where 100 units is one density. The control is drawn as the filter itself sliding into the
-/// beam, because that is what the number means, and the swatch colour is the filter's own hue.
+/// A dichroic head moves filters into the light path, calibrated in Kodak CC units where 100 units
+/// is one density. The engine adjusts yellow and magenta and holds cyan fixed, so the app shows two
+/// dials. Each is drawn as its filter sliding into the beam, in the filter's own colour.
 struct DichroicDial: View {
     let label: String
     let tint: Color
@@ -13,7 +13,6 @@ struct DichroicDial: View {
     let range: ClosedRange<Double>
     /// The neutral the shift is measured from, shown so the absolute dial value is legible.
     let neutral: Double
-    let onChanged: () -> Void
     let onEnded: () -> Void
 
     var body: some View {
@@ -32,8 +31,7 @@ struct DichroicDial: View {
             }
 
             FilterTrack(
-                shift: $shift, range: range, tint: tint,
-                onChanged: onChanged, onEnded: onEnded)
+                shift: $shift, range: range, tint: tint, onEnded: onEnded)
         }
     }
 
@@ -49,7 +47,6 @@ private struct FilterTrack: View {
     @Binding var shift: Double
     let range: ClosedRange<Double>
     let tint: Color
-    let onChanged: () -> Void
     let onEnded: () -> Void
 
     var body: some View {
@@ -97,7 +94,6 @@ private struct FilterTrack: View {
                         shift =
                             (range.lowerBound + f * (range.upperBound - range.lowerBound))
                             .rounded(toNearest: 0.5)
-                        onChanged()
                     }
                     .onEnded { _ in onEnded() }
             )

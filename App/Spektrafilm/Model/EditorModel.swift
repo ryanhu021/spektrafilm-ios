@@ -5,13 +5,14 @@ import Photos
 import SpektraFilm
 import SwiftUI
 
-/// The editor's state, and the scheduler that decides which of the three render tiers to run.
+/// The editor's state, and the scheduler that picks which render tier to run.
 ///
-/// The scheduling is the whole design problem. A render costs 83 ms at scrub size and 343 ms at
-/// preview size, so neither can run per frame while a slider moves. Instead a moving control marks
-/// the state dirty and a single task coalesces: it renders the latest parameters, and any edits that
-/// arrived while it was working become one more render rather than a queue. Letting go of the control
-/// asks for the larger size.
+/// A render costs 83 ms at scrub size and 343 ms at settle size, so neither can run per frame while a
+/// control moves. One task renders the latest parameters. Edits that arrive while it works collapse
+/// into a single follow-up render. Releasing the control asks for the larger size.
+///
+/// Every finished render is shown, even if the parameters have moved on since it started. Discarding
+/// superseded results would discard all of them during a continuous drag.
 @Observable
 @MainActor
 final class EditorModel {
@@ -24,22 +25,20 @@ final class EditorModel {
 
     // MARK: - Parameters
 
-    var params: RuntimePhotoParams? {
-        didSet { if params != oldValue { requestRender(.settle) } }
-    }
+    /// Written only through ``scrub(_:)``, which also picks the render tier.
+    private(set) var params: RuntimePhotoParams?
 
     /// The parameters as the pipeline actually runs them.
     ///
-    /// `params` holds what the user edited, which is not what renders: digesting overrides the
-    /// enlarger's neutral filter positions from the measured database and replaces the coupler gammas
-    /// with fitted per-stock values. Readouts have to show these, or the dial numbers on screen are
-    /// not the numbers in the print.
+    /// Digesting replaces the enlarger's neutral filter positions with measured values for the film,
+    /// paper and lamp, and the coupler gammas with fitted per-stock values. Readouts show these so the
+    /// numbers on screen are the numbers in the print.
     var effective: RuntimePhotoParams? {
         guard let params else { return nil }
         return try? ParamsBuilder.digest(params)
     }
 
-    /// Which pipeline boundary is on screen. The reason the app can show the virtual negative.
+    /// Which pipeline boundary to show: the print, or an intermediate such as the negative.
     var tap: Tap = .rgbOut {
         didSet { if tap != oldValue { requestRender(.settle) } }
     }
@@ -48,13 +47,13 @@ final class EditorModel {
 
     private(set) var rendered: CGImage?
     private(set) var renderedQuality: RenderService.Quality?
+    /// The tap `rendered` shows, which trails ``tap`` until the next render lands.
+    private(set) var renderedTap: Tap = .rgbOut
     private(set) var lastRenderMilliseconds: Double?
     private(set) var stageTimings: [(String, Double)] = []
     private(set) var isRendering = false
     private(set) var failure: String?
 
-    /// Advances on every edit. A render carrying an older generation is dropped.
-    private var generation: UInt64 = 0
     private var pending: RenderService.Quality?
     private var renderTask: Task<Void, Never>?
     private let service = RenderService()
@@ -107,7 +106,6 @@ final class EditorModel {
 
     private func requestRender(_ quality: RenderService.Quality) {
         guard source != nil, params != nil else { return }
-        generation &+= 1
         // Keep the most demanding tier asked for since the last render started, so a scrub arriving
         // after a settle request does not downgrade it.
         pending = max(pending ?? quality, quality)
@@ -120,19 +118,15 @@ final class EditorModel {
         while let quality = pending {
             pending = nil
             guard let source, let params else { return }
-            let mine = generation
             isRendering = true
             do {
                 let result = try await service.render(
-                    source: source,
-                    params: params,
-                    quality: quality,
-                    tap: tap,
-                    generation: mine,
-                    currentGeneration: { [weak self] in await self?.generation ?? mine })
-                if let result, result.generation == generation {
+                    source: source, params: params, quality: quality, tap: tap)
+                // A render of the previous photo, finishing after an import, would flash it back.
+                if source === self.source {
                     rendered = result.image
                     renderedQuality = result.quality
+                    renderedTap = result.tap
                     lastRenderMilliseconds = result.milliseconds
                     stageTimings = result.stages
                     failure = nil
@@ -159,25 +153,14 @@ final class EditorModel {
 
     /// Renders as large as this device allows and writes to the photo library.
     ///
-    /// Roughly 2.0 s per megapixel. The size is capped by ``RenderBudget``: peak footprint is about
-    /// 148 MB per megapixel, so a 12 MP frame would need 1.7 GB and be terminated. When the cap bites
-    /// the result says so, because silently exporting something smaller than the source is the kind
-    /// of thing a user discovers much later.
+    /// About 2 s per megapixel. ``RenderBudget`` caps the size to fit in memory, and the saved state
+    /// reports when it did, so the user knows the export is smaller than the source.
     func export() async {
         guard let source, let params else { return }
         exportState = .rendering
         do {
             let result = try await service.render(
-                source: source,
-                params: params,
-                quality: .full,
-                tap: .rgbOut,
-                generation: generation,
-                currentGeneration: { [weak self] in await self?.generation ?? 0 })
-            guard let result else {
-                exportState = .idle
-                return
-            }
+                source: source, params: params, quality: .full, tap: .rgbOut)
             exportState = .saving
             try await PhotoLibrary.save(result.image)
             exportState = .saved(

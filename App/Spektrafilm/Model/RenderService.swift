@@ -4,24 +4,19 @@ import SpektraFilm
 
 /// Runs the engine off the main thread, one render at a time.
 ///
-/// An actor because `Simulator` is a class holding the per-film spectral LUT and the midgray
-/// references, so it is not `Sendable` and must not be touched from two tasks at once. Serialising
-/// here also means a queued render cannot start while an earlier one is still mutating buffers.
-///
-/// The simulator is cached and rebuilt only when the parameters change, since construction costs
-/// about 20 ms: measurable against an 83 ms scrub render, wasteful to repeat.
+/// `Simulator` holds the per-film spectral LUT and the midgray references and is not `Sendable`, so
+/// only this actor touches it. The simulator is cached and rebuilt when the parameters change;
+/// construction costs about 20 ms, a quarter of a scrub render.
 actor RenderService {
     /// Which of the three measured budgets a request is asking for.
     enum Quality: Sendable, Comparable {
         /// 320 px, preview mode. Measured at 83 ms, so roughly 12 fps while a control is moving.
         case scrub
-        /// 640 px, preview mode. Measured at 343 ms, for when the hand comes off the control.
+        /// 640 px, preview mode. Measured at 343 ms, for when the control is released.
         case settle
         /// 640 px with grain and the spatial effects. Measured at 623 ms.
         case proof
-        /// The largest size this device's memory allowance permits, everything on. Roughly 2.0 s per
-        /// megapixel, and capped by ``RenderBudget`` because peak footprint is about 148 MB per
-        /// megapixel and iOS terminates a foreground app that crosses its jetsam limit.
+        /// Everything on, at the largest size ``RenderBudget`` allows. About 2 s per megapixel.
         case full
 
         var longEdge: Int? {
@@ -57,7 +52,7 @@ actor RenderService {
     struct Result: Sendable {
         let image: CGImage
         let quality: Quality
-        let generation: UInt64
+        let tap: Tap
         let milliseconds: Double
         /// Per-stage timings, longest first, for the diagnostics panel.
         let stages: [(String, Double)]
@@ -70,21 +65,12 @@ actor RenderService {
     private var simulator: Simulator?
     private var simulatorParams: RuntimePhotoParams?
 
-    /// Renders `source` and returns an image, or `nil` if a newer generation superseded this request
-    /// before it started.
-    ///
-    /// `generation` is the caller's monotonic counter. Passing `currentGeneration` lets a request that
-    /// has already been overtaken be dropped without doing the work.
     func render(
         source: CGImage,
         params: RuntimePhotoParams,
         quality: Quality,
-        tap: Tap,
-        generation: UInt64,
-        currentGeneration: @Sendable () async -> UInt64
-    ) async throws -> Result? {
-        if await currentGeneration() != generation { return nil }
-
+        tap: Tap
+    ) throws -> Result {
         var params = params
         params.settings.previewMode = quality.previewMode
 
@@ -93,15 +79,13 @@ actor RenderService {
             ? RenderBudget.longEdge(forWidth: source.width, height: source.height)
             : quality.longEdge
         let buffer = try ImageBridge.buffer(from: source, longEdge: cap)
-        if await currentGeneration() != generation { return nil }
 
         let simulator = try simulator(for: params)
         let started = DispatchTime.now().uptimeNanoseconds
         let rendered = try simulator.process(buffer, inject: nil, collect: tap)
         let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
 
-        // Intermediate taps are densities or log exposures, not display values. Normalise them so the
-        // negative is legible rather than a black rectangle, and say so in the UI.
+        // Intermediate taps hold densities or log exposures. Normalise them so they are viewable.
         let display = tap == .rgbOut ? rendered : Self.normaliseForDisplay(rendered, tap: tap)
         let space =
             tap == .rgbOut
@@ -112,7 +96,7 @@ actor RenderService {
         return Result(
             image: image,
             quality: quality,
-            generation: generation,
+            tap: tap,
             milliseconds: elapsed,
             stages: simulator.timings.sorted { $0.value > $1.value }.map {
                 ($0.key, $0.value * 1000)
@@ -131,11 +115,11 @@ actor RenderService {
         return built
     }
 
-    /// Maps a density or log-exposure tap into something viewable.
+    /// Scales a density or log-exposure tap to the observed range, for display.
     ///
-    /// Densities run roughly 0 to 3 and log exposures span negative values, so neither is meaningful
-    /// as display RGB. This inverts density (so the negative reads as a negative, orange mask and all)
-    /// and otherwise scales to the observed range.
+    /// Densities run roughly 0 to 3 and log exposures go negative. Density is inverted, so dense
+    /// areas show dark, as on a real negative. The taps hold density above base, so the orange mask
+    /// of a colour negative does not appear.
     private static func normaliseForDisplay(_ buffer: ImageBuffer, tap: Tap) -> ImageBuffer {
         var out = buffer
         let isDensity = tap == .cmyFilm || tap == .cmyPrint

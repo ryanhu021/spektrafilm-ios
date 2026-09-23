@@ -1,22 +1,29 @@
 import CoreGraphics
 import Foundation
+import SpektraFilm
 
 /// A synthetic scene, for launching into a loaded state without a photo library.
 ///
-/// Generated rather than bundled: it costs no app size, it is identical on every run so two
-/// screenshots are comparable, and it is built to exercise the parts of the render that a snapshot of
-/// someone's holiday would not. The top half is a set of saturated patches that land outside the
-/// output gamut, which is what the gamut compression is for; the bottom is a twelve-stop luminance
-/// ramp, which shows the film's toe and shoulder.
+/// Generated in code, so it adds nothing to the app's size and is identical on every run. The top
+/// half is saturated patches outside the output gamut, to exercise gamut compression. The bottom is
+/// a twelve-stop luminance ramp, which shows the film's toe and shoulder.
 ///
-/// Reached with `-sample` as a launch argument, so it never appears for a user.
+/// Loaded by the `-sample` launch argument. Users never see it.
 enum SampleScene {
     static var isRequested: Bool {
         ProcessInfo.processInfo.arguments.contains("-sample")
     }
 
-    /// Scene-linear values, deliberately including some above 1.0 so the highlight roll-off is
-    /// visible. The engine treats its input as scene light, not as display values.
+    /// The tap named by `-tap <name>`, such as `-tap cmy_film` for the negative.
+    static var requestedTap: Tap? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-tap"), index + 1 < arguments.count else {
+            return nil
+        }
+        return Tap(rawValue: arguments[index + 1])
+    }
+
+    /// Scene-linear values, some above 1.0 so the highlight roll-off is visible.
     static func make(width: Int = 900, height: Int = 1200) -> CGImage? {
         let patches: [(Double, Double, Double)] = [
             (0.85, 0.12, 0.10), (0.92, 0.45, 0.06), (0.88, 0.78, 0.10),

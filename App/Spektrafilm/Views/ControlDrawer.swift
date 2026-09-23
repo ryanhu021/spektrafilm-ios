@@ -1,11 +1,9 @@
 import SpektraFilm
 import SwiftUI
 
-/// The controls, grouped by where they sit in the physical process.
+/// The controls, grouped in pipeline order: camera, film, enlarger, paper.
 ///
-/// Camera, then film, then enlarger, then paper. The grouping is the pipeline, so a user learning the
-/// app learns the model: exposure happens in the camera, the colour balance happens at the enlarger,
-/// and contrast belongs to the paper.
+/// Exposure is set at the camera, colour balance at the enlarger, and contrast by the paper.
 struct ControlDrawer: View {
     @Bindable var model: EditorModel
 
@@ -168,13 +166,13 @@ struct ControlDrawer: View {
                 label: "yellow", tint: Safelight.yellow,
                 shift: dialBinding(\.enlarger.yFilterShift),
                 range: -40...40, neutral: params.enlarger.yFilterNeutral,
-                onChanged: { model.settle() }, onEnded: { model.settle() })
+                onEnded: { model.settle() })
 
             DichroicDial(
                 label: "magenta", tint: Safelight.magenta,
                 shift: dialBinding(\.enlarger.mFilterShift),
                 range: -40...40, neutral: params.enlarger.mFilterNeutral,
-                onChanged: { model.settle() }, onEnded: { model.settle() })
+                onEnded: { model.settle() })
 
             SectionLabel("exposure")
             Knob(
@@ -196,8 +194,7 @@ struct ControlDrawer: View {
         }
     }
 
-    /// Writes through `scrub`, so a control being dragged renders at the 83 ms tier and a release
-    /// asks for the 343 ms one.
+    /// Writes through `scrub`, so a dragged control renders at 320 px. Its `onEnded` asks for 640.
     private func scrubBinding(
         _ keyPath: WritableKeyPath<RuntimePhotoParams, Double>
     ) -> Binding<Double> {
@@ -206,7 +203,7 @@ struct ControlDrawer: View {
             set: { new in model.scrub { $0[keyPath: keyPath] = new } })
     }
 
-    /// A dial binding, same behaviour. The dial reports its own gesture end.
+    /// The same, for a dial.
     private func dialBinding(
         _ keyPath: WritableKeyPath<RuntimePhotoParams, Double>
     ) -> Binding<Double> {
@@ -321,7 +318,7 @@ private struct Knob: View {
     }
 }
 
-/// The stock catalogue. Names in serif, because they are product names off a datasheet.
+/// The stock catalogue.
 private struct StockList: View {
     let profiles: [Profile]
     let selection: String?
