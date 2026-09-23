@@ -94,6 +94,7 @@ public func runTopology(
                 value: "declares \(node.writes.count) writes but produced \(outputs.count)")
         }
         for (tap, value) in zip(node.writes, outputs) { state[tap] = value }
+
         onFire?(node, elapsed)
 
         if let result = state[collect] { return result }

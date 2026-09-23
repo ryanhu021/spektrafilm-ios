@@ -101,6 +101,64 @@ public struct ImageBuffer: Sendable, Equatable {
         return out
     }
 
+    // MARK: - In-place transforms
+
+    /// Applies `transform` to every value, reusing the storage.
+    ///
+    /// The pipeline's peak footprint is what caps export size on iOS, and it is set by how many
+    /// full-frame buffers are live at once rather than by how many are allocated over the run. A
+    /// `map` that returns a new buffer doubles the frame for the duration; this does not.
+    @inlinable
+    public mutating func transformInPlace(_ transform: (Double) -> Double) {
+        values.withUnsafeMutableBufferPointer { buffer in
+            guard let p = buffer.baseAddress else { return }
+            for i in 0..<buffer.count { p[i] = transform(p[i]) }
+        }
+    }
+
+    /// Applies `transform` per channel, reusing the storage. The closure receives the channel index.
+    @inlinable
+    public mutating func transformInPlace(_ transform: (Int, Double) -> Double) {
+        let channels = self.channels
+        values.withUnsafeMutableBufferPointer { buffer in
+            guard let p = buffer.baseAddress else { return }
+            for i in 0..<buffer.count { p[i] = transform(i % channels, p[i]) }
+        }
+    }
+
+    /// Scales every value by a per-channel factor, reusing the storage.
+    @inlinable
+    public mutating func scaleInPlace(_ factors: (Double, Double, Double)) {
+        precondition(channels == 3, "per-channel scale expects 3 channels")
+        let f = [factors.0, factors.1, factors.2]
+        values.withUnsafeMutableBufferPointer { buffer in
+            guard let p = buffer.baseAddress else { return }
+            for i in stride(from: 0, to: buffer.count, by: 3) {
+                p[i] *= f[0]
+                p[i + 1] *= f[1]
+                p[i + 2] *= f[2]
+            }
+        }
+    }
+
+    /// `self = combine(self, other)` elementwise, reusing this buffer's storage.
+    ///
+    /// Lets a two-buffer blend finish with two live frames instead of three.
+    @inlinable
+    public mutating func combineInPlace(
+        with other: ImageBuffer, _ combine: (Double, Double) -> Double
+    ) {
+        precondition(
+            other.count == count, "combineInPlace needs matching shapes")
+        other.values.withUnsafeBufferPointer { source in
+            guard let s = source.baseAddress else { return }
+            values.withUnsafeMutableBufferPointer { buffer in
+                guard let p = buffer.baseAddress else { return }
+                for i in 0..<buffer.count { p[i] = combine(p[i], s[i]) }
+            }
+        }
+    }
+
     /// Row-band height that keeps a `channels`-deep intermediate under `budgetBytes`.
     ///
     /// Always at least one row, even when a single row blows the budget. A very wide panorama ends
