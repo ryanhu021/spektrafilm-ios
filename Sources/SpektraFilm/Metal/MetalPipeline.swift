@@ -142,15 +142,12 @@ final class MetalPipeline {
         return try grain(density, pixelSizeMicrons: pixelSize)
     }
 
-    /// Grain on the CPU until its Metal port lands.
+    /// ``Grain/apply``, with the CPU's seed.
     private func grain(_ density: GPUFrame, pixelSizeMicrons: Double) throws -> GPUFrame {
-        guard params.filmRender.grain.active else { return density }
-        let grained = Grain.apply(
-            density.download(), pixelSizeMicrons: pixelSizeMicrons,
-            params: params.filmRender.grain, densityCurves: filmCurves,
-            densityCurvesLayers: params.film.data.densityCurvesLayers,
-            positive: params.film.isPositive, seed: 0, bypass: false, spatial: filming.spatial)
-        return try GPUFrame(c, uploading: grained)
+        try MetalGrain.apply(
+            c, density, pixelSizeMicrons: pixelSizeMicrons, params: params.filmRender.grain,
+            densityCurves: filmCurves, densityCurvesLayers: params.film.data.densityCurvesLayers,
+            positive: params.film.isPositive, seed: 0, bypass: false)
     }
 
     // MARK: - Printing

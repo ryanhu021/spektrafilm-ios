@@ -129,5 +129,24 @@ struct MetalTests {
         let report = parity(gpu.values, cpu.values)
         #expect(report.maxAbsolute < 1e-4 && report.rootMeanSquare < 1e-5, "\(report)")
     }
+
+    /// Grain on. The GPU's Poisson draws equal the CPU's at nearly every counter, so the two
+    /// renders should agree at nearly every pixel, and on average everywhere.
+    @Test("a Metal render with grain tracks the CPU")
+    func grainRender() throws {
+        var params = try RuntimePhotoParams.make(film: "kodak_portra_400", print: "kodak_portra_endura")
+        params.camera.autoExposure = false
+        let input = try Golden("photo_input").imageBuffer()
+        let cpu = try Simulator(params, backend: .cpu).process(input)
+        let gpu = try Simulator(params, backend: .metal).process(input)
+        let differences = zip(gpu.values, cpu.values).map { abs($0 - $1) }
+        let far = differences.filter { $0 > 1e-4 }.count
+        let meanDifference =
+            zip(gpu.values, cpu.values).map { $0 - $1 }.reduce(0, +)
+            / Double(cpu.values.count)
+        // Measured: 11 of 31 500 values differ by over 1e-4, and the mean difference is 9.4e-8.
+        #expect(Double(far) / Double(cpu.values.count) < 0.01)
+        #expect(abs(meanDifference) < 1e-5)
+    }
 }
 #endif
