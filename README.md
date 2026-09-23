@@ -106,7 +106,7 @@ phone measurements; a phone has fewer cores.
 
 | What | Time | Peak memory |
 |---|---|---|
-| Simulator construction | 16 ms | |
+| Simulator construction | 1.5 ms, 9 ms the first time | |
 | 320 px preview, grain off | 19 ms | |
 | 640 px preview, grain off | 57 ms | |
 | 640 px with grain and spatial effects | 94 ms | |

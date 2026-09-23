@@ -5,8 +5,8 @@ import SpektraFilm
 /// Runs the engine off the main thread, one render at a time.
 ///
 /// `Simulator` holds the per-film spectral LUT and the midgray references and is not `Sendable`, so
-/// only this actor touches it. The simulator is cached and rebuilt when the parameters change;
-/// construction costs about 16 ms, about as long as a scrub render.
+/// only this actor touches it. The simulator is cached and rebuilt when the parameters change, which
+/// costs about 1.5 ms.
 actor RenderService {
     /// Which of the three measured budgets a request is asking for.
     enum Quality: Sendable, Comparable {

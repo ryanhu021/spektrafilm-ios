@@ -27,22 +27,27 @@ public struct TCLUTCompressionBake: InputGamutCompressionBake {
         let width = tcLUT.width
         var out = ImageBuffer(height: height, width: width, channels: 3)
 
-        for i in 0..<height {
-            for j in 0..<width {
-                // Cell (i, j) sits at tc = (i / (H-1), j / (W-1)).
-                let tc = TCCoordinate(
-                    x: Double(i) / Double(height - 1), y: Double(j) / Double(width - 1))
-                let xy = ChromaticityCoordinates.quadToTri(tc)
-                let compressed = InputGamutCompression.compress(
-                    (x: xy.x, y: xy.y), white: referenceIlluminantXY, spec: spec)
-                let source = ChromaticityCoordinates.triToQuad(
-                    x: compressed.x, y: compressed.y)
+        out.values.withUnsafeMutableBufferPointer { buffer in
+            let o = buffer.baseAddress!
+            Parallel.forEachChunk(of: height, cost: width * 64) { rows in
+                for i in rows {
+                    for j in 0..<width {
+                        // Cell (i, j) sits at tc = (i / (H-1), j / (W-1)).
+                        let tc = TCCoordinate(
+                            x: Double(i) / Double(height - 1), y: Double(j) / Double(width - 1))
+                        let xy = ChromaticityCoordinates.quadToTri(tc)
+                        let compressed = InputGamutCompression.compress(
+                            (x: xy.x, y: xy.y), white: referenceIlluminantXY, spec: spec)
+                        let source = ChromaticityCoordinates.triToQuad(
+                            x: compressed.x, y: compressed.y)
 
-                let sampled = Self.bilinearNearestEdge(
-                    tcLUT,
-                    row: source.x * Double(height - 1),
-                    column: source.y * Double(width - 1))
-                for c in 0..<3 { out[i, j, c] = sampled[c] }
+                        let sampled = Self.bilinearNearestEdge(
+                            tcLUT,
+                            row: source.x * Double(height - 1),
+                            column: source.y * Double(width - 1))
+                        for c in 0..<3 { o[(i * width + j) * 3 + c] = sampled[c] }
+                    }
+                }
             }
         }
         return out

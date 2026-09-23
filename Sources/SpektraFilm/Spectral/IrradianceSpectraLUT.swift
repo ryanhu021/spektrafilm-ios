@@ -91,33 +91,37 @@ public struct IrradianceSpectraLUT: Sendable {
         var out = ImageBuffer(height: n, width: n, channels: 3)
 
         array.withPayload { raw in
-            var spectrum = [Double](repeating: 0, count: k)
-            var blurred = [Double](repeating: 0, count: k)
             out.values.withUnsafeMutableBufferPointer { output in
                 operand.values.withUnsafeBufferPointer { s in
-                    for cell in 0..<(n * n) {
-                        let base = cell * k
-                        for l in 0..<k {
-                            spectrum[l] = NumpyArray.double(
-                                fromBinary16: raw.loadUnaligned(
-                                    fromByteOffset: (base + l) * 2, as: UInt16.self))
+                    let o = output.baseAddress!
+                    let w = s.baseAddress!
+                    Parallel.forEachChunk(of: n * n, cost: k * 4) { cells in
+                        var spectrum = [Double](repeating: 0, count: k)
+                        var blurred = [Double](repeating: 0, count: k)
+                        for cell in cells {
+                            let base = cell * k
+                            for l in 0..<k {
+                                spectrum[l] = NumpyArray.double(
+                                    fromBinary16: raw.loadUnaligned(
+                                        fromByteOffset: (base + l) * 2, as: UInt16.self))
+                            }
+                            if let blur {
+                                blur.apply(spectrum, into: &blurred)
+                                swap(&spectrum, &blurred)
+                            }
+                            var r = 0.0
+                            var g = 0.0
+                            var b = 0.0
+                            for l in 0..<k {
+                                let v = spectrum[l]
+                                r += v * w[l * 3]
+                                g += v * w[l * 3 + 1]
+                                b += v * w[l * 3 + 2]
+                            }
+                            o[cell * 3] = r
+                            o[cell * 3 + 1] = g
+                            o[cell * 3 + 2] = b
                         }
-                        if let blur {
-                            blur.apply(spectrum, into: &blurred)
-                            swap(&spectrum, &blurred)
-                        }
-                        var r = 0.0
-                        var g = 0.0
-                        var b = 0.0
-                        for l in 0..<k {
-                            let v = spectrum[l]
-                            r += v * s[l * 3]
-                            g += v * s[l * 3 + 1]
-                            b += v * s[l * 3 + 2]
-                        }
-                        output[cell * 3] = r
-                        output[cell * 3 + 1] = g
-                        output[cell * 3 + 2] = b
                     }
                 }
             }
