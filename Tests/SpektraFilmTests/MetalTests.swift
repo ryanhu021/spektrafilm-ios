@@ -148,5 +148,49 @@ struct MetalTests {
         #expect(Double(far) / Double(cpu.values.count) < 0.01)
         #expect(abs(meanDifference) < 1e-5)
     }
+
+    /// The float32 entry point, with auto-exposure on so the GPU-side metering runs, against the
+    /// float64 entry point on the same backend.
+    @Test("the float32 entry point matches the float64 one", arguments: [false, true])
+    func floatEntryPoint(grain: Bool) throws {
+        var params = try RuntimePhotoParams.make(film: "kodak_portra_400", print: "kodak_portra_endura")
+        params.camera.autoExposure = true
+        params.filmRender.grain.active = grain
+        let input = try Golden("photo_input").imageBuffer()
+        let simulator = try Simulator(params, resampler: SkimageResampler(), backend: .metal)
+        let reference = try simulator.process(input)
+        let output = try simulator.processFloat(
+            height: input.height, width: input.width,
+            fill: { pixels in for i in 0..<pixels.count { pixels[i] = Float(input.values[i]) } },
+            read: { pixels, height, width in
+                ImageBuffer(
+                    height: height, width: width, channels: 3, values: pixels.map(Double.init))
+            })
+        #expect(output.height == reference.height && output.width == reference.width)
+        #expect(simulator.timings["preprocess"] != nil)
+        let report = parity(output.values, reference.values)
+        let far = zip(output.values, reference.values).filter { abs($0 - $1) > 1e-4 }.count
+        // Measured without grain at 6.8e-6, the float32 rounding of the input and the gain. With
+        // grain, 6 of 31 500 values differ by over 1e-4, where that rounding flips a Poisson draw.
+        if grain {
+            #expect(Double(far) / Double(output.values.count) < 0.01, "\(far) values differ")
+        } else {
+            #expect(report.maxAbsolute < 1e-5, "\(report)")
+        }
+    }
+
+    /// The same entry point against the oracle.
+    @Test("the float32 entry point meets the parity tolerance", arguments: PhotographParityTests.combinations)
+    func floatParity(combination: (label: String, film: String, paper: String)) throws {
+        var params = try RuntimePhotoParams.make(film: combination.film, print: combination.paper)
+        params.camera.autoExposure = false
+        params.debug.lutMode = true
+        let input = try Golden("photo_input").imageBuffer()
+        let out = try Simulator(params, backend: .metal).processFloat(
+            height: input.height, width: input.width,
+            fill: { pixels in for i in 0..<pixels.count { pixels[i] = Float(input.values[i]) } },
+            read: { pixels, _, _ in pixels.map(Double.init) })
+        try expectParity(out, matches: "photo_\(combination.label)")
+    }
 }
 #endif

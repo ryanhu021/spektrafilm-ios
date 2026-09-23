@@ -51,7 +51,7 @@ public final class ResizingService {
     }
 
     public func cropAndRescale(_ image: ImageBuffer) throws -> ImageBuffer {
-        pixelSizeMicrons = filmFormatMillimetres * 1000 / Double(max(image.height, image.width))
+        setPixelSize(height: image.height, width: image.width)
 
         var result = image
         if io.crop {
@@ -62,6 +62,11 @@ public final class ResizingService {
             result = try resampler.rescale(result, factor: io.upscaleFactor, order: 3)
         }
         return result
+    }
+
+    /// The film format spread over the frame's long edge.
+    func setPixelSize(height: Int, width: Int) {
+        pixelSizeMicrons = filmFormatMillimetres * 1000 / Double(max(height, width))
     }
 
     /// `small_preview`. Auto-exposure meters on this.

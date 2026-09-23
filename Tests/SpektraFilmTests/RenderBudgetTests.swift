@@ -66,4 +66,20 @@ struct RenderBudgetTests {
             ImageBuffer(height: 48, width: 64, channels: 3, repeating: 0.184))
         #expect(out.height == 48 && out.width == 64)
     }
+
+    /// Pinned like the CPU figure. The Metal float32 path measured 227 MB at 2 MP, 480 MB at 6 and
+    /// 914 MB at 12 in release with Tools/memprofile --float, one measurement per process.
+    @Test("the Metal cost model is the measured one, and allows the larger frame")
+    func metalModel() {
+        #expect(RenderBudget.metalFixedBytes == 96 * 1_048_576)
+        #expect(RenderBudget.metalBytesPerMegapixel == 72 * 1_048_576)
+        for (megapixels, measured) in [(2.0, 227.0), (6.0, 480.0), (12.0, 914.0)] {
+            let modelled =
+                Double(
+                    RenderBudget.metalFixedBytes + RenderBudget.metalBytesPerMegapixel
+                        * Int(megapixels)) / 1_048_576
+            #expect(modelled >= measured, "\(megapixels) MP: model \(modelled) MB, measured \(measured)")
+        }
+        #expect(RenderBudget.maximumMegapixels(gpu: true) > RenderBudget.maximumMegapixels())
+    }
 }

@@ -38,6 +38,47 @@ public final class Simulator {
         try pipeline.process(image, inject: inject, collect: collect)
     }
 
+    /// Renders float32 RGB, interleaved `[height][width][3]`, end to end.
+    ///
+    /// `fill` writes the input pixels and `read` receives the output with its dimensions. On the
+    /// Metal backend the input goes straight into GPU-visible memory and the output is read from
+    /// it, so no float64 copy of the frame is ever made: at 12 MP that is 576 MB less peak memory
+    /// than ``process(_:)``. Otherwise the pixels go through an ``ImageBuffer``.
+    public func processFloat<T>(
+        height: Int, width: Int,
+        fill: (UnsafeMutableBufferPointer<Float>) throws -> Void,
+        read: (UnsafeBufferPointer<Float>, _ height: Int, _ width: Int) throws -> T
+    ) throws -> T {
+        #if canImport(Metal)
+        if let metal = pipeline.floatPipeline, let context = MetalContext.shared {
+            var input: GPUFrame? = try GPUFrame(context, height: height, width: width, channels: 3)
+            try fill(UnsafeMutableBufferPointer(start: input!.floats, count: height * width * 3))
+            let out = try pipeline.process(taking: &input, collect: .rgbOut, pipeline: metal)
+            return try read(
+                UnsafeBufferPointer(start: out.floats, count: out.count), out.height, out.width)
+        }
+        #endif
+        var floats = [Float](repeating: 0, count: height * width * 3)
+        try floats.withUnsafeMutableBufferPointer { try fill($0) }
+        let image = ImageBuffer(
+            height: height, width: width, channels: 3, values: floats.map(Double.init))
+        floats = []
+        let out = try pipeline.process(image)
+        let result = out.values.map(Float.init)
+        return try result.withUnsafeBufferPointer { try read($0, out.height, out.width) }
+    }
+
+    /// Whether ``processFloat(height:width:fill:read:)`` runs on the GPU, which sets its memory
+    /// cost: ``RenderBudget/metalBytesPerMegapixel`` rather than
+    /// ``RenderBudget/bytesPerMegapixel``.
+    public var rendersFloatOnGPU: Bool {
+        #if canImport(Metal)
+        return pipeline.floatPipeline != nil && MetalContext.shared != nil
+        #else
+        return false
+        #endif
+    }
+
     /// Per-node wall-clock times from the last run.
     public var timings: [String: TimeInterval] { pipeline.timings }
 

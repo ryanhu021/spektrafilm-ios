@@ -67,19 +67,23 @@ public final class FilmingStage {
     /// `auto_exposure`. Meters a small preview and scales the whole frame.
     public func autoExposure(_ image: ImageBuffer) throws -> ImageBuffer {
         guard camera.autoExposure else { return image }
-        let preview = try resizing.smallPreview(image)
-        let ev = AutoExposure.measureEV(
-            preview,
-            colourSpace: inputColourSpace,
-            applyCCTFDecoding: io.inputCCTFDecoding,
-            method: camera.autoExposureMethod)
-        let gain = Foundation.pow(2.0, ev)
+        let gain = autoExposureGain(preview: try resizing.smallPreview(image))
         var out = image
         out.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }
             for i in 0..<buf.count { p[i] *= gain }
         }
         return out
+    }
+
+    /// The gain auto-exposure applies, metered on `preview`.
+    func autoExposureGain(preview: ImageBuffer) -> Double {
+        let ev = AutoExposure.measureEV(
+            preview,
+            colourSpace: inputColourSpace,
+            applyCCTFDecoding: io.inputCCTFDecoding,
+            method: camera.autoExposureMethod)
+        return Foundation.pow(2.0, ev)
     }
 
     /// Computes the 18% grey references. Must run before the printing stage exposes anything.

@@ -10,6 +10,7 @@
 //   .build/release/memprofile 2 --tap cmy_film   # peak to reach one tap
 //   .build/release/memprofile 2 --spectral       # the spectral upsampling call alone
 //   .build/release/memprofile 2 --warm           # time a second render, after one-time setup
+//   .build/release/memprofile 2 --float          # the float32 entry point, as the app uses it
 //
 // Environment toggles: SPK_PREVIEW=1 for the app's preview tiers, SPK_METAL=1 for the Metal backend,
 // and SPK_NO_HALATION, SPK_NO_GRAIN, SPK_NO_COUPLERS, SPK_NO_GLARE to switch one operator off.
@@ -110,9 +111,13 @@ let simulator = try Simulator(params, resampler: SkimageResampler(), backend: ba
 let constructionSeconds = Double(DispatchTime.now().uptimeNanoseconds - constructionStarted) / 1e9
 
 let baseline = footprintBytes()
-var values = [Double](repeating: 0, count: width * height * 3)
+// The float32 entry point writes its own input, so it gets no float64 frame to hold.
+let floatInput = arguments.contains("--float")
+let inputHeight = floatInput ? 1 : height
+let inputWidth = floatInput ? 1 : width
+var values = [Double](repeating: 0, count: inputWidth * inputHeight * 3)
 for i in values.indices { values[i] = Double((i * 7919) % 1000) / 1000.0 * 1.2 }
-let image = ImageBuffer(height: height, width: width, channels: 3, values: values)
+let image = ImageBuffer(height: inputHeight, width: inputWidth, channels: 3, values: values)
 let withInput = footprintBytes()
 
 let megapixels = Double(width * height) / 1e6
@@ -122,11 +127,30 @@ let tapOnly = arguments.contains("--tap")
 if !spectralOnly && !tapOnly {
     // `--warm` renders once untimed first, so one-time work (the gamut envelopes, which are cached
     // for the process) is excluded, as it is for every render after the app's first.
-    if arguments.contains("--warm") { _ = try simulator.process(image) }
+    func renderFloat() throws -> Double {
+        // The float32 entry point, as the app calls it: the pixels are written straight into the
+        // input, and only one output value is read back.
+        try simulator.processFloat(
+            height: height, width: width,
+            fill: { pixels in
+                for i in 0..<pixels.count {
+                    pixels[i] = Float(Double((i * 7919) % 1000) / 1000 * 1.2)
+                }
+            },
+            read: { pixels, _, _ in Double(pixels[0]) })
+    }
+    if arguments.contains("--warm") {
+        if floatInput { _ = try renderFloat() } else { _ = try simulator.process(image) }
+    }
     let sampler = PeakSampler()
     sampler.start()
     let started = DispatchTime.now().uptimeNanoseconds
-    let output = try simulator.process(image)
+    let output: ImageBuffer
+    if floatInput {
+        output = ImageBuffer(height: 1, width: 1, channels: 1, values: [try renderFloat()])
+    } else {
+        output = try simulator.process(image)
+    }
     let seconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e9
     let peak = sampler.stop()
 

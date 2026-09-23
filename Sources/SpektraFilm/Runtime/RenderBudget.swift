@@ -28,8 +28,15 @@ import os
 /// whole sublayer split in grain, and the input, a copy and two blurs in halation.
 public enum RenderBudget {
 
-    /// Measured peak footprint per megapixel, in bytes.
+    /// Measured peak footprint per megapixel, in bytes, on the CPU backend.
     public static let bytesPerMegapixel = 125 * 1_048_576
+
+    /// The Metal backend's float32 path, ``Simulator/processFloat(height:width:fill:read:)``: a
+    /// fixed part for the driver and staging, and a per-megapixel part for the float32 frames.
+    /// Measured at 227 MB for 2 MP, 480 MB for 6 MP and 914 MB for 12 MP, which fits 90 MB plus
+    /// 69 MB per megapixel. Both are rounded up here.
+    public static let metalFixedBytes = 96 * 1_048_576
+    public static let metalBytesPerMegapixel = 72 * 1_048_576
 
     /// Fraction of the available allowance to spend.
     ///
@@ -49,21 +56,26 @@ public enum RenderBudget {
         return Int(ProcessInfo.processInfo.physicalMemory / 2)
     }
 
-    /// The largest frame worth attempting, in megapixels.
+    /// The largest frame worth attempting, in megapixels, on the CPU or, with `gpu`, on the
+    /// Metal backend's float32 path.
     ///
     /// Never below 0.5 MP: a device that cannot manage that cannot run the engine at all, and
     /// returning zero would leave the caller with nothing to render.
-    public static func maximumMegapixels() -> Double {
+    public static func maximumMegapixels(gpu: Bool = false) -> Double {
         let spend = Double(availableBytes()) * safetyFraction
-        return max(0.5, spend / Double(bytesPerMegapixel))
+        let megapixels =
+            gpu
+            ? (spend - Double(metalFixedBytes)) / Double(metalBytesPerMegapixel)
+            : spend / Double(bytesPerMegapixel)
+        return max(0.5, megapixels)
     }
 
     /// The long edge to render at, for a source of the given size.
     ///
     /// Returns `nil` when the source already fits, so the caller can render it untouched.
-    public static func longEdge(forWidth width: Int, height: Int) -> Int? {
+    public static func longEdge(forWidth width: Int, height: Int, gpu: Bool = false) -> Int? {
         let megapixels = Double(width * height) / 1e6
-        let limit = maximumMegapixels()
+        let limit = maximumMegapixels(gpu: gpu)
         guard megapixels > limit else { return nil }
         let scale = (limit / megapixels).squareRoot()
         return max(1, Int((Double(max(width, height)) * scale).rounded()))

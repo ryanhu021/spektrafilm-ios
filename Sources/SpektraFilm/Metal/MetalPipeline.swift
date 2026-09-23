@@ -66,6 +66,47 @@ final class MetalPipeline {
     func run(
         _ rgbPre: ImageBuffer, collect: Tap, timings: inout [String: TimeInterval]
     ) throws -> ImageBuffer {
+        var input: GPUFrame? = try GPUFrame(c, uploading: rgbPre)
+        return try run(taking: &input, collect: collect, timings: &timings).download()
+    }
+
+    /// Whether a float32 frame can enter here directly, skipping ``ResizingService``'s crop and
+    /// rescale, which work on ``ImageBuffer``s.
+    var acceptsFloatInput: Bool { !params.io.crop && params.io.upscaleFactor == 1 }
+
+    /// Preprocessing for a float32 frame, in place: the metering and its gain, and the pixel size.
+    /// ``FilmingStage/autoExposure(_:)`` and ``ResizingService/cropAndRescale(_:)`` without the
+    /// float64 frame.
+    func preprocess(_ frame: GPUFrame) throws {
+        if params.camera.autoExposure {
+            let gain = filming.autoExposureGain(preview: Self.preview(of: frame))
+            try MetalElementwise.scale(c, frame, by: gain)
+        }
+        resizing.setPixelSize(height: frame.height, width: frame.width)
+    }
+
+    /// ``ResizingService/smallPreview(_:maxSize:)`` of a float32 frame, read in place.
+    static func preview(of frame: GPUFrame, maxSize: Int = 256) -> ImageBuffer {
+        let pixels = frame.floats
+        let w = frame.width
+        let ch = frame.channels
+        let longEdge = max(frame.height, frame.width)
+        guard longEdge > maxSize else { return frame.download() }
+        let factor = Double(maxSize) / Double(longEdge)
+        let outHeight = max(1, Int((Double(frame.height) * factor).rounded(.toNearestOrEven)))
+        let outWidth = max(1, Int((Double(frame.width) * factor).rounded(.toNearestOrEven)))
+        let sigmaY = max(0, (Double(frame.height) / Double(outHeight) - 1) / 2)
+        let sigmaX = max(0, (Double(frame.width) / Double(outWidth) - 1) / 2)
+        return SkimageResampler.sampled(
+            height: frame.height, width: w, channels: ch, outHeight: outHeight,
+            outWidth: outWidth, sigmaY: sigmaY, sigmaX: sigmaX
+        ) { y, x, c in Double(pixels[(y * w + x) * ch + c]) }
+    }
+
+    /// Runs from `rgb_pre`, held only by `input`, to `collect`, and returns that tap as a frame.
+    func run(
+        taking input: inout GPUFrame?, collect: Tap, timings: inout [String: TimeInterval]
+    ) throws -> GPUFrame {
         func timed<T>(_ label: String, _ body: () throws -> T) rethrows -> T {
             let start = DispatchTime.now().uptimeNanoseconds
             defer {
@@ -77,23 +118,23 @@ final class MetalPipeline {
 
         // Each stage takes the only reference to its input, so a consumed frame is freed before
         // the next one is allocated. Peak memory is what caps export size.
-        var frame: GPUFrame? = try timed("filming.expose") { try expose(rgbPre) }
-        if collect == .logExposureFilm { return frame!.download() }
+        var frame: GPUFrame? = try timed("filming.expose") { try expose(taking: &input) }
+        if collect == .logExposureFilm { return frame! }
 
         frame = try timed("filming.develop") { try developFilm(taking: &frame) }
-        if collect == .cmyFilm { return frame!.download() }
+        if collect == .cmyFilm { return frame! }
 
         if params.io.scanFilm {
-            return try timed("scanning.scan_film") { try scan(taking: &frame) }.download()
+            return try timed("scanning.scan_film") { try scan(taking: &frame) }
         }
 
         frame = try timed("printing.expose") { try exposePrint(taking: &frame) }
-        if collect == .logExposurePrint { return frame!.download() }
+        if collect == .logExposurePrint { return frame! }
 
         frame = try timed("printing.develop") { try developPrint(frame!) }
-        if collect == .cmyPrint { return frame!.download() }
+        if collect == .cmyPrint { return frame! }
 
-        return try timed("scanning.scan_print") { try scan(taking: &frame) }.download()
+        return try timed("scanning.scan_print") { try scan(taking: &frame) }
     }
 
     /// Moves the frame out of `slot`, leaving it empty.
@@ -105,12 +146,9 @@ final class MetalPipeline {
     // MARK: - Filming
 
     /// ``FilmingStage/expose(_:)``.
-    private func expose(_ rgbPre: ImageBuffer) throws -> GPUFrame {
-        var raw: GPUFrame
-        do {
-            let rgb = try GPUFrame(c, uploading: rgbPre)
-            raw = try MetalFilm.rgbToRaw(c, rgb, converter: converter, lut: lut, lutSize: lutSize)
-        }
+    private func expose(taking slot: inout GPUFrame?) throws -> GPUFrame {
+        var raw = try MetalFilm.rgbToRaw(
+            c, take(&slot), converter: converter, lut: lut, lutSize: lutSize)
         try MetalElementwise.scale(c, raw, by: pow(2.0, params.camera.exposureCompensationEV))
 
         let halation = params.filmRender.halation

@@ -105,6 +105,29 @@ public final class SimulationPipeline {
         #endif
     }
 
+    #if canImport(Metal)
+    /// The float32 entry point's GPU path, when it applies: the Metal backend, and no crop or
+    /// rescale.
+    var floatPipeline: MetalPipeline? {
+        guard let metal, metal.acceptsFloatInput else { return nil }
+        return metal
+    }
+
+    /// Runs from `rgb_in` to `collect` on a float32 frame held only by `input`.
+    func process(
+        taking input: inout GPUFrame?, collect: Tap, pipeline metal: MetalPipeline
+    ) throws -> GPUFrame {
+        timings.removeAll()
+        let start = DispatchTime.now().uptimeNanoseconds
+        defer { elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9 }
+        let preprocessStart = DispatchTime.now().uptimeNanoseconds
+        try metal.preprocess(input!)
+        timings["preprocess"] =
+            Double(DispatchTime.now().uptimeNanoseconds - preprocessStart) / 1e9
+        return try metal.run(taking: &input, collect: collect, timings: &timings)
+    }
+    #endif
+
     /// Runs the pipeline. Defaults to end to end, `rgbIn` to `rgbOut`.
     public func process(
         _ image: ImageBuffer, inject: Tap? = nil, collect: Tap? = nil
