@@ -6,21 +6,21 @@ import Foundation
 /// the stock's spectral sensitivities to get camera raw, propagated through the optical effects that
 /// happen before and inside the emulsion, then developed into dye density.
 public final class FilmingStage {
-    private let film: Profile
-    private let filmRender: FilmRenderingParams
-    private let camera: CameraParams
-    private let io: IOParams
-    private let settings: SettingsParams
-    private let resizing: ResizingService
-    private let enlarger: EnlargerService
-    private let colourReference: ColorReferenceService
-    private let spatial: any SpatialFilter
+    let film: Profile
+    let filmRender: FilmRenderingParams
+    let camera: CameraParams
+    let io: IOParams
+    let settings: SettingsParams
+    let resizing: ResizingService
+    let enlarger: EnlargerService
+    let colourReference: ColorReferenceService
+    let spatial: any SpatialFilter
 
-    private let inputColourSpace: ColourSpace
-    private let referenceIlluminant: Illuminant
+    let inputColourSpace: ColourSpace
+    let referenceIlluminant: Illuminant
     /// `10 ** log_sensitivity`, with NaN zeroed, and the band-pass filter folded in when engaged.
-    private let sensitivity: [Double]
-    private let tcLUT: ImageBuffer?
+    let sensitivity: [Double]
+    let tcLUT: ImageBuffer?
 
     /// The 18% grey references the print balance needs. Computed here because they depend on the
     /// film profile and the camera exposure, and consumed by the printing stage.
@@ -149,7 +149,7 @@ public final class FilmingStage {
     ///
     /// The colour space defaults to the configured input space, which is what `expose` wants. The
     /// midgray reference overrides it; see ``simpleRGBToSpectralDensity(_:)``.
-    private func rgbToFilmRaw(
+    func rgbToFilmRaw(
         _ rgb: ImageBuffer,
         colourSpace: ColourSpace? = nil,
         applyCCTFDecoding: Bool? = nil
@@ -173,7 +173,7 @@ public final class FilmingStage {
     /// sRGB-relative. 0.184 in ProPhoto RGB is a different colour: using the input space here
     /// shifts the print exposure factor by 3.2e-5 in log space, a uniform 1.8e-3 error on the
     /// rendered output.
-    private func simpleRGBToSpectralDensity(_ rgb: ImageBuffer) throws -> ImageBuffer {
+    func simpleRGBToSpectralDensity(_ rgb: ImageBuffer) throws -> ImageBuffer {
         var raw = try rgbToFilmRaw(rgb, colourSpace: ColourSpace.sRGB, applyCCTFDecoding: false)
         raw.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }

@@ -13,6 +13,11 @@ public final class SimulationPipeline {
     private let printing: PrintingStage
     private let scanning: ScanningStage
     private let topology: [Node]
+    #if canImport(Metal)
+    /// Everything from `rgb_pre` onward, on the GPU, when the backend is Metal and every operator
+    /// these parameters reach has a Metal path.
+    private let metal: MetalPipeline?
+    #endif
 
     /// Per-node wall-clock times from the last run.
     public private(set) var timings: [String: TimeInterval] = [:]
@@ -88,6 +93,16 @@ public final class SimulationPipeline {
         topology = Self.buildTopology(
             io: params.io, resizing: resizing, filming: filming, printing: printing,
             scanning: scanning)
+
+        #if canImport(Metal)
+        if backend == .metal, let context = MetalContext.shared, MetalPipeline.supports(params) {
+            metal = try MetalPipeline(
+                context: context, params: params, resizing: resizing, filming: filming,
+                printing: printing, scanning: scanning)
+        } else {
+            metal = nil
+        }
+        #endif
     }
 
     /// Runs the pipeline. Defaults to end to end, `rgbIn` to `rgbOut`.
@@ -100,6 +115,19 @@ public final class SimulationPipeline {
         timings.removeAll()
         let start = DispatchTime.now().uptimeNanoseconds
         defer { elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9 }
+
+        #if canImport(Metal)
+        if let metal, from == .rgbIn || from == .rgbPre, to != .rgbIn, to != .rgbPre {
+            var pre = image
+            if from == .rgbIn {
+                pre = try runTopology(topology, inject: .rgbIn, collect: .rgbPre, image: image) {
+                    node, seconds in
+                    self.timings[node.label, default: 0] += seconds
+                }
+            }
+            return try metal.run(pre, collect: to, timings: &timings)
+        }
+        #endif
 
         return try runTopology(topology, inject: from, collect: to, image: image) {
             node, seconds in

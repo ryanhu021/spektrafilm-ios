@@ -40,6 +40,10 @@ actor RenderService {
 
         static func < (a: Quality, b: Quality) -> Bool { a.rank < b.rank }
 
+        /// Previews render on the GPU. Export stays on the CPU until the Metal pipeline's peak
+        /// memory is below the CPU's, since ``RenderBudget`` sizes the export from the CPU's.
+        var backend: ComputeBackend { self == .full ? .cpu : .metal }
+
         /// Preview mode drops grain and the expensive blurs while keeping the halation kernel widths.
         var previewMode: Bool {
             switch self {
@@ -64,6 +68,7 @@ actor RenderService {
 
     private var simulator: Simulator?
     private var simulatorParams: RuntimePhotoParams?
+    private var simulatorBackend: ComputeBackend?
 
     func render(
         source: CGImage,
@@ -80,7 +85,7 @@ actor RenderService {
             : quality.longEdge
         let buffer = try ImageBridge.buffer(from: source, longEdge: cap)
 
-        let simulator = try simulator(for: params)
+        let simulator = try simulator(for: params, backend: quality.backend)
         let started = DispatchTime.now().uptimeNanoseconds
         let rendered = try simulator.process(buffer, inject: nil, collect: tap)
         let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
@@ -106,13 +111,17 @@ actor RenderService {
         )
     }
 
-    private func simulator(for params: RuntimePhotoParams) throws -> Simulator {
-        if let simulator, simulatorParams == params { return simulator }
-        // Auto-exposure meters on a downsampled preview, so the resampler is not optional. The Metal
-        // backend meets the same parity tolerance as the CPU, and falls back to it without a GPU.
-        let built = try Simulator(params, resampler: SkimageResampler(), backend: .metal)
+    private func simulator(
+        for params: RuntimePhotoParams, backend: ComputeBackend
+    ) throws -> Simulator {
+        if let simulator, simulatorParams == params, simulatorBackend == backend {
+            return simulator
+        }
+        // Auto-exposure meters on a downsampled preview, so the resampler is not optional.
+        let built = try Simulator(params, resampler: SkimageResampler(), backend: backend)
         simulator = built
         simulatorParams = params
+        simulatorBackend = backend
         return built
     }
 

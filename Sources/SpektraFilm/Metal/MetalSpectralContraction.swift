@@ -11,20 +11,42 @@ import Metal
 enum MetalSpectralContraction {
     static let bandPixels = 1 << 20
 
+    /// The contraction of a whole ``GPUFrame``, for the Metal pipeline, where the frame is already
+    /// float32 and no staging is needed.
     static func project(
         _ context: MetalContext,
-        cmy: ImageBuffer,
+        frame cmy: GPUFrame,
         channelDensity: [Double],
         baseDensity: [Double],
         illuminant: [Double],
         response: [Double],
         scale: Double = 1.0
-    ) throws -> ImageBuffer {
+    ) throws -> GPUFrame {
+        var table = Self.table(channelDensity, baseDensity, illuminant, response)
+        let out = try GPUFrame(context, height: cmy.height, width: cmy.width, channels: 3)
+        var count = UInt32(cmy.pixelCount)
+        var wavelengths = UInt32(ColourTables.wavelengthCount)
+        var floatScale = Float(scale)
+        try context.dispatch("spectral_project", count: cmy.pixelCount) { encoder in
+            encoder.setBuffer(cmy.buffer, offset: 0, index: 0)
+            encoder.setBytes(&table, length: table.count * 4, index: 1)
+            encoder.setBuffer(out.buffer, offset: 0, index: 2)
+            encoder.setBytes(&count, length: 4, index: 3)
+            encoder.setBytes(&wavelengths, length: 4, index: 4)
+            encoder.setBytes(&floatScale, length: 4, index: 5)
+        }
+        return out
+    }
+
+    /// Per wavelength: the three dye weights, the base density, the illuminant and the three
+    /// response values.
+    static func table(
+        _ channelDensity: [Double], _ baseDensity: [Double], _ illuminant: [Double],
+        _ response: [Double]
+    ) -> [Float] {
         let wavelengths = ColourTables.wavelengthCount
-        precondition(cmy.channels == 3, "density buffer must have 3 channels")
         precondition(channelDensity.count == wavelengths * 3 && baseDensity.count == wavelengths)
         precondition(illuminant.count == wavelengths && response.count == wavelengths * 3)
-
         var table = [Float](repeating: 0, count: wavelengths * 8)
         for l in 0..<wavelengths {
             table[l * 8] = Float(channelDensity[l * 3])
@@ -36,6 +58,21 @@ enum MetalSpectralContraction {
             table[l * 8 + 6] = Float(response[l * 3 + 1])
             table[l * 8 + 7] = Float(response[l * 3 + 2])
         }
+        return table
+    }
+
+    static func project(
+        _ context: MetalContext,
+        cmy: ImageBuffer,
+        channelDensity: [Double],
+        baseDensity: [Double],
+        illuminant: [Double],
+        response: [Double],
+        scale: Double = 1.0
+    ) throws -> ImageBuffer {
+        let wavelengths = ColourTables.wavelengthCount
+        precondition(cmy.channels == 3, "density buffer must have 3 channels")
+        let table = Self.table(channelDensity, baseDensity, illuminant, response)
 
         let band = min(bandPixels, max(1, cmy.pixelCount))
         context.stagingLock.lock()

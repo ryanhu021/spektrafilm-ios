@@ -7,20 +7,20 @@ import Foundation
 /// that into an exposure. Paper needs no coupler model: it never samples a scene, so it is designed
 /// with little channel cross-talk.
 public final class PrintingStage {
-    private let film: Profile
-    private let filmRender: FilmRenderingParams
-    private let print: Profile
-    private let printRender: PrintRenderingParams
-    private let enlargerParams: EnlargerParams
-    private let settings: SettingsParams
-    private let enlarger: EnlargerService
-    private let resizing: ResizingService
-    private let colourReference: ColorReferenceService
-    private let spatial: any SpatialFilter
-    private let projector: SpectralProjector
+    let film: Profile
+    let filmRender: FilmRenderingParams
+    let print: Profile
+    let printRender: PrintRenderingParams
+    let enlargerParams: EnlargerParams
+    let settings: SettingsParams
+    let enlarger: EnlargerService
+    let resizing: ResizingService
+    let colourReference: ColorReferenceService
+    let spatial: any SpatialFilter
+    let projector: SpectralProjector
 
-    private let paperSensitivity: [Double]
-    private let lampSpectrum: [Double]
+    let paperSensitivity: [Double]
+    let lampSpectrum: [Double]
 
     public init(
         film: Profile,
@@ -54,26 +54,13 @@ public final class PrintingStage {
 
     /// `expose`.
     public func expose(_ cmyFilmDensity: ImageBuffer) throws -> ImageBuffer {
-        // The colour reference service needs the paper exposure at the negative's extremes. Grain's
-        // densityMin sets the floor; the curves' per-channel maxima set the ceiling.
-        let black = ImageBuffer(
-            height: 1, width: 1, channels: 3,
-            values: [
-                -filmRender.grain.densityMin.0,
-                -filmRender.grain.densityMin.1,
-                -filmRender.grain.densityMin.2,
-            ])
-        let white = ImageBuffer(
-            height: 1, width: 1, channels: 3, values: film.data.densityCurveMaxima)
-        colourReference.logRawPrintBlack = filmCMYToPrintLogRaw(black)
-        colourReference.logRawPrintWhite = filmCMYToPrintLogRaw(white)
+        prepareColourReferences()
 
         // One binding for the frame: a second one keeps the storage shared, and the in-place passes
         // below then copy it.
         var raw = filmCMYToPrintLogRaw(cmyFilmDensity)
 
-        let exposureScale =
-            enlargerParams.printExposure * (try colourReference.printingExposureCorrection())
+        let exposureScale = try printExposureScale()
         raw.transformInPlace { Foundation.pow(10.0, $0) * exposureScale }
 
         if enlargerParams.diffusionFilter.active, let pixelSize = resizing.pixelSizeMicrons {
@@ -85,6 +72,26 @@ public final class PrintingStage {
         return raw
     }
 
+    /// The colour reference service needs the paper exposure at the negative's extremes. Grain's
+    /// densityMin sets the floor; the curves' per-channel maxima set the ceiling.
+    func prepareColourReferences() {
+        let black = ImageBuffer(
+            height: 1, width: 1, channels: 3,
+            values: [
+                -filmRender.grain.densityMin.0,
+                -filmRender.grain.densityMin.1,
+                -filmRender.grain.densityMin.2,
+            ])
+        let white = ImageBuffer(
+            height: 1, width: 1, channels: 3, values: film.data.densityCurveMaxima)
+        colourReference.logRawPrintBlack = filmCMYToPrintLogRaw(black)
+        colourReference.logRawPrintWhite = filmCMYToPrintLogRaw(white)
+    }
+
+    func printExposureScale() throws -> Double {
+        enlargerParams.printExposure * (try colourReference.printingExposureCorrection())
+    }
+
     /// `develop`.
     public func develop(_ logRaw: ImageBuffer) throws -> ImageBuffer {
         try Develop.print(
@@ -94,7 +101,7 @@ public final class PrintingStage {
     // MARK: - The spectral map
 
     /// `_film_cmy_to_print_log_raw`.
-    private func filmCMYToPrintLogRaw(_ cmyFilmDensity: ImageBuffer) -> ImageBuffer {
+    func filmCMYToPrintLogRaw(_ cmyFilmDensity: ImageBuffer) -> ImageBuffer {
         let printIlluminant = enlarger.filteredIlluminant(lampSpectrum)
         var raw = projector.project(
             cmy: cmyFilmDensity,
@@ -114,7 +121,7 @@ public final class PrintingStage {
 
     /// `_compute_raw_preflash`. Pre-flashing exposes the paper through the film base only, which
     /// lifts the shadows and holds highlights.
-    private func rawPreflash(printIlluminant: [Double]) -> [Double] {
+    func rawPreflash(printIlluminant: [Double]) -> [Double] {
         guard enlargerParams.preflashExposure > 0 else { return [0, 0, 0] }
         let preflashIlluminant = enlarger.preflashIlluminant(lampSpectrum)
         let base = ImageBuffer(
@@ -130,7 +137,7 @@ public final class PrintingStage {
     /// Two independent switches. `normalizePrintExposure` puts an 18% grey patch at the paper's own
     /// midscale; `printExposureCompensation` follows the camera's exposure compensation so changing
     /// the negative exposure does not also change the print's brightness.
-    private func exposureFactorMidgray(printIlluminant: [Double]) -> [Double] {
+    func exposureFactorMidgray(printIlluminant: [Double]) -> [Double] {
         guard let midgray = enlarger.densitySpectralMidgray else { return [1, 1, 1] }
         let factor = Self.exposureFactor(
             sensitivity: paperSensitivity, illuminant: printIlluminant, midgray: midgray)

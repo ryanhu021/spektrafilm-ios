@@ -82,5 +82,52 @@ struct MetalTests {
         let out = try Simulator(params, backend: .metal).process(input)
         try expectParity(out.values, matches: "photo_\(combination.label)")
     }
+
+    /// Every tap across the four film, paper and output-space cases, through the GPU pipeline,
+    /// against the oracle at the CPU's tolerance.
+    @Test(
+        "every tap of a Metal render matches the oracle",
+        arguments: EndToEndTests.cases, EndToEndTests.taps)
+    func tapParity(
+        testCase: (label: String, film: String, paper: String, output: String),
+        tap: (tap: Tap, slug: String)
+    ) throws {
+        var params = try RuntimePhotoParams.make(film: testCase.film, print: testCase.paper)
+        params.camera.autoExposure = false
+        params.debug.lutMode = true
+        params.io.outputColourSpace = testCase.output
+        let input = try Golden("pipeline_ramp_input").imageBuffer()
+        let out = try Simulator(params, backend: .metal).process(input, inject: nil, collect: tap.tap)
+        try expectParity(out.values, matches: "pipeline_\(testCase.label)_\(tap.slug)")
+    }
+
+    @Test(
+        "scanning the negative on Metal matches the oracle",
+        arguments: [(Tap.logExposureFilm, "log_e_film"), (.cmyFilm, "cmy_film"), (.rgbOut, "rgb_out")])
+    func scanFilmParity(tap: Tap, slug: String) throws {
+        var params = try RuntimePhotoParams.make(
+            film: "kodak_portra_400", print: "kodak_portra_endura")
+        params.camera.autoExposure = false
+        params.debug.lutMode = true
+        params.io.scanFilm = true
+        let input = try Golden("pipeline_ramp_input").imageBuffer()
+        let out = try Simulator(params, backend: .metal).process(input, inject: nil, collect: tap)
+        try expectParity(out.values, matches: "pipeline_scanfilm_portra400_\(slug)")
+    }
+
+    /// The spatial effects and glare are off in lut_mode, so the oracle fixtures do not reach
+    /// them. This renders with everything but grain on, and compares the GPU against the CPU.
+    @Test("a full Metal render with the spatial effects matches the CPU")
+    func spatialRender() throws {
+        var params = try RuntimePhotoParams.make(film: "kodak_portra_400", print: "kodak_portra_endura")
+        params.camera.autoExposure = false
+        params.filmRender.grain.active = false
+        let input = try Golden("photo_input").imageBuffer()
+        let cpu = try Simulator(params, backend: .cpu).process(input)
+        let gpu = try Simulator(params, backend: .metal).process(input)
+        // Measured at 2.1e-6 max_abs and 8.2e-8 RMS.
+        let report = parity(gpu.values, cpu.values)
+        #expect(report.maxAbsolute < 1e-4 && report.rootMeanSquare < 1e-5, "\(report)")
+    }
 }
 #endif

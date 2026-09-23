@@ -99,10 +99,7 @@ public final class ColorReferenceService {
 
     /// Applied in the scanning stage, scaling XYZ by the correction of its luminance.
     public func correctXYZ(_ xyz: ImageBuffer) throws -> ImageBuffer {
-        if isIdentity { return xyz }
-        // Negative film scanned directly is left alone: there is no white to anchor to.
-        if scanFilm && film.isNegative { return xyz }
-
+        guard try xyzCorrection() != nil else { return xyz }
         let (apply, _) = try correction()
         var out = xyz
         out.values.withUnsafeMutableBufferPointer { buf in
@@ -116,6 +113,15 @@ public final class ColorReferenceService {
             }
         }
         return out
+    }
+
+    /// The line `correctXYZ` maps Y through before clamping, or `nil` when it leaves the frame
+    /// alone. Negative film scanned directly is left alone: there is no white to anchor to.
+    func xyzCorrection() throws -> (m: Double, q: Double)? {
+        if isIdentity { return nil }
+        if scanFilm && film.isNegative { return nil }
+        let line = try correctionLine()
+        return (line.m, line.q)
     }
 
     // MARK: - References
@@ -159,6 +165,11 @@ public final class ColorReferenceService {
     /// With only one correction enabled, the other end anchors to the measured reference, which
     /// leaves that end untouched.
     private func correction() throws -> (apply: (Double) -> Double, midgrayCorrected: Double) {
+        let (m, q) = try correctionLine()
+        return ({ y in min(max(m * y + q, 0), 1) }, (0.184 - q) / m)
+    }
+
+    private func correctionLine() throws -> (m: Double, q: Double) {
         guard let yBlack, let yWhite else {
             throw SpektraError.unsupportedSetting(
                 "scanner black/white correction", value: "references have not been measured")
@@ -169,8 +180,7 @@ public final class ColorReferenceService {
         if whiteCorrection && !blackCorrection { black = yBlack }
 
         let m = (white - black) / (yWhite - yBlack + 1e-10)
-        let q = black - m * yBlack
-        return ({ y in min(max(m * y + q, 0), 1) }, (0.184 - q) / m)
+        return (m, black - m * yBlack)
     }
 
     // MARK: - Helpers

@@ -9,23 +9,23 @@ import Foundation
 /// Whether the negative or the print is scanned is decided by `io.scanFilm`, and it changes which
 /// profile supplies the dyes, the base density and the illuminant.
 public final class ScanningStage {
-    private let film: Profile
-    private let filmRender: FilmRenderingParams
-    private let print: Profile
-    private let printRender: PrintRenderingParams
-    private let scanner: ScannerParams
-    private let io: IOParams
-    private let settings: SettingsParams
-    private let colourReference: ColorReferenceService
-    private let spatial: any SpatialFilter
-    private let projector: SpectralProjector
-    private let outputColourSpace: ColourSpace
+    let film: Profile
+    let filmRender: FilmRenderingParams
+    let print: Profile
+    let printRender: PrintRenderingParams
+    let scanner: ScannerParams
+    let io: IOParams
+    let settings: SettingsParams
+    let colourReference: ColorReferenceService
+    let spatial: any SpatialFilter
+    let projector: SpectralProjector
+    let outputColourSpace: ColourSpace
 
     /// The medium being scanned, and the light it is viewed under.
-    private let channelDensity: [Double]
-    private let baseDensity: [Double]
-    private let scanIlluminant: [Double]
-    private let normalisation: Double
+    let channelDensity: [Double]
+    let baseDensity: [Double]
+    let scanIlluminant: [Double]
+    let normalisation: Double
 
     public init(
         film: Profile,
@@ -80,7 +80,7 @@ public final class ScanningStage {
 
     // MARK: - Density to RGB
 
-    private func densityToRGB(_ density: ImageBuffer) throws -> ImageBuffer {
+    func densityToRGB(_ density: ImageBuffer) throws -> ImageBuffer {
         // One binding for the frame: a second one keeps the storage shared, and the in-place pass
         // below then copies it.
         var xyz = spectralCompute(density)
@@ -102,7 +102,7 @@ public final class ScanningStage {
     /// ``Glare/add(_:illuminantXYZ:glare:seed:spatial:)`` returns a new frame while this stage still
     /// holds the old one, so the two would overlap. The glare field is still a whole plane: it is
     /// one channel, and the blur needs all of it.
-    private func addGlare(_ xyz: inout ImageBuffer, illuminantXYZ: (Double, Double, Double)) {
+    func addGlare(_ xyz: inout ImageBuffer, illuminantXYZ: (Double, Double, Double)) {
         // The reference passes no glare on the scan-film branch. `film_render.glare` is dead.
         guard !io.scanFilm else { return }
         let params = printRender.glare
@@ -129,7 +129,7 @@ public final class ScanningStage {
     ///
     /// In the reference, `use_scanner_lut` replaces this with a coarse 3D LUT. It defaults off and
     /// the reference calls the LUT an approximation, so only the direct path is ported.
-    private func spectralCompute(_ density: ImageBuffer) -> ImageBuffer {
+    func spectralCompute(_ density: ImageBuffer) -> ImageBuffer {
         Self.cmyToLogXYZ(
             density, channelDensity: channelDensity, baseDensity: baseDensity,
             illuminant: scanIlluminant, normalisation: normalisation, projector: projector)
@@ -159,7 +159,7 @@ public final class ScanningStage {
     /// The unsharp mask is expanded here instead of calling
     /// ``Diffusion/applyUnsharpMask(_:sigma:amount:)``, which returns a new frame while this stage
     /// still holds the old one and the blur, three frames at once.
-    private func applyBlurAndUnsharp(_ rgb: inout ImageBuffer) {
+    func applyBlurAndUnsharp(_ rgb: inout ImageBuffer) {
         if scanner.lensBlur > 0 {
             rgb = Diffusion.applyGaussianBlur(rgb, sigmaPixels: scanner.lensBlur)
         }
@@ -171,7 +171,7 @@ public final class ScanningStage {
         }
     }
 
-    private func applyCCTFEncoding(_ rgb: inout ImageBuffer) {
+    func applyCCTFEncoding(_ rgb: inout ImageBuffer) {
         guard io.outputCCTFEncoding else { return }
         // The reference routes this through RGB_to_RGB with the same space in and out, which applies
         // a near-identity matrix before the transfer function.
