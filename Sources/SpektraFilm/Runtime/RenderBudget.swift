@@ -40,7 +40,7 @@ public enum RenderBudget {
     /// Bytes this process may still allocate before the system intervenes.
     ///
     /// On iOS this is `os_proc_available_memory`, which reports the remaining jetsam allowance.
-    /// Elsewhere it reports the physical memory, since a desktop process is not jetsammed.
+    /// Elsewhere it reports half the physical memory, since a desktop process is not jetsammed.
     public static func availableBytes() -> Int {
         #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
         let available = os_proc_available_memory()

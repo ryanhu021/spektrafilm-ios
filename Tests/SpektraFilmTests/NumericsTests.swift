@@ -58,10 +58,10 @@ struct NumericsTests {
         #expect(max(Double.nan, 3).isNaN)
     }
 
-    /// `num_fmax` contains both signed-zero orders, but the golden cannot check them: `parity()`
-    /// compares `abs(a - e)`, which is 0 for `-0.0` against `+0.0`. `np.fmax` returns `+0.0` for the
-    /// tie in either order, measured over array lengths 1 to 100. `Double.maximum` returns the second
-    /// operand, so this test catches a substitution.
+    /// `num_fmax` contains both signed-zero orders, and `parity()` counts signed-zero mismatches.
+    /// This asserts the tie directly as well: `np.fmax` returns `+0.0` in either order, measured
+    /// over array lengths 1 to 100, and `Double.maximum` returns the second operand, so a
+    /// substitution fails here by name.
     @Test("npFmax breaks the signed-zero tie the way np.fmax does")
     func fmaxTieOnSignedZero() {
         #expect(npFmax(0.0, -0.0).sign == .plus)

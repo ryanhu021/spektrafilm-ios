@@ -33,8 +33,8 @@ KNEE_SWEEP = np.concatenate([
     np.array([0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 5.0, 1e3, 1e9]),
 ])
 
-# Eight chromaticities: white itself, just off white, three outside the locus on different sides,
-# the origin and a high-y point.
+# Eight chromaticities: white, just off white, two near the red and blue ends of the locus, the sRGB
+# and BT.2020 red primaries, the origin and a high-y point.
 XY_CASES = np.array([
     [1.0 / 3.0, 1.0 / 3.0],
     [0.35, 0.36],

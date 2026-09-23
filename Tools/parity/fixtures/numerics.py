@@ -3,9 +3,10 @@
 Nothing here is stochastic and almost everything is closed form, so the Swift side gates these at
 bit equality, or at 1e-15 for the two sums where NumPy accumulates pairwise.
 
-Non-finite values are kept out of the compared arrays. `Golden.swift`'s `parity()` computes
-`abs(a - e)`, and `inf - inf` is NaN, which poisons the RMS instead of failing loudly. The infinity
-cases are asserted directly in `NumericsTests.swift` against values measured here.
+Infinities are kept out of the compared arrays. `Golden.swift`'s `parity()` computes `abs(a - e)`,
+and `inf - inf` is NaN, which turns the RMS into NaN and hides which value failed. NaN itself is
+fine, since `parity()` matches NaN against NaN. The infinity cases are asserted directly in
+`NumericsTests.swift` against values measured here.
 """
 
 from __future__ import annotations
@@ -46,9 +47,8 @@ SPOW_CASES = [
 # comparison treats NaN as equal to NaN, so a Swift `max` that propagated NaN would show up as a
 # NaN mismatch.
 #
-# The two signed-zero rows are for documentation only. The Swift comparison is
-# abs(actual - expected), which is 0 for -0.0 against +0.0, so the golden cannot check the sign of
-# the tie; NumericsTests.fmaxTieOnSignedZero pins it against the values measured here.
+# The two signed-zero rows pin the sign of the tie: `parity()` counts signed-zero mismatches, and
+# NumericsTests.fmaxTieOnSignedZero also asserts them against the values measured here.
 FMAX_CASES = [
     (1.0, 2.0),
     (2.0, 1.0),

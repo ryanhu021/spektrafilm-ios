@@ -40,8 +40,8 @@ public enum SpectralUpsampling {
     /// `rgb_to_raw_hanatos2025`.
     ///
     /// `sensitivity` is read **only** when `tcLUT` is nil, which is the reference's uncached fallback:
-    /// it rebuilds the LUT with `HANATOS2025_NO_ADAPTATION` on every call. Production always passes a
-    /// LUT from ``FilmingTCLUTCache``.
+    /// it rebuilds the LUT with `HANATOS2025_NO_ADAPTATION` on every call. The render path passes the
+    /// LUT that `FilmingStage` builds once at construction.
     public static func rgbToRawHanatos2025(
         rgb: ImageBuffer,
         sensitivity: SpectralMatrix,
@@ -98,8 +98,8 @@ public enum SpectralUpsampling {
 
 /// A film's RGB-to-raw conversion with everything per-film hoisted out of the pixel loop.
 ///
-/// Built once per render and reused across row bands: the composed CAT16 matrix, the transfer
-/// function and the `tc_lut` all depend only on the film and the input colour space.
+/// The composed CAT16 matrix, the transfer function and the `tc_lut` depend only on the film and
+/// the input colour space, so they are computed before the pixel loop.
 public struct Hanatos2025RawConverter: Sendable {
     public let matrix: Matrix3
     public let transfer: TransferFunction

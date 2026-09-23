@@ -69,8 +69,8 @@ public enum SpectralLocus {
 /// Input gamut compression: pulls CIE 1931 chromaticities back inside the visible spectral locus,
 /// where the Hanatos 2025 spectral upsampling is defined.
 ///
-/// Runs at LUT bake time, not per pixel. The caller that bakes it into a film's `tc_lut` lives in the
-/// spectral-upsampling subsystem; this type only maps xy to xy.
+/// Runs at LUT bake time, not per pixel. ``TCLUTCompressionBake`` bakes it into a film's `tc_lut`;
+/// this type only maps xy to xy.
 ///
 /// With the default knee `(0.0, 1.0, 6.0)` there is no identity region: `(0.35, 0.36)` moves at the
 /// eighth decimal. A port that leaves anything untouched has the wrong knee.

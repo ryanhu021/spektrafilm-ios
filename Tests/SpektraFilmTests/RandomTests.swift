@@ -352,7 +352,7 @@ struct CounterIndependenceTests {
         #expect(a != b)
         var agreements = 0
         for i in 0..<count where a[i] == b[i] { agreements += 1 }
-        // Two independent Poisson(12) draws agree about 11.5 percent of the time.
+        // Two independent Poisson(12) draws agree about 8.2 percent of the time.
         #expect(agreements < count / 3, "\(agreements) of \(count) pixels agree")
     }
 }

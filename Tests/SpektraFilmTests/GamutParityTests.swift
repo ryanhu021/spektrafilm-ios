@@ -336,7 +336,7 @@ struct GamutParityTests {
     }
 
     /// The default path measures 8.1e-15 over the 1032-pixel sweep and 1.5e-14 over the realizable
-    /// sweep, twelve orders under the subsystem contract. The gate sits close to the measurement,
+    /// sweep, ten orders under the subsystem contract. The gate sits close to the measurement,
     /// so a regression that still fits inside the 1e-4 gate fails here.
     @Test("the default path agrees with the oracle to 1e-12")
     func defaultPathTightAgreement() throws {
@@ -426,7 +426,7 @@ struct GamutParityTests {
 
     /// Negative luminance makes CAM16's `J` negative, `spow(J/100, 0.5)` NaN, and the `C_max`
     /// lookup index non-finite. Unreachable from the pipeline, which guarantees `Y > 0`. The port
-    /// must not trap on the integer conversion; the numbers themselves are not worth matching.
+    /// must not trap on the integer conversion, and it matches the oracle's numbers there too.
     @Test("negative-luminance pixels do not crash")
     func negativeLuminance() throws {
         let input = try Golden("gamut_negative_input").values

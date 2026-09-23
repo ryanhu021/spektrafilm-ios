@@ -35,9 +35,9 @@ struct NpyTests {
         try NumpyArrayReader.bundled("irradiance_xy_tc", subdirectory: lutSubdirectory)
     }
 
-    /// Bit equality against a golden. `expectParity` cannot check this: it treats NaN as a skip,
-    /// `-0.0 == 0.0`, and `inf - inf` as NaN, so the widening's three special branches would all
-    /// pass unchecked.
+    /// Bit equality against a golden. `expectParity` cannot check this: it treats NaN as a skip and
+    /// `inf - inf` as NaN, so the widening's NaN and infinity branches would pass unchecked, and it
+    /// compares NaN payloads not at all.
     private func expectBitIdentical(
         _ actual: [Double],
         matches golden: String,
@@ -282,7 +282,7 @@ struct NpyTests {
     }
 
     /// `(0, 0)` and `(0, 191)` both decode to `xy = (1, 0)` but store different spectra. Without
-    /// them, a reader that collapsed axis 0 would still look plausible.
+    /// them, a reader that collapsed axis 1 would still look plausible.
     @Test("LUT corners and centre match numpy.load")
     func lutCorners() throws {
         let lut = try Self.lut()

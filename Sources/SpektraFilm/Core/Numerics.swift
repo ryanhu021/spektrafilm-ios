@@ -11,7 +11,7 @@ import Foundation
 /// This matches colour-science's **array** path. Its scalar path has an extra clause,
 /// `0 if a_p.ndim == 0 and np.isnan(a_p) else a_p`, which turns a NaN result into 0 for a 0-d
 /// input only. Every engine call site passes an array, so NaN propagates: `spow(nan, 2) = nan`
-/// and `spow(0, -1) = 0 * inf = nan`. The oracle confirms both, scalar and array.
+/// and `spow(0, -1) = 0 * inf = nan`. The oracle confirms both on the array path.
 @inlinable
 public func spow(_ a: Double, _ p: Double) -> Double {
     // np.sign(-0.0) is +0.0, and NaN * anything is NaN, so the NaN branch only needs to propagate

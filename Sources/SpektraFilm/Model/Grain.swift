@@ -207,7 +207,7 @@ public enum Grain {
         /// Mean, variance, skewness and excess kurtosis of the output at one pixel, given that
         /// pixel's three interpolated sublayer densities.
         ///
-        /// The three sublayers are independent, so the central moments add. The mean tracks the
+        /// The three sublayers are independent, so their cumulants add. The mean tracks the
         /// interpolated sublayer sum, not the input density: interpolating three sublayer curves at
         /// the total-density abscissa is not exactly additive.
         public func closedFormMoments(sublayerDensities: [Double], channel: Int) -> ParticleMoments {
@@ -685,7 +685,7 @@ public enum Grain {
         return out
     }
 
-    /// `apply_grain_to_density_layers`, the production path.
+    /// `apply_grain_to_density_layers`, the reference's production path.
     ///
     /// There is no division by a sublayer count. `density_max_fractions` splits the density, and
     /// its columns sum to 1, so `sum(density_min_layers)` over sublayers is `density_min` and the

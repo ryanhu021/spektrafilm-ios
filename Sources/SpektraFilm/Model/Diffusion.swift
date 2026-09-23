@@ -135,8 +135,8 @@ public enum Diffusion {
     ///
     /// Each pass runs when any channel has a non-zero size. A channel whose size is zero still goes
     /// through the filter, with its width floored to 1e-6. At that width the FIR radius is 0, a
-    /// single unit tap, so the pass is an exact copy for that channel. Skipping the channel instead
-    /// would change the arithmetic.
+    /// single unit tap, so the blur returns the channel unchanged. The pass's blend still runs on
+    /// it, so skipping the channel would change its last bits.
     public static func applyHalation(
         _ raw: consuming ImageBuffer, _ halation: HalationParams, pixelSizeMicrons: Double
     ) -> ImageBuffer {
@@ -618,7 +618,7 @@ public enum Diffusion {
     ///
     /// `ceil(max(8 * lambda_bloom_max_px, 5))`, then clamped to `max(min(H, W) / 2 - 1, 1)`. The 8x
     /// budget comes from the 2D radial CDF of a single exponential, `1 - (1 + r/l) exp(-r/l)`, which
-    /// reaches 99.95% at `r = 8 l`. The clamp applies at real sizes: on a 6000x4000 frame it cuts
+    /// reaches 99.70% at `r = 8 l`. The clamp applies at real sizes: on a 6000x4000 frame it cuts
     /// pro_mist from 2229 and cinebloom from 3429 to 1999.
     public static func diffusionKernelRadius(
         _ params: DiffusionFilterParams, pixelSizeMicrons: Double, imageHeight: Int, imageWidth: Int

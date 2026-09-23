@@ -11,7 +11,7 @@ Measured agreement over 50k random XYZ samples:
     Oklab   forward / inverse   bit-identical
     JzAzBz  forward / inverse   bit-identical
     CAM16-UCS forward           5.7e-14
-    CAM16-UCS inverse           3.7e-14   (finite rows; NaN rows come from Y < 0)
+    CAM16-UCS inverse           3.7e-14   (finite rows only)
 
 Spec: specs/gamut_compression.md in the port-spec set.
 """

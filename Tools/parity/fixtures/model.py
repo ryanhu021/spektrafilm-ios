@@ -6,7 +6,7 @@ import numpy as np
 
 from fixture_registry import fixture
 
-# Two negatives and two positives. Velvia and Provia exercise the positive branch of the coupler
+# Two negatives and two positives. Velvia and Ektachrome exercise the positive branch of the coupler
 # inversion, where the shifted exposure axis runs backwards.
 STOCKS = ["kodak_portra_400", "kodak_vision3_500t", "fujifilm_velvia_100", "kodak_ektachrome_100"]
 

@@ -66,8 +66,8 @@ struct EnlargerParityTests {
         let open = filters.applyCC(to: flat, cc: (c: 0, m: 0, y: 0))
         #expect(open.allSatisfy { abs($0 - 1.0) < 1e-12 }, "zero CC should leave the beam alone")
 
-        // At 100 CC the dial is 0.1, so each filter's transmittance moves a tenth of the way from 1
-        // toward its pure value.
+        // At 100 CC the dial is 0.1, and each filter's transmittance moves nine tenths of the way
+        // from 1 toward its pure value.
         let hundred = filters.applyCC(to: flat, cc: (c: 100, m: 0, y: 0))
         for l in 0..<ColourTables.wavelengthCount {
             let pure = FilterTables.Dichroic.custom[l * 3]

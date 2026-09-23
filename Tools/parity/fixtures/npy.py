@@ -113,8 +113,8 @@ CASES: list[tuple[str, tuple[int, int], np.ndarray]] = [
 # Cases the Swift reader must reject. No value golden for these.
 REJECTED = {"npy_case_bad_fortran", "npy_case_bad_bigendian", "npy_case_bad_int"}
 
-# Cases whose payload is empty or a single scalar: asserted inline in Swift instead of against a
-# .spkg, because a zero-element golden makes every comparison trivially pass.
+# Cases asserted inline in Swift instead of against a .spkg: the rejected headers, which have no
+# value, and the empty payloads, since a zero-element golden makes every comparison pass.
 UNGOLDENED = REJECTED | {"npy_case_v1_f8_empty", "npy_case_v1_f8_empty_2d"}
 
 

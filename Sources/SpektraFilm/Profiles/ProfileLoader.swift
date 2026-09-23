@@ -3,8 +3,9 @@ import Foundation
 // MARK: - Decoding
 
 /// JSON `null` means the datasheet does not cover that wavelength. The reference loads it as NaN
-/// and keeps it: `nanmin` and `nanmax` skip it, and it passes through the spectral products so
-/// unmeasured bands contribute nothing. Decoding it as 0 would invent absorption.
+/// and keeps it: `nanmin` and `nanmax` skip it, and the spectral contraction turns the NaN light it
+/// produces into zero, so unmeasured bands contribute nothing. Decoding it as 0 would invent
+/// absorption.
 private func flatten(_ values: [Double?]) -> [Double] {
     values.map { $0 ?? .nan }
 }
@@ -173,8 +174,8 @@ public enum ProfileLibrary {
 
     /// The shape checks from `_validate_profile`, plus illuminant labels that resolve.
     ///
-    /// Checking illuminants at load time means an unknown label fails here, instead of becoming D50
-    /// without warning halfway through a render.
+    /// Checking illuminants at load time means an unknown label fails when the profile loads,
+    /// rather than later, when a pipeline is built around it.
     static func validate(_ profile: Profile, stock: String) throws {
         let d = profile.data
         let wavelengths = d.wavelengthCount

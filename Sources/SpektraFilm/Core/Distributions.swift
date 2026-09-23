@@ -96,8 +96,8 @@ public enum Distributions {
     /// A Poisson variate.
     ///
     /// Grain needs the full span the particle model produces, roughly 4.5 to 1.2e8: `sat` falls to
-    /// about 2e-6 when `uniformity` is 1 and the density saturates, and `lambda = N / sat` rises
-    /// with it (`grain.md` section 4.1). One algorithm does not cover that, so this is Knuth
+    /// about 2e-6 when `uniformity` is 1 and the density saturates, and `lambda = N * p / sat`
+    /// rises with it, `p` being near 1 there (`grain.md` section 4.1). One algorithm does not cover that, so this is Knuth
     /// below 10 and Hormann's transformed rejection at and above.
     ///
     /// A non-finite lambda yields 0. The reference paths give no single answer to copy: the exact

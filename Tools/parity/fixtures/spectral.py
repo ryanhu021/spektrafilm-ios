@@ -21,7 +21,7 @@ FILM_T = "kodak_vision3_500t"
 # Every 8th grid index plus the last one, so index 0 and index 191 are both sampled on both axes.
 DECIMATION = list(range(0, 192, 8)) + [191]
 
-# The eight cells the spec pins, in the order the Swift test reads them.
+# The six cells the spec pins, in the order the Swift test reads them.
 CELLS = [(0, 0), (0, 191), (191, 0), (191, 191), (96, 96), (85, 99)]
 
 # The production patch from the spec, plus eight patches that leave the visible locus: negative

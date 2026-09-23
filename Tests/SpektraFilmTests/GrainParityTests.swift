@@ -875,9 +875,9 @@ struct GrainBlurTests {
         #expect(FIRGaussianFilter.kernel(sigma: 1.0).count == 7)
     }
 
-    /// Grain is white noise before the final blur, so the standard deviation drops by exactly the
-    /// kernel's `sum(k^2)` per axis. Boundary pixels have inflated variance under reflect, hence the
-    /// interior crop.
+    /// Grain is white noise before the final blur, so the variance drops by the kernel's `sum(k^2)`
+    /// per axis, and the standard deviation by `sum(k^2)` over both. Boundary pixels have inflated
+    /// variance under reflect, hence the interior crop.
     @Test("the final blur retains the variance the kernel predicts")
     func blurVarianceRetention() throws {
         var params = quietParams()
@@ -900,7 +900,8 @@ struct GrainBlurTests {
             }
             let ratio =
                 SampleMoments(after).standardDeviation / SampleMoments(before).standardDeviation
-            // SE(sd)/sd is 1 percent at (64 - 16)^2 samples, twice over, so 4 percent is 3 sigma.
+            // Both renders share a seed, so the blurred field is the unblurred one filtered. The
+            // ratio deviates from the prediction by 0.5 to 1.3 percent across the channels.
             #expect(
                 abs(ratio / expected - 1.0) <= 0.04,
                 "channel \(c): std ratio \(ratio), kernel predicts \(expected)")
@@ -937,7 +938,7 @@ struct GrainBlurTests {
     /// `grain.md` section 4.3 says the stage is a no-op at 8.75 um per pixel and that sublayer 0
     /// first gets radius 1 at 5.83 um. Its own sigma table contradicts that: sublayer 0 blue is
     /// 0.1915 px at 8.75 um, above the radius-0 boundary, so eight of the nine planes are exact
-    /// identities and that one is not. Its kernel is `[1.19e-6, 0.9999976, 1.19e-6]`, three orders
+    /// identities and that one is not. Its kernel is `[1.19e-6, 0.9999976, 1.19e-6]`, two orders
     /// below the parity gate but nonzero.
     @Test("the dye-cloud blur touches one plane at 8.75 um and more at 5.83 um")
     func dyeCloudResolutionDependence() throws {

@@ -730,7 +730,7 @@ struct DiffusionParityTests {
 
     /// Gates a direct mirror-boundary correlation against the same golden as the FFT path, so a wrong
     /// boundary fold cannot pass on the golden alone. The *other* "reflect" convention is 4.7e-4 away
-    /// on this fixture and could pass a looser tolerance on a smoother one.
+    /// on this random fixture, but only 6.6e-6 away on a smooth one, inside the 1e-4 gate.
     @Test("the diffusion filter's boundary is the mirror fold, not the duplicated-edge reflection")
     func diffusionFilterBoundary() throws {
         let golden = "difffilter_bpm_48x60_px400_s1"

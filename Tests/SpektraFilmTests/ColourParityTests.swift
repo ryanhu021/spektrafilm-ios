@@ -38,9 +38,8 @@ struct ColourParityTests {
     }
 
     /// The sweep includes negatives. sRGB and BT.2020 use a signed power and stay finite, while
-    /// DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. A change to
-    /// clamping would still pass the parity test on the positive half, so this asserts the
-    /// behaviour directly.
+    /// DCI-P3 and Adobe RGB use colour-science's "Indeterminate" gamma and go NaN. This pins that
+    /// difference directly, without relying on the goldens.
     @Test("negative inputs keep colour-science's divergent handling")
     func negativeHandling() throws {
         #expect(TransferFunction.sRGB.encode(-0.5).isFinite)

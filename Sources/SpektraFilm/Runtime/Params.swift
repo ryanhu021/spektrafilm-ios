@@ -284,8 +284,9 @@ public struct InputGamutCompressSpec: Sendable, Equatable {
 }
 
 /// `OutputGamutCompressSpec`. Compresses out-of-gamut chromaticities into the output primaries cube,
-/// and with `lightnessCompression` also pulls above-white pixels back in. With both enabled the
-/// output is in [0, 1] without a downstream clip.
+/// and with `lightnessCompression` also pulls above-white pixels back in. With both enabled, the
+/// default `cam16ucs` keeps the output in [0, 1] without a downstream clip. The other perceptual
+/// algorithms overshoot slightly, up to 1.00675 for `jzazbz`.
 public struct OutputGamutCompressSpec: Sendable, Equatable {
     public enum Algorithm: String, Sendable, CaseIterable {
         /// Passes output RGB through. Nothing else clips in the runtime, so the result can leave

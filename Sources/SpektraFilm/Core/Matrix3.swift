@@ -110,9 +110,10 @@ public struct Matrix3: Sendable, Equatable {
 
     /// Applies the matrix to every pixel of a 3-channel buffer, in place.
     ///
-    /// A plain loop. `simd_double3x3` measured 2.3 ms against 3.8 ms over 4 MP, which is not worth
-    /// the column-major conversion when the spectral contractions in the same pipeline do 27 times
-    /// the arithmetic. Accelerate is worse still, 28.7 ms, since a K=3 gemm is all call overhead.
+    /// A plain loop, split across cores. Measured single-threaded over 4 MP, `simd_double3x3` took
+    /// 2.3 ms against the plain loop's 3.8 ms, too small a saving to justify the column-major
+    /// conversion when the spectral contractions in the same pipeline do 27 times the arithmetic.
+    /// Accelerate was slower, 28.7 ms, since a K=3 gemm is all call overhead.
     public func apply(to buffer: inout ImageBuffer) {
         precondition(buffer.channels == 3, "Matrix3 applies to 3-channel buffers")
         let a = m00, b = m01, c = m02
