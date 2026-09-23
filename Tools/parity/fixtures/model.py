@@ -433,3 +433,77 @@ def real_photograph():
         # The negative too, which is what the app's tap inspection shows.
         pipeline = SimulationPipeline(params)
         yield f"photo_{label}_negative", pipeline.process(image, collect="cmy_film")
+
+
+# (label, PrintCurvesMorphParams overrides). The first is the identity, which must reproduce the
+# fitted curves.
+MORPH_CASES = [
+    ("identity", {}),
+    ("contrast_up", {"gamma_factor": 1.3}),
+    ("split_speed", {"gamma_factor": 0.7, "gamma_factor_fast": 1.2, "gamma_factor_slow": 0.9}),
+    ("rgb", {"gamma_factor_red": 1.1, "gamma_factor_green": 0.95, "gamma_factor_blue": 1.05}),
+    ("exhaustion", {"developer_exhaustion": 0.5}),
+    ("combined", {"gamma_factor": 1.2, "gamma_factor_fast": 0.8, "developer_exhaustion": 0.8}),
+]
+
+
+@fixture
+def print_curves_morph():
+    """The print-curve morph on three papers, and on synthetic models for the unshipped branches.
+
+    Every shipped paper is negative-type with three layers and no sigma near the 0.05 floor, so the
+    positive branch, the index collisions of a two-layer model, the unscaled layer of a four-layer
+    model and the floor itself are covered by synthetic models.
+    """
+    from spektrafilm.profiles.io import DensityCurvesModel, load_profile
+    from spektrafilm.utils.morph_curves import PrintCurvesMorphParams, apply_print_curves_morph
+
+    for paper in ["kodak_portra_endura", "kodak_2383", "kodak_supra_endura"]:
+        profile = load_profile(paper)
+        log_exposure = np.asarray(profile.data.log_exposure)
+        yield f"morph_{paper}_log_exposure", log_exposure
+        for label, overrides in MORPH_CASES:
+            params = PrintCurvesMorphParams(active=True, **overrides)
+            curves = apply_print_curves_morph(
+                log_exposure, profile.data.density_curves_model, params,
+                profile_type=profile.info.type)
+            yield f"morph_{paper}_{label}", curves
+
+    axis = np.linspace(-2.0, 3.0, 64)
+    yield "morph_synthetic_log_exposure", axis
+    synthetic = {
+        "two_layer": DensityCurvesModel(
+            centers=[[0.2, 1.1], [0.3, 1.0], [0.1, 1.3]],
+            amplitudes=[[1.2, 0.9], [1.0, 1.1], [0.8, 1.3]],
+            sigmas=[[0.4, 0.3], [0.35, 0.45], [0.5, 0.25]]),
+        "four_layer": DensityCurvesModel(
+            centers=[[0.9, -0.2, 0.4, 1.5], [0.0, 0.6, 1.2, -0.5], [0.3, 0.3, 1.0, 1.8]],
+            amplitudes=[[0.5, 0.6, 0.7, 0.4], [0.6, 0.5, 0.4, 0.3], [0.4, 0.5, 0.6, 0.7]],
+            sigmas=[[0.3, 0.2, 0.25, 0.35], [0.2, 0.3, 0.4, 0.25], [0.3, 0.3, 0.2, 0.4]]),
+    }
+    for name, model in synthetic.items():
+        for profile_type in ["negative", "positive"]:
+            for label, overrides in MORPH_CASES + [("floor", {"gamma_factor": 6.0})]:
+                params = PrintCurvesMorphParams(active=True, **overrides)
+                curves = apply_print_curves_morph(axis, model, params, profile_type=profile_type)
+                yield f"morph_{name}_{profile_type}_{label}", curves
+
+
+@fixture
+def morph_render():
+    """The ramp through Portra 400 onto Portra Endura with the morph on, to check the wiring."""
+    from spektrafilm.runtime.params_builder import digest_params, init_params
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+    from spektrafilm.utils.morph_curves import PrintCurvesMorphParams
+
+    values = [0.02, 0.09, 0.184, 0.4, 0.9, 2.0]
+    ramp = np.zeros((2, 3, 3))
+    for i, v in enumerate(values):
+        ramp[i // 3, i % 3, :] = v
+    params = init_params(film_profile="kodak_portra_400", print_profile="kodak_portra_endura")
+    params.camera.auto_exposure = False
+    params.debug.lut_mode = True
+    params.print_render.density_curves_morph = PrintCurvesMorphParams(
+        active=True, gamma_factor=1.25, developer_exhaustion=0.4)
+    params = digest_params(params)
+    yield "morph_render_portra400_endura", SimulationPipeline(params).process(ramp)

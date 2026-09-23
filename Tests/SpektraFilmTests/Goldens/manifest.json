@@ -2307,6 +2307,462 @@
     "group": "midgray_steps",
     "nan_count": 0
   },
+  "morph_four_layer_negative_combined": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_contrast_up": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_exhaustion": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_floor": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_identity": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_rgb": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_negative_split_speed": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_combined": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_contrast_up": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_exhaustion": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_floor": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_identity": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_rgb": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_four_layer_positive_split_speed": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_combined": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_contrast_up": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_exhaustion": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_identity": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_log_exposure": {
+    "shape": [
+      256
+    ],
+    "bytes": 2064,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_rgb": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_2383_split_speed": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_combined": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_contrast_up": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_exhaustion": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_identity": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_log_exposure": {
+    "shape": [
+      256
+    ],
+    "bytes": 2064,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_rgb": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_portra_endura_split_speed": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_combined": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_contrast_up": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_exhaustion": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_identity": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_log_exposure": {
+    "shape": [
+      256
+    ],
+    "bytes": 2064,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_rgb": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_kodak_supra_endura_split_speed": {
+    "shape": [
+      256,
+      3
+    ],
+    "bytes": 6168,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_render_portra400_endura": {
+    "shape": [
+      2,
+      3,
+      3
+    ],
+    "bytes": 168,
+    "group": "morph_render",
+    "nan_count": 0
+  },
+  "morph_synthetic_log_exposure": {
+    "shape": [
+      64
+    ],
+    "bytes": 528,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_combined": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_contrast_up": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_exhaustion": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_floor": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_identity": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_rgb": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_negative_split_speed": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_combined": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_contrast_up": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_exhaustion": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_floor": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_identity": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_rgb": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
+  "morph_two_layer_positive_split_speed": {
+    "shape": [
+      64,
+      3
+    ],
+    "bytes": 1560,
+    "group": "print_curves_morph",
+    "nan_count": 0
+  },
   "npy_case_v1_f2_3d_values": {
     "shape": [
       2,

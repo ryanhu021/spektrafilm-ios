@@ -35,7 +35,6 @@ render:
 | Feature | Why |
 |---|---|
 | Mallett-2019 upsampling | sRGB only, and clips the input. Hanatos-2025 is the default. |
-| Print-curve morph | Needs a Brent solve per control point. Off by default. |
 | Resampling at order 3 | Only reachable from `io.upscaleFactor`. Needs the cubic spline prefilter. |
 | 3D enlarger and scanner LUTs | The reference calls them an approximation of its own direct path. |
 
