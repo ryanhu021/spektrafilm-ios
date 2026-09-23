@@ -5,6 +5,15 @@ import Metal
 /// ``OutputGamutCompressor`` on a ``GPUFrame``. The compressor's envelope is uploaded as built; the
 /// GPU never rebuilds it.
 enum MetalGamut {
+    /// Every algorithm but JzAzBz. Its PQ curve raises values to the power 134, which multiplies
+    /// the GPU's transcendental rounding by as much, and that rounding differs between GPU
+    /// generations: 3.3e-5 from the CPU on an M4 Pro, 1.6e-4 on CI's GPU, past the render's 1e-4
+    /// tolerance. A JzAzBz render compresses on the CPU instead.
+    static func supports(_ compressor: OutputGamutCompressor) -> Bool {
+        if case .perceptual(.jzazbz) = compressor.kind { return false }
+        return true
+    }
+
     /// Mirrors the `GamutParams` struct in ``MetalKernels/gamut``.
     struct Parameters {
         var mode: UInt32 = 0
@@ -38,6 +47,7 @@ enum MetalGamut {
         _ context: MetalContext, _ compressor: OutputGamutCompressor, to frame: GPUFrame
     ) throws {
         precondition(frame.channels == 3, "output gamut compression needs a 3-channel frame")
+        precondition(supports(compressor), "no Metal path for this algorithm")
         var p = Parameters()
         let matrices: [Matrix3]
         switch compressor.kind {
@@ -96,7 +106,7 @@ enum MetalGamut {
         switch space {
         case .oklch: return 1
         case .oklrab: return 2
-        case .jzazbz: return 3
+        case .jzazbz: preconditionFailure("JzAzBz has no Metal path")
         case .cam16ucs: return 4
         }
     }
@@ -104,7 +114,7 @@ enum MetalGamut {
     /// RGB to the space's cone stage, cone to opponent, opponent to cone, and cone back to RGB.
     ///
     /// Everything linear between the output RGB and each non-linearity folds into the outer two:
-    /// JzAzBz's ×100 and X'Y' shear, and CAM16's ×100 and `D_RGB` scaling. CAM16's opponent axes
+    /// CAM16's ×100 and `D_RGB` scaling. CAM16's opponent axes
     /// are not a matrix, so its middle two are unused.
     private static func foldedMatrices(
         _ compressor: OutputGamutCompressor, _ space: PerceptualSpace
@@ -118,19 +128,7 @@ enum MetalGamut {
                 toRGB * Oklab.lmsToXYZ,
             ]
         case .jzazbz:
-            let b = ColourTables.jzazbz_b
-            let g = ColourTables.jzazbz_g
-            let scale = OutputGamutCompressor.jzazbzWhiteLuminance
-            let shear = Matrix3(b, 0, -(b - 1), -(g - 1), g, 0, 0, 0, 1)
-            let unshear = Matrix3(
-                1 / b, 0, (b - 1) / b,
-                (g - 1) / (g * b), 1 / g, (g - 1) * (b - 1) / (g * b),
-                0, 0, 1)
-            return [
-                JzAzBz.xyzToLMS * shear * .diagonal(scale, scale, scale) * toXYZ,
-                JzAzBz.lmsPrimeToIzAzBz, JzAzBz.izAzBzToLMSPrime,
-                toRGB * .diagonal(1 / scale, 1 / scale, 1 / scale) * unshear * JzAzBz.lmsToXYZ,
-            ]
+            preconditionFailure("JzAzBz has no Metal path")
         case .cam16ucs:
             let d = compressor.viewing!.dRGB
             return [

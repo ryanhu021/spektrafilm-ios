@@ -330,8 +330,14 @@ final class MetalPipeline {
         }
     }
 
-    /// ``OutputGamutCompressor/apply(to:)``, in place.
+    /// ``OutputGamutCompressor/apply(to:)``, in place, or on the CPU for the one algorithm
+    /// ``MetalGamut`` does not take.
     private func compress(_ rgb: GPUFrame) throws -> GPUFrame {
+        guard MetalGamut.supports(compressor) else {
+            var image = rgb.download()
+            compressor.apply(to: &image)
+            return try GPUFrame(c, uploading: image)
+        }
         try MetalGamut.apply(c, compressor, to: rgb)
         return rgb
     }

@@ -58,18 +58,14 @@ struct MetalGamutTests {
     }
 
     /// Worst over the two sweeps in four colour spaces with three knee settings, measured at:
-    /// oklch 1.1e-5, oklrab 1.0e-5, jzazbz 3.3e-5, cam16ucs 3.6e-5. sRGB alone: 6.1e-6, 5.8e-6,
-    /// 2.6e-5 and 7.8e-6.
+    /// oklch 1.1e-5, oklrab 1.0e-5, cam16ucs 3.6e-5. sRGB alone: 6.1e-6, 5.8e-6 and 7.8e-6.
     ///
-    /// JzAzBz's PQ exponent of 134 amplifies each float32 rounding of the cone response, and the
-    /// opponent axes then cancel it against its neighbours, so the hue and the `C_max` it indexes
-    /// carry the error. CAM16's worst pixel is a near-black ProPhoto blue whose negative cone
+    /// CAM16's worst pixel is a near-black ProPhoto blue whose negative cone
     /// response cancels in `A`, and whose output moves 18 times as far as its lightness does.
     @Test(
         "the perceptual algorithms match the CPU",
         arguments: [
-            (OutputGamutCompressSpec.Algorithm.oklch, 2e-5), (.oklrab, 2e-5), (.jzazbz, 5e-5),
-            (.cam16ucs, 5e-5),
+            (OutputGamutCompressSpec.Algorithm.oklch, 2e-5), (.oklrab, 2e-5), (.cam16ucs, 5e-5),
         ])
     func perceptual(algorithm: OutputGamutCompressSpec.Algorithm, gate: Double) throws {
         let c = try #require(MetalContext.shared)
@@ -108,10 +104,10 @@ struct MetalGamutTests {
     }
 
     /// NaN and infinite channels must come out NaN, or a number, exactly where the CPU's do.
-    /// Measured on the finite values at 1.5e-6 for jzazbz and 4.2e-7 at most for the rest.
+    /// Measured on the finite values at 4.2e-7 at most.
     @Test(
         "non-finite pixels match the CPU",
-        arguments: ["aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs"])
+        arguments: ["aces_rgc", "oklch", "oklrab", "cam16ucs"])
     func nonFinite(name: String) throws {
         let c = try #require(MetalContext.shared)
         let algorithm = try #require(OutputGamutCompressSpec.Algorithm(rawValue: name))
@@ -125,10 +121,10 @@ struct MetalGamutTests {
 
     /// Negative luminance, which the pipeline never produces. CAM16 has no meaning there: `J < 0`
     /// clamps to `eps` in the inverse and the output is ill-conditioned, measured at 7.4e-5
-    /// against 7.1e-6 for jzazbz and under 5e-7 for the rest.
+    /// against under 5e-7 for the rest.
     @Test(
         "negative-luminance pixels match the CPU",
-        arguments: ["aces_rgc", "oklch", "oklrab", "jzazbz", "cam16ucs"])
+        arguments: ["aces_rgc", "oklch", "oklrab", "cam16ucs"])
     func negativeLuminance(name: String) throws {
         let c = try #require(MetalContext.shared)
         let algorithm = try #require(OutputGamutCompressSpec.Algorithm(rawValue: name))
@@ -145,7 +141,7 @@ struct MetalGamutTests {
     @Test("black stays exactly black in every algorithm")
     func black() throws {
         let c = try #require(MetalContext.shared)
-        for algorithm in OutputGamutCompressSpec.Algorithm.allCases {
+        for algorithm in OutputGamutCompressSpec.Algorithm.allCases where algorithm != .jzazbz {
             let space = algorithm == .off || algorithm == .acesRGC ? nil : "sRGB"
             let compressor = try Self.compressor(
                 algorithm, space, knee: GamutParityTests.defaultKnee,
@@ -168,6 +164,27 @@ struct MetalGamutTests {
         let before = frame.download()
         try MetalGamut.apply(c, compressor, to: frame)
         #expect(frame.download().values == before.values)
+    }
+
+    /// JzAzBz has no Metal path, so a Metal render with it compresses on the CPU and still meets
+    /// the parity tolerance.
+    @Test("a JzAzBz render on Metal compresses on the CPU")
+    func jzazbzFallsBack() throws {
+        let compressor = try Self.compressor(
+            .jzazbz, "sRGB", knee: GamutParityTests.defaultKnee,
+            lightness: GamutParityTests.lightnessKnee)
+        #expect(!MetalGamut.supports(compressor))
+
+        var params = try RuntimePhotoParams.make(
+            film: "kodak_portra_400", print: "kodak_portra_endura")
+        params.camera.autoExposure = false
+        params.filmRender.grain.active = false
+        params.io.outputGamutCompress.algorithm = .jzazbz
+        let input = try Golden("photo_input").imageBuffer()
+        let cpu = try Simulator(params, backend: .cpu).process(input)
+        let gpu = try Simulator(params, backend: .metal).process(input)
+        let report = parity(gpu.values, cpu.values)
+        #expect(report.maxAbsolute < 1e-4 && report.rootMeanSquare < 1e-5, "\(report)")
     }
 }
 #endif

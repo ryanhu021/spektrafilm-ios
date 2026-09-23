@@ -3,7 +3,7 @@ extension MetalKernels {
     /// perceptual space's non-linearity are folded into one matrix on the CPU, in float64, so the
     /// kernel rounds each of them once.
     static let gamut = #"""
-        // Mirrors MetalGamut.Parameters. `mode` is 0 for aces_rgc, then oklch, oklrab, jzazbz and
+        // Mirrors MetalGamut.Parameters. `mode` is 0 for aces_rgc, then oklch, oklrab and
         // cam16ucs.
         struct GamutParams {
             uint mode;
@@ -99,7 +99,7 @@ extension MetalKernels {
         }
 
         // log(1 + x) for 1 + x in [0.5, 2], where Metal's log is bounded by an absolute rather than
-        // a relative error, which costs the PQ decode 2e-5. The series is 2 atanh(s) with
+        // a relative error. The series is 2 atanh(s) with
         // s = x / (2 + x), |s| <= 1/3, cut where the next term falls under float32's half ulp.
         static inline float gamut_log1p_near(float x) {
             float s = x / (2.0f + x);
@@ -192,37 +192,6 @@ extension MetalKernels {
             const float k3 = (1.0f + k1) / (1.0f + k2);
             float t = k3 * L - k1;
             return 0.5f * (t + sqrt(t * t + 4.0f * k2 * k3 * L));
-        }
-
-        // JzAzBz.pqEncode and pqDecode. The exponent m_2 = 134 turns one float32 rounding of
-        // the ratio into 134 of them, so neither side forms the ratio. c_2 - c_3 and 1 - c_1 are
-        // both 0.1640625 exactly, which makes ratio - 1 = 0.1640625 (y - 1) / (c_3 y + 1) and
-        // c_2 - c_3 v = 0.1640625 + c_3 (1 - v), each free of cancellation.
-        constant float GAMUT_PQ_M1 = 0.1593017578125f;
-        constant float GAMUT_PQ_M2 = 134.03437499999998f;
-        constant float GAMUT_PQ_C3 = 18.6875f;
-        constant float GAMUT_PQ_GAP = 0.1640625f;
-
-        static inline float gamut_pq_encode(float luminance) {
-            float yp = spow(luminance / 10000.0f, GAMUT_PQ_M1);
-            float excess = GAMUT_PQ_GAP * (yp - 1.0f) / (GAMUT_PQ_C3 * yp + 1.0f);
-            float ratio = 1.0f + excess;
-            if (!(ratio > 0.0f)) { return spow(ratio, GAMUT_PQ_M2); }
-            return exp(GAMUT_PQ_M2 * gamut_log1p(excess));
-        }
-
-        static inline float gamut_pq_decode(float code) {
-            float vp;
-            float w;
-            if (code > 0.0f && isfinite(code)) {
-                w = -gamut_expm1(gamut_log(code) / GAMUT_PQ_M2);
-                vp = 1.0f - w;
-            } else {
-                vp = spow(code, 1.0f / GAMUT_PQ_M2);
-                w = 1.0f - vp;
-            }
-            float n = fmax(0.0f, GAMUT_PQ_GAP - w);
-            return 10000.0f * spow(n / (GAMUT_PQ_GAP + GAMUT_PQ_C3 * w), 1.0f / GAMUT_PQ_M1);
         }
 
         // CAM16UCS.postAdaptation and its inverse, without the + 0.1 offset. The offsets cancel
@@ -342,13 +311,6 @@ extension MetalKernels {
                 const float third = 1.0f / 3.0f;
                 lab = gamut_apply(m + GAMUT_CONE_TO_OPPONENT,
                     float3(spow(cone.x, third), spow(cone.y, third), spow(cone.z, third)));
-            } else if (p.mode == 3) {
-                float3 iab = gamut_apply(m + GAMUT_CONE_TO_OPPONENT,
-                    float3(gamut_pq_encode(cone.x), gamut_pq_encode(cone.y),
-                           gamut_pq_encode(cone.z)));
-                const float d = -0.56f;
-                float jz = ((1.0f + d) * iab.x) / (1.0f + d * iab.x) - 1.6295499532821565e-11f;
-                lab = float3(jz, iab.y, iab.z);
             } else {
                 lab = gamut_cam16_forward(cone, p);
             }
@@ -372,12 +334,6 @@ extension MetalKernels {
             if (p.mode == 1 || p.mode == 2) {
                 float3 q = gamut_apply(m + GAMUT_OPPONENT_TO_CONE, float3(L, newA, newB));
                 back = float3(spow(q.x, 3.0f), spow(q.y, 3.0f), spow(q.z, 3.0f));
-            } else if (p.mode == 3) {
-                const float d = -0.56f;
-                float shifted = L + 1.6295499532821565e-11f;
-                float iz = shifted / (1.0f + d - d * shifted);
-                float3 q = gamut_apply(m + GAMUT_OPPONENT_TO_CONE, float3(iz, newA, newB));
-                back = float3(gamut_pq_decode(q.x), gamut_pq_decode(q.y), gamut_pq_decode(q.z));
             } else {
                 back = gamut_cam16_inverse(float3(L, newA, newB), p);
             }
