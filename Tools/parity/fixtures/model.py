@@ -364,3 +364,34 @@ def midgray_steps():
 
     # The same raw through the expose path's own log, for comparison.
     yield "midgray_log_raw_fmax", np.log10(np.fmax(raw, 0.0) + 1e-10)
+
+
+@fixture
+def resample():
+    """skimage rescale at order 0, which auto-exposure's 256 px preview depends on."""
+    from skimage.transform import rescale
+
+    rng = np.random.default_rng(31337)
+    # Small deliberately: these live in git, and the arithmetic does not depend on the size.
+    for label, h, w in [("80x53", 53, 80), ("odd_53x97", 53, 97), ("square_64", 64, 64)]:
+        image = np.ascontiguousarray(rng.uniform(0.0, 1.5, size=(h, w, 3)))
+        yield f"resample_input_{label}", image
+        for factor in [0.4, 0.213, 0.5, 0.77]:
+            tag = str(factor).replace(".", "p")
+            yield (
+                f"resample_order0_{label}_{tag}",
+                rescale(image, factor, channel_axis=2, order=0),
+            )
+
+    # The exact call ResizingService.small_preview makes on a 640 px preview.
+    # The same 0.4 factor small_preview hits on a 640 px preview, at a size git can hold.
+    preview = np.ascontiguousarray(rng.uniform(0.0, 1.2, size=(107, 160, 3)))
+    yield "resample_preview_input", preview
+    yield "resample_preview_256", rescale(preview, 64 / 160, channel_axis=2, order=0)
+
+    # And the metered EV that comes out of it, which is what actually reaches the render.
+    from spektrafilm.utils.autoexposure import measure_autoexposure_ev
+    small = rescale(preview, 64 / 160, channel_axis=2, order=0)
+    yield "resample_preview_ev", np.array([
+        measure_autoexposure_ev(small, "Display P3", False, method="center_weighted")
+    ])

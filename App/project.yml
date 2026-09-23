@@ -37,6 +37,8 @@ targets:
     dependencies:
       - package: SpektraFilm
         product: SpektraFilm
+      - sdk: ImageIO.framework
+      - sdk: Photos.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ryanhu.spektrafilm

@@ -382,16 +382,25 @@ def grain_statistics():
 
 @fixture
 def grain_clumping_and_glare():
-    """The unit-mean lognormal field both the clumping stage and glare are built from."""
-    from spektrafilm.utils.fast_stats import fast_lognormal_from_mean_std
+    """The unit-mean lognormal field both the clumping stage and glare are built from.
 
+    These moments are the CLOSED FORM, not a measurement of the reference.
+
+    `fast_lognormal_from_mean_std` draws through `np.random.randn()` inside `njit(parallel=True)`, so
+    Numba keeps per-thread generator state and the thread schedule decides which thread draws which
+    value. Seeding does not fix it: two consecutive regenerations of the sampled version differed by
+    3.9% relative for glare and 0.25% for the clumping field, which made `make goldens` dirty the
+    tree on every run and quietly undermined the "review the delta" rule.
+
+    The distribution's mean and standard deviation are known exactly by construction, so the fixture
+    stores those instead. That is both reproducible and a stronger check: it tests that the Swift
+    sampler has the right distribution rather than that it agrees with one noisy draw of the Python
+    one. The Swift side compares its own sample against these within its measured sampling error.
+    """
     rng = np.random.default_rng(4242)
 
-    # Grain's clumping field, measured raw. Mean 1 and std `sigma` by construction.
-    rows = []
-    for sigma in (1.0, 0.3, 0.05001):
-        field = fast_lognormal_from_mean_std(np.ones((1024, 1024)), np.full((1024, 1024), sigma))
-        rows.append([sigma, field.mean(), field.std()])
+    # Mean 1 and standard deviation `sigma`, by the definition of the parameterisation.
+    rows = [[sigma, 1.0, sigma] for sigma in (1.0, 0.3, 0.05001)]
     yield "grain_clumping_moments", np.asarray(rows)
 
     # Glare, after the division by 100. Blur is 0 in every row so the samples stay i.i.d.; the
@@ -401,13 +410,8 @@ def grain_clumping_and_glare():
     moments = np.zeros((len(params), 2))
     sampling_sd = np.zeros((len(params), 2))
     for row, (percent, roughness) in enumerate(params):
-        field = (
-            fast_lognormal_from_mean_std(
-                percent * np.ones((512, 512)), roughness * percent * np.ones((512, 512))
-            )
-            / 100
-        )
-        moments[row] = [field.mean(), field.std()]
+        # Closed form again, after the division by 100 the glare model applies.
+        moments[row] = [percent / 100, roughness * percent / 100]
 
         # Sampling noise of the two statistics, from the same lognormal drawn REALISATIONS times.
         mean, std = percent / 100, roughness * percent / 100

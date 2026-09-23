@@ -5,9 +5,9 @@ spectral simulation of analog photography. It takes a scene-linear image, expose
 film emulsion, prints it through a virtual colour enlarger onto paper, and scans the result. All of
 it happens in spectral space, driven by published datasheet measurements.
 
-> **Status: engine in progress.** The colour foundations, profile loading and the parity harness
-> work and are gated. The model, pipeline stages and editor UI are not written yet, so there is no
-> render on device. See [Status](#status).
+> **Status: it renders.** The engine matches the reference end to end, and the iOS app runs it.
+> Grain, the spatial effects and the whole print chain are in. See [Status](#status) for what is
+> deliberately left out.
 
 ## Why port it
 
@@ -23,12 +23,22 @@ development. It is useful prior art, but the Python reference is the numeric sou
 | Layer | State |
 |---|---|
 | Colour: transfer functions, colourspaces, illuminants, observers, filters | Done, parity-gated |
-| Core: buffers, 3x3 matrices, both interpolators | Done, parity-gated |
+| Core: buffers, matrices, interpolation, RNG, distributions, resampling | Done, parity-gated |
 | Profiles: loading and validation | Done |
-| Parity harness: fixture format, generator, comparison | Done |
-| Model: density curves, DIR couplers, grain, diffusion, gamut compression | Not started |
-| Pipeline: filming, printing, scanning stages, public API | Not started |
-| App: photo import, editor, export | Placeholder shell |
+| Model: density curves, DIR couplers, grain, diffusion, glare, gamut compression | Done, parity-gated |
+| Pipeline: filming, printing, scanning, params digest, public API | Done, parity-gated |
+| App: photo import, editor, tap inspection, export | Works |
+| Parity harness: fixture format, generator, comparison | Done, 454 fixtures |
+
+Deliberately not ported. Each throws `SpektraError.unsupportedSetting` rather than silently doing
+something else, and none is reachable from the default render:
+
+| Feature | Why |
+|---|---|
+| Mallett-2019 upsampling | sRGB only, and clips the input. Hanatos-2025 is the default. |
+| Print-curve morph | Needs a Brent solve per control point. Defaults off. |
+| Resampling at order 3 | Only reachable from `io.upscaleFactor`. Needs the cubic spline prefilter. |
+| 3D enlarger and scanner LUTs | The reference calls them an approximation of its own direct path. |
 
 ## Layout
 
@@ -83,7 +93,25 @@ make tables     # regenerates Sources/SpektraFilm/Generated
 A changed fixture means the render changed. Review the delta before committing it.
 
 The reference render of 18% grey through Portra 400 onto Portra Endura, in sRGB, is
-`[0.4607145, 0.46055124, 0.46038181]`. That is the anchor for the end-to-end gate.
+`[0.4607145, 0.46055124, 0.46038181]`, and the port matches it. Every stage boundary is gated too,
+across four film, paper and output-space combinations plus the scan-the-negative topology.
+
+## Performance
+
+Measured in release on an M-series Mac, single-threaded. The engine is float64 CPU with no GPU path,
+so these are the numbers the app is designed around rather than a target to beat later.
+
+| What | Cost |
+|---|---|
+| Simulator construction, per film | 14 to 23 ms |
+| 320 px preview, grain off | 83 ms |
+| 640 px preview, grain off | 343 ms |
+| 640 px with grain and spatial effects | 623 ms |
+| Full resolution | roughly 2.3 s per megapixel |
+
+The app uses the first three as an interaction ladder: a control being dragged renders at 320 px, a
+release renders at 640 px, and export renders at full size. The heaviest stages are the scanning
+spectral map and grain, which is where a Metal path would go first.
 
 ## Licensing
 
