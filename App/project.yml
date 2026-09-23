@@ -51,10 +51,14 @@ targets:
         MARKETING_VERSION: "0.1.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Generated/Info.plist
       properties:
         CFBundleDisplayName: Spektrafilm
+        # From the build settings, so the release workflow can set them from the tag.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleName: Spektrafilm
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
