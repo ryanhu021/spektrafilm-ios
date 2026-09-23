@@ -29,11 +29,8 @@ enum ImageBridge {
         }
     }
 
-    /// Decodes a `CGImage` into a linear `ImageBuffer`, scaled so its long edge is at most `longEdge`.
-    ///
-    /// CoreGraphics scales in the same pass as the colour conversion. The engine's resampler only
-    /// implements the orders its own pipeline uses.
-    static func buffer(from image: CGImage, longEdge: Int?) throws -> ImageBuffer {
+    /// The size `image` decodes to with its long edge at most `longEdge`.
+    static func size(of image: CGImage, longEdge: Int?) -> (width: Int, height: Int) {
         var width = image.width
         var height = image.height
         if let longEdge, max(width, height) > longEdge {
@@ -41,23 +38,41 @@ enum ImageBridge {
             width = max(1, Int((Double(width) * scale).rounded()))
             height = max(1, Int((Double(height) * scale).rounded()))
         }
+        return (width, height)
+    }
 
+    /// Decodes a `CGImage` into a linear `ImageBuffer`, scaled so its long edge is at most `longEdge`.
+    ///
+    /// CoreGraphics scales in the same pass as the colour conversion. The engine's resampler only
+    /// implements the orders its own pipeline uses.
+    static func buffer(from image: CGImage, longEdge: Int?) throws -> ImageBuffer {
+        let (width, height) = size(of: image, longEdge: longEdge)
+        var floats = [Float](repeating: 0, count: width * height * 3)
+        try floats.withUnsafeMutableBufferPointer {
+            try decode(image, width: width, height: height, into: $0)
+        }
+        return ImageBuffer(
+            height: height, width: width, channels: 3, values: floats.map(Double.init))
+    }
+
+    /// Decodes a `CGImage` into linear float32 RGB, `height` x `width`, written to `pixels`.
+    ///
+    /// The source is at most 16 bits per channel, so float32 loses nothing.
+    static func decode(
+        _ image: CGImage, width: Int, height: Int, into pixels: UnsafeMutableBufferPointer<Float>
+    ) throws {
+        precondition(pixels.count == width * height * 3)
         guard let linear = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3) else {
             throw BridgeError.noColourSpace
         }
-
-        // Float32 RGBA. The engine works in Double, but the source is at most 16 bits per channel, so
-        // Float32 is lossless here and halves the intermediate.
         let componentsPerPixel = 4
         let bytesPerRow = width * componentsPerPixel * 4
         var raw = [Float](repeating: 0, count: width * height * componentsPerPixel)
-
         let bitmapInfo: CGBitmapInfo = [
             CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
             .floatComponents,
             .byteOrder32Little,
         ]
-
         try raw.withUnsafeMutableBytes { bytes in
             guard
                 let context = CGContext(
@@ -72,33 +87,40 @@ enum ImageBridge {
             context.interpolationQuality = .high
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
-
-        var values = [Double](repeating: 0, count: width * height * 3)
         for pixel in 0..<(width * height) {
             let source = pixel * componentsPerPixel
-            let alpha = Double(raw[source + 3])
+            let alpha = raw[source + 3]
             // Un-premultiply, or a transparent PNG darkens toward black and renders as shadow.
-            let scale = alpha > 1e-6 ? 1.0 / alpha : 0.0
-            values[pixel * 3] = Double(raw[source]) * scale
-            values[pixel * 3 + 1] = Double(raw[source + 1]) * scale
-            values[pixel * 3 + 2] = Double(raw[source + 2]) * scale
+            let scale: Float = alpha > 1e-6 ? 1 / alpha : 0
+            pixels[pixel * 3] = raw[source] * scale
+            pixels[pixel * 3 + 1] = raw[source + 1] * scale
+            pixels[pixel * 3 + 2] = raw[source + 2] * scale
         }
-
-        return ImageBuffer(height: height, width: width, channels: 3, values: values)
     }
 
     /// Wraps a rendered buffer as a `CGImage` for display.
+    static func image(from buffer: ImageBuffer, colourSpace: CGColorSpace) throws -> CGImage {
+        precondition(buffer.channels == 3, "expected an RGB buffer")
+        let floats = buffer.values.map(Float.init)
+        return try floats.withUnsafeBufferPointer {
+            try image(from: $0, width: buffer.width, height: buffer.height, colourSpace: colourSpace)
+        }
+    }
+
+    /// An 8-bit `CGImage` from rendered float32 RGB.
     ///
     /// The engine's output is already encoded with the output colour space's transfer function, so
     /// the image is tagged with that space. Values are clamped to [0, 1]. Output gamut compression
     /// keeps them inside the cube, so anything outside is a defect, and a clip shows it plainly.
-    static func image(from buffer: ImageBuffer, colourSpace: CGColorSpace) throws -> CGImage {
-        precondition(buffer.channels == 3, "expected an RGB buffer")
-        let count = buffer.pixelCount
+    static func image(
+        from pixels: UnsafeBufferPointer<Float>, width: Int, height: Int, colourSpace: CGColorSpace
+    ) throws -> CGImage {
+        let count = width * height
+        precondition(pixels.count == count * 3)
         var bytes = [UInt8](repeating: 255, count: count * 4)
         for pixel in 0..<count {
             for channel in 0..<3 {
-                let v = buffer.values[pixel * 3 + channel]
+                let v = pixels[pixel * 3 + channel]
                 let clamped = v.isFinite ? min(max(v, 0), 1) : 0
                 bytes[pixel * 4 + channel] = UInt8((clamped * 255).rounded())
             }
@@ -108,11 +130,11 @@ enum ImageBridge {
         guard
             let provider,
             let image = CGImage(
-                width: buffer.width,
-                height: buffer.height,
+                width: width,
+                height: height,
                 bitsPerComponent: 8,
                 bitsPerPixel: 32,
-                bytesPerRow: buffer.width * 4,
+                bytesPerRow: width * 4,
                 space: colourSpace,
                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
                 provider: provider,

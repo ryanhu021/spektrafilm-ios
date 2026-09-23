@@ -40,10 +40,6 @@ actor RenderService {
 
         static func < (a: Quality, b: Quality) -> Bool { a.rank < b.rank }
 
-        /// Previews render on the GPU. Export stays on the CPU until the Metal pipeline's peak
-        /// memory is below the CPU's, since ``RenderBudget`` sizes the export from the CPU's.
-        var backend: ComputeBackend { self == .full ? .cpu : .metal }
-
         /// Preview mode drops grain and the expensive blurs while keeping the halation kernel widths.
         var previewMode: Bool {
             switch self {
@@ -68,7 +64,6 @@ actor RenderService {
 
     private var simulator: Simulator?
     private var simulatorParams: RuntimePhotoParams?
-    private var simulatorBackend: ComputeBackend?
 
     func render(
         source: CGImage,
@@ -78,50 +73,56 @@ actor RenderService {
     ) throws -> Result {
         var params = params
         params.settings.previewMode = quality.previewMode
+        let simulator = try simulator(for: params)
 
         let cap =
             quality == .full
-            ? RenderBudget.longEdge(forWidth: source.width, height: source.height)
+            ? RenderBudget.longEdge(
+                forWidth: source.width, height: source.height, gpu: simulator.rendersFloatOnGPU)
             : quality.longEdge
-        let buffer = try ImageBridge.buffer(from: source, longEdge: cap)
+        let (width, height) = ImageBridge.size(of: source, longEdge: cap)
 
-        let simulator = try simulator(for: params, backend: quality.backend)
-        let started = DispatchTime.now().uptimeNanoseconds
-        let rendered = try simulator.process(buffer, inject: nil, collect: tap)
-        let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
-
-        // Intermediate taps hold densities or log exposures. Normalise them so they are viewable.
-        let display = tap == .rgbOut ? rendered : Self.normaliseForDisplay(rendered, tap: tap)
-        let space =
-            tap == .rgbOut
-            ? ImageBridge.colourSpace(forOutput: params.io.outputColourSpace)
-            : CGColorSpace(name: CGColorSpace.sRGB)!
-        let image = try ImageBridge.image(from: display, colourSpace: space)
+        let image: CGImage
+        if tap == .rgbOut {
+            // Decoded straight into the renderer's input and encoded straight from its output,
+            // so on the GPU no float64 copy of the frame exists.
+            let space = ImageBridge.colourSpace(forOutput: params.io.outputColourSpace)
+            image = try simulator.processFloat(
+                height: height, width: width,
+                fill: { try ImageBridge.decode(source, width: width, height: height, into: $0) },
+                read: { pixels, h, w in
+                    try ImageBridge.image(from: pixels, width: w, height: h, colourSpace: space)
+                })
+        } else {
+            let buffer = try ImageBridge.buffer(from: source, longEdge: cap)
+            let rendered = try simulator.process(buffer, inject: nil, collect: tap)
+            // Intermediate taps hold densities or log exposures. Normalise them so they are
+            // viewable.
+            image = try ImageBridge.image(
+                from: Self.normaliseForDisplay(rendered, tap: tap),
+                colourSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+        }
 
         return Result(
             image: image,
             quality: quality,
             tap: tap,
-            milliseconds: elapsed,
+            milliseconds: (simulator.elapsed ?? 0) * 1000,
             stages: simulator.timings.sorted { $0.value > $1.value }.map {
                 ($0.key, $0.value * 1000)
             },
-            pixelSize: (buffer.width, buffer.height),
+            pixelSize: (width, height),
             wasDownscaled: quality == .full && cap != nil
         )
     }
 
-    private func simulator(
-        for params: RuntimePhotoParams, backend: ComputeBackend
-    ) throws -> Simulator {
-        if let simulator, simulatorParams == params, simulatorBackend == backend {
-            return simulator
-        }
-        // Auto-exposure meters on a downsampled preview, so the resampler is not optional.
-        let built = try Simulator(params, resampler: SkimageResampler(), backend: backend)
+    private func simulator(for params: RuntimePhotoParams) throws -> Simulator {
+        if let simulator, simulatorParams == params { return simulator }
+        // Auto-exposure meters on a downsampled preview, so the resampler is not optional. The
+        // Metal backend meets the CPU's parity tolerance and falls back to the CPU without a GPU.
+        let built = try Simulator(params, resampler: SkimageResampler(), backend: .metal)
         simulator = built
         simulatorParams = params
-        simulatorBackend = backend
         return built
     }
 
