@@ -15,12 +15,15 @@ enum SampleScene {
     }
 
     /// The tap named by `-tap <name>`, such as `-tap cmy_film` for the negative.
-    static var requestedTap: Tap? {
+    static var requestedTap: Tap? { argument(after: "-tap").flatMap(Tap.init(rawValue:)) }
+
+    /// The value following `flag` in the launch arguments.
+    static func argument(after flag: String) -> String? {
         let arguments = ProcessInfo.processInfo.arguments
-        guard let index = arguments.firstIndex(of: "-tap"), index + 1 < arguments.count else {
+        guard let index = arguments.firstIndex(of: flag), index + 1 < arguments.count else {
             return nil
         }
-        return Tap(rawValue: arguments[index + 1])
+        return arguments[index + 1]
     }
 
     /// Scene-linear values, some above 1.0 so the highlight roll-off is visible.

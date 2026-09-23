@@ -24,7 +24,9 @@ struct ControlDrawer: View {
         }
     }
 
-    @State private var bench: Bench = .film
+    /// `-bench <name>` opens on another bench, for scripted screenshots.
+    @State private var bench: Bench =
+        SampleScene.argument(after: "-bench").flatMap(Bench.init(rawValue:)) ?? .film
 
     var body: some View {
         VStack(spacing: 0) {
@@ -203,6 +205,22 @@ struct ControlDrawer: View {
             set: { new in model.scrub { $0[keyPath: keyPath] = new } })
     }
 
+    /// Writes one print-curve morph control through `scrub`. The morph turns on with the first edit.
+    /// At its default values it reproduces the unmorphed curves exactly, so turning it on changes
+    /// nothing until a value moves.
+    private func morphBinding(
+        _ keyPath: WritableKeyPath<PrintCurvesMorphParams, Double>
+    ) -> Binding<Double> {
+        Binding(
+            get: { model.params?.printRender.densityCurvesMorph[keyPath: keyPath] ?? 0 },
+            set: { new in
+                model.scrub {
+                    $0.printRender.densityCurvesMorph.active = true
+                    $0.printRender.densityCurvesMorph[keyPath: keyPath] = new
+                }
+            })
+    }
+
     /// The same, for a dial.
     private func dialBinding(
         _ keyPath: WritableKeyPath<RuntimePhotoParams, Double>
@@ -226,6 +244,25 @@ struct ControlDrawer: View {
             })
 
         if model.params != nil {
+            SectionLabel("development")
+            Knob(
+                label: "paper contrast",
+                value: morphBinding(\.gammaFactor),
+                range: 0.6...1.6,
+                unit: "\u{03B3}",
+                format: "%.2f",
+                help: "Steepens or flattens the paper's curves, like a harder or softer grade.",
+                onEnded: { model.settle() })
+
+            Knob(
+                label: "developer exhaustion",
+                value: morphBinding(\.developerExhaustion),
+                range: 0...1,
+                unit: "",
+                format: "%.2f",
+                help: "A depleted developer. Deep shadows reach full black later; midgray holds.",
+                onEnded: { model.settle() })
+
             SectionLabel("scan")
             Knob(
                 label: "sharpening",
