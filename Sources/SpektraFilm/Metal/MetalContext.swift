@@ -87,6 +87,14 @@ public final class MetalContext: @unchecked Sendable {
     func dispatch(
         _ kernel: String, count: Int, _ encode: (MTLComputeCommandEncoder) -> Void
     ) throws {
+        try dispatch(kernel, width: count, height: 1, encode)
+    }
+
+    /// Runs `kernel` over a `width` x `height` grid and waits for it.
+    func dispatch(
+        _ kernel: String, width: Int, height: Int, _ encode: (MTLComputeCommandEncoder) -> Void
+    ) throws {
+        guard width > 0, height > 0 else { return }
         let pipeline = try pipeline(kernel)
         try autoreleasepool {
             guard let commands = queue.makeCommandBuffer(),
@@ -94,10 +102,15 @@ public final class MetalContext: @unchecked Sendable {
             else { throw SpektraError.missingResource("Metal command buffer") }
             encoder.setComputePipelineState(pipeline)
             encode(encoder)
-            let width = pipeline.threadExecutionWidth
+            let threadWidth = pipeline.threadExecutionWidth
+            let group =
+                height == 1
+                ? MTLSize(width: threadWidth, height: 1, depth: 1)
+                : MTLSize(
+                    width: threadWidth,
+                    height: max(1, pipeline.maxTotalThreadsPerThreadgroup / threadWidth), depth: 1)
             encoder.dispatchThreads(
-                MTLSize(width: count, height: 1, depth: 1),
-                threadsPerThreadgroup: MTLSize(width: width, height: 1, depth: 1))
+                MTLSize(width: width, height: height, depth: 1), threadsPerThreadgroup: group)
             encoder.endEncoding()
             commands.commit()
             commands.waitUntilCompleted()

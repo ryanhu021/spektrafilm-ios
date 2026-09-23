@@ -6,7 +6,7 @@ enum MetalKernels {
     /// Every kernel, compiled as one library. Each operator family keeps its source in its own file
     /// as an extension on this type.
     static var source: String {
-        [header, spectral, elementwise, film].joined(separator: "\n")
+        [header, spectral, elementwise, film, blur].joined(separator: "\n")
     }
 
     static let header = #"""
