@@ -19,7 +19,9 @@ actor RenderService {
         case settle
         /// 640 px with grain and the spatial effects. Measured at 623 ms.
         case proof
-        /// Full resolution, everything on. Roughly 2.3 s per megapixel.
+        /// The largest size this device's memory allowance permits, everything on. Roughly 2.3 s per
+        /// megapixel, and capped by ``RenderBudget`` because peak footprint is about 230 MB per
+        /// megapixel and iOS terminates a foreground app that crosses its jetsam limit.
         case full
 
         var longEdge: Int? {
@@ -59,6 +61,10 @@ actor RenderService {
         let milliseconds: Double
         /// Per-stage timings, longest first, for the diagnostics panel.
         let stages: [(String, Double)]
+        /// What was actually rendered, which for `.full` may be smaller than the source.
+        let pixelSize: (width: Int, height: Int)
+        /// True when the memory budget forced a smaller frame than the source.
+        let wasDownscaled: Bool
     }
 
     private var simulator: Simulator?
@@ -82,7 +88,11 @@ actor RenderService {
         var params = params
         params.settings.previewMode = quality.previewMode
 
-        let buffer = try ImageBridge.buffer(source: source, quality: quality)
+        let cap =
+            quality == .full
+            ? RenderBudget.longEdge(forWidth: source.width, height: source.height)
+            : quality.longEdge
+        let buffer = try ImageBridge.buffer(from: source, longEdge: cap)
         if await currentGeneration() != generation { return nil }
 
         let simulator = try simulator(for: params)
@@ -104,7 +114,11 @@ actor RenderService {
             quality: quality,
             generation: generation,
             milliseconds: elapsed,
-            stages: simulator.timings.sorted { $0.value > $1.value }.map { ($0.key, $0.value * 1000) }
+            stages: simulator.timings.sorted { $0.value > $1.value }.map {
+                ($0.key, $0.value * 1000)
+            },
+            pixelSize: (buffer.width, buffer.height),
+            wasDownscaled: quality == .full && cap != nil
         )
     }
 
@@ -139,12 +153,5 @@ actor RenderService {
             out.values[i] = isDensity ? 1 - unit : unit
         }
         return out
-    }
-}
-
-extension ImageBridge {
-    /// Decodes at the size a quality tier asks for.
-    static func buffer(source: CGImage, quality: RenderService.Quality) throws -> ImageBuffer {
-        try buffer(from: source, longEdge: quality.longEdge)
     }
 }

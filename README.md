@@ -101,17 +101,26 @@ across four film, paper and output-space combinations plus the scan-the-negative
 Measured in release on an M-series Mac, single-threaded. The engine is float64 CPU with no GPU path,
 so these are the numbers the app is designed around rather than a target to beat later.
 
-| What | Cost |
-|---|---|
-| Simulator construction, per film | 14 to 23 ms |
-| 320 px preview, grain off | 83 ms |
-| 640 px preview, grain off | 343 ms |
-| 640 px with grain and spatial effects | 623 ms |
-| Full resolution | roughly 2.3 s per megapixel |
+| What | Time | Peak memory |
+|---|---|---|
+| Simulator construction, per film | 14 to 23 ms | |
+| 320 px preview, grain off | 83 ms | |
+| 640 px preview, grain off | 343 ms | |
+| 640 px with grain and spatial effects | 623 ms | |
+| 2 MP | 4.2 s | 583 MB |
+| 6 MP | 13.5 s | 1457 MB |
+| 12 MP | 27.5 s | 2805 MB |
 
 The app uses the first three as an interaction ladder: a control being dragged renders at 320 px, a
-release renders at 640 px, and export renders at full size. The heaviest stages are the scanning
-spectral map and grain, which is where a Metal path would go first.
+release renders at 640 px, and export renders as large as the device allows.
+
+**Memory is the binding constraint, not time.** Peak footprint is about 230 MB per megapixel, and
+iOS terminates a foreground app at roughly 1.4 GB, so a 12 MP export would be killed rather than
+finish. `RenderBudget` reads the process's actual allowance and caps the export size, and the app
+says when the cap bit. Raising that ceiling means cutting the per-stage copies: the DIR-coupler
+correction alone allocates five full-frame buffers, and `expose` and `develop` each copy between
+steps. That work, and a Metal path for the scanning spectral map and grain, are the two things that
+would change these numbers.
 
 ## Licensing
 

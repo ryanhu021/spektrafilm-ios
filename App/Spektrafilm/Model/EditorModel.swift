@@ -151,17 +151,18 @@ final class EditorModel {
         case idle
         case rendering
         case saving
-        case saved
+        case saved(pixels: String, capped: Bool)
         case failed(String)
     }
 
     private(set) var exportState: ExportState = .idle
 
-    /// Renders at full resolution and writes to the photo library.
+    /// Renders as large as this device allows and writes to the photo library.
     ///
-    /// Roughly 2.3 s per megapixel, so a 12 MP frame takes about half a minute. The caller shows a
-    /// determinate-looking progress affordance; the engine does not report progress, so the UI must
-    /// not pretend it does.
+    /// Roughly 2.3 s per megapixel. The size is capped by ``RenderBudget``: peak footprint is about
+    /// 230 MB per megapixel, so a 12 MP frame would need 2.8 GB and be terminated. When the cap bites
+    /// the result says so, because silently exporting something smaller than the source is the kind
+    /// of thing a user discovers much later.
     func export() async {
         guard let source, let params else { return }
         exportState = .rendering
@@ -179,7 +180,9 @@ final class EditorModel {
             }
             exportState = .saving
             try await PhotoLibrary.save(result.image)
-            exportState = .saved
+            exportState = .saved(
+                pixels: "\(result.pixelSize.width) x \(result.pixelSize.height)",
+                capped: result.wasDownscaled)
         } catch {
             exportState = .failed(
                 (error as? LocalizedError)?.errorDescription ?? String(describing: error))

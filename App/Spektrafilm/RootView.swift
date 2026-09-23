@@ -42,8 +42,14 @@ struct RootView: View {
         }
         .preferredColorScheme(.dark)
         .task {
-            if SampleScene.isRequested, let image = SampleScene.make() {
+            if SampleScene.isRequested, let image = SampleScene.make(width: 2400, height: 3200) {
                 model.load(image, named: "sample")
+                // `-export` drives the export path without a tap, so the full tier and the memory cap
+                // can be exercised from a script.
+                if ProcessInfo.processInfo.arguments.contains("-export") {
+                    try? await Task.sleep(for: .seconds(3))
+                    await model.export()
+                }
             }
         }
         .task(id: pickedItem) { await loadPicked() }
@@ -161,13 +167,23 @@ struct RootView: View {
                             .safelightLabel()
                     case .saving:
                         Text("Saving").font(Safelight.display(16)).foregroundStyle(Safelight.paper)
-                    case .saved:
+                    case .saved(let pixels, let capped):
                         Image(systemName: "checkmark")
                             .font(.system(size: 22, weight: .light))
                             .foregroundStyle(Safelight.amber)
                         Text("Saved to your library")
                             .font(Safelight.display(16))
                             .foregroundStyle(Safelight.paper)
+                        Text(pixels).safelightLabel()
+                        if capped {
+                            // Saying so beats letting someone find out later that the export was
+                            // smaller than the photo they put in.
+                            Text("limited by this device's memory")
+                                .font(Safelight.readout(10))
+                                .foregroundStyle(Safelight.amberDim)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 44)
+                        }
                         Button {
                             model.dismissExport()
                         } label: {
