@@ -17,6 +17,7 @@ public final class PrintingStage {
     private let resizing: ResizingService
     private let colourReference: ColorReferenceService
     private let spatial: any SpatialFilter
+    private let projector: SpectralProjector
 
     private let paperSensitivity: [Double]
     private let lampSpectrum: [Double]
@@ -31,8 +32,10 @@ public final class PrintingStage {
         enlarger: EnlargerService,
         resizing: ResizingService,
         colourReference: ColorReferenceService,
-        spatial: any SpatialFilter
+        spatial: any SpatialFilter,
+        backend: ComputeBackend = .cpu
     ) throws {
+        projector = SpectralProjector(backend)
         self.film = film
         self.filmRender = filmRender
         self.print = print
@@ -93,7 +96,7 @@ public final class PrintingStage {
     /// `_film_cmy_to_print_log_raw`.
     private func filmCMYToPrintLogRaw(_ cmyFilmDensity: ImageBuffer) -> ImageBuffer {
         let printIlluminant = enlarger.filteredIlluminant(lampSpectrum)
-        var raw = SpectralContraction.project(
+        var raw = projector.project(
             cmy: cmyFilmDensity,
             channelDensity: film.data.channelDensity,
             baseDensity: film.data.baseDensity,

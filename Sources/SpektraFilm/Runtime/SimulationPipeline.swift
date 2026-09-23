@@ -21,7 +21,8 @@ public final class SimulationPipeline {
 
     public init(
         params rawParams: RuntimePhotoParams,
-        resampler: any Resampler = UnavailableResampler()
+        resampler: any Resampler = UnavailableResampler(),
+        backend: ComputeBackend = .cpu
     ) throws {
         try rawParams.validate()
         // Digesting is required. It overrides the enlarger neutrals from the measured database and
@@ -69,7 +70,8 @@ public final class SimulationPipeline {
             enlarger: enlarger,
             resizing: resizing,
             colourReference: colourReference,
-            spatial: spatial)
+            spatial: spatial,
+            backend: backend)
 
         scanning = try ScanningStage(
             film: params.film,
@@ -80,7 +82,8 @@ public final class SimulationPipeline {
             io: params.io,
             settings: params.settings,
             colourReference: colourReference,
-            spatial: spatial)
+            spatial: spatial,
+            backend: backend)
 
         topology = Self.buildTopology(
             io: params.io, resizing: resizing, filming: filming, printing: printing,

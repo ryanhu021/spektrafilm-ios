@@ -18,6 +18,7 @@ public final class ScanningStage {
     private let settings: SettingsParams
     private let colourReference: ColorReferenceService
     private let spatial: any SpatialFilter
+    private let projector: SpectralProjector
     private let outputColourSpace: ColourSpace
 
     /// The medium being scanned, and the light it is viewed under.
@@ -35,8 +36,10 @@ public final class ScanningStage {
         io: IOParams,
         settings: SettingsParams,
         colourReference: ColorReferenceService,
-        spatial: any SpatialFilter
+        spatial: any SpatialFilter,
+        backend: ComputeBackend = .cpu
     ) throws {
+        projector = SpectralProjector(backend)
         self.film = film
         self.filmRender = filmRender
         self.print = print
@@ -129,18 +132,22 @@ public final class ScanningStage {
     private func spectralCompute(_ density: ImageBuffer) -> ImageBuffer {
         Self.cmyToLogXYZ(
             density, channelDensity: channelDensity, baseDensity: baseDensity,
-            illuminant: scanIlluminant, normalisation: normalisation)
+            illuminant: scanIlluminant, normalisation: normalisation, projector: projector)
     }
 
     /// `cmy_to_log_xyz`. Density to spectrum, spectrum to transmitted light, light to XYZ.
+    ///
+    /// The colour reference calls this for its black and white calibration points with the default
+    /// CPU projector, so the calibration is float64 whatever the backend.
     static func cmyToLogXYZ(
         _ cmy: ImageBuffer,
         channelDensity: [Double],
         baseDensity: [Double],
         illuminant: [Double],
-        normalisation: Double
+        normalisation: Double,
+        projector: SpectralProjector = SpectralProjector(.cpu)
     ) -> ImageBuffer {
-        var xyz = SpectralContraction.project(
+        var xyz = projector.project(
             cmy: cmy, channelDensity: channelDensity, baseDensity: baseDensity,
             illuminant: illuminant, response: Observer.cmfs, scale: 1.0 / normalisation)
         xyz.transformInPlace { log10Guard($0) }

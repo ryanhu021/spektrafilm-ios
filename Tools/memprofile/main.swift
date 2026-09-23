@@ -11,8 +11,8 @@
 //   .build/release/memprofile 2 --spectral       # the spectral upsampling call alone
 //   .build/release/memprofile 2 --warm           # time a second render, after one-time setup
 //
-// Environment toggles: SPK_PREVIEW=1 for the app's preview tiers, and SPK_NO_HALATION, SPK_NO_GRAIN,
-// SPK_NO_COUPLERS, SPK_NO_GLARE to switch one operator off.
+// Environment toggles: SPK_PREVIEW=1 for the app's preview tiers, SPK_METAL=1 for the Metal backend,
+// and SPK_NO_HALATION, SPK_NO_GRAIN, SPK_NO_COUPLERS, SPK_NO_GLARE to switch one operator off.
 //
 // One measurement per process, and the three modes are mutually exclusive. phys_footprint is a
 // whole-process high-water mark, so anything measured after something larger reads the larger figure.
@@ -102,7 +102,9 @@ if ProcessInfo.processInfo.environment["SPK_PREVIEW"] != nil {
 }
 
 let constructionStarted = DispatchTime.now().uptimeNanoseconds
-let simulator = try Simulator(params, resampler: SkimageResampler())
+let backend: ComputeBackend =
+    ProcessInfo.processInfo.environment["SPK_METAL"] != nil ? .metal : .cpu
+let simulator = try Simulator(params, resampler: SkimageResampler(), backend: backend)
 let constructionSeconds = Double(DispatchTime.now().uptimeNanoseconds - constructionStarted) / 1e9
 
 let baseline = footprintBytes()

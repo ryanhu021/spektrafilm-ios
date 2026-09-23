@@ -47,6 +47,7 @@ Sources/SpektraFilm/     Engine. No third-party dependencies, builds for iOS and
   Profiles/              Profile types and the bundled-profile loader.
   Model/                 The film and paper physics: curves, couplers, grain, diffusion.
   Runtime/               Parameters, the pipeline stages, and the public Simulator.
+  Metal/                 GPU versions of the costliest operators.
   Generated/             Tables extracted from colour-science. Do not edit by hand.
   Data/                  28 film and paper profiles, the spectral LUT, filter curves.
 Tests/SpektraFilmTests/  Parity tests and their committed fixtures.
@@ -120,8 +121,8 @@ A changed fixture means the render changed. Review the difference before committ
 ## Performance
 
 Measured in release on an M4 Pro (10 performance and 4 efficiency cores), Portra 400 onto Portra
-Endura, after one warm-up render. The engine runs float64 on the CPU with no GPU path. These are not
-phone measurements; a phone has fewer cores.
+Endura, after one warm-up render, on the float64 CPU backend. These are not phone measurements; a
+phone has fewer cores.
 
 | What | Time | Peak memory |
 |---|---|---|
@@ -136,6 +137,12 @@ phone measurements; a phone has fewer cores.
 The per-pixel, per-row and per-column loops run across cores. Each output value is computed the
 same way however the frame is split, so a render is bit-identical at any core count, and
 `ParallelTests` checks that.
+
+`Simulator(params, backend: .metal)` moves the spectral contraction, the costliest operator, to the
+GPU in float32. Apple GPUs have no float64, but a render through it stays within 6.6e-7 of the
+oracle, inside the same 1e-4 tolerance as the CPU. On an M4 Pro the contraction takes 15.5 ms at
+12 MP against 259 ms on the CPU. Using Metal adds 106 MB to peak memory: 82 MB of one-time driver
+setup and 24 MB of staging buffers. The app uses it, and falls back to the CPU without a GPU.
 
 The app renders at 320 px while a control is being dragged, at 640 px when it is released, and at
 the largest size the device allows on export.

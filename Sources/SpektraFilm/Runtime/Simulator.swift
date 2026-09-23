@@ -15,12 +15,15 @@ import Foundation
 public final class Simulator {
     private let pipeline: SimulationPipeline
 
+    /// - Parameter backend: ``ComputeBackend/cpu`` renders the parity-tested float64 result.
+    ///   ``ComputeBackend/metal`` moves the operators that have a GPU version to float32 on the GPU.
     public init(
-        _ params: RuntimePhotoParams, resampler: any Resampler = UnavailableResampler()
+        _ params: RuntimePhotoParams, resampler: any Resampler = UnavailableResampler(),
+        backend: ComputeBackend = .cpu
     )
         throws
     {
-        pipeline = try SimulationPipeline(params: params, resampler: resampler)
+        pipeline = try SimulationPipeline(params: params, resampler: resampler, backend: backend)
     }
 
     /// Runs the whole pipeline: scene-linear RGB in, output-encoded RGB out.
