@@ -5,13 +5,14 @@ import Foundation
 /// Three subsystems share this: the dichroic and UV/IR filters, the Hanatos `erf4` sensitivity
 /// window, and the print-curve morph's layer CDFs.
 ///
-/// Darwin libm supplies `erf` and `erfc`. Measured against `scipy.special` over a dense sweep of
-/// 39,817 arguments spanning ±51: `erf` agrees to 3 ulps worst case (73% bit-exact, 26% one ulp),
-/// max absolute difference 3.331e-16, and `erfc` to 4.441e-16 absolute. `erfc`'s *relative* error
-/// reaches 5.6e-14 past x = 20, where it returns values near 1e-190, and Darwin keeps returning
-/// subnormals past x = 26.55 where scipy has already flushed to zero. No call site reads the tail
-/// that deep, and the Hanatos window normalisation divides one erf-weighted sum by another, so a
-/// 1e-16 relative error passes straight through instead of accumulating.
+/// Darwin libm supplies `erf` and `erfc`. Measured against `scipy.special` over 172,001 arguments
+/// spanning ±51: `erf` agrees to 5 ulps worst case (79% bit-exact, 19% one ulp), max absolute
+/// difference 3.331e-16, and `erfc` to 4.441e-16 absolute. `erfc`'s *relative* error reaches
+/// 6.9e-14 past x = 20, where it returns values near 1e-190, and Darwin keeps returning subnormals
+/// past x = 26.6418 where scipy has flushed to zero. No call site reads the tail that deep, and the
+/// Hanatos window normalisation divides one erf-weighted sum by another, so a 1e-16 relative error
+/// passes straight through: `kodak_portra_400` + D55 gives a bit-identical normalisation with
+/// either erf, and a normalised window agreeing to 4.441e-16 absolute.
 public enum Erf {
 
     /// C99 `erf`.

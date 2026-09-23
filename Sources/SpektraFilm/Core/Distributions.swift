@@ -39,13 +39,17 @@ public enum Distributions {
     /// Transcribed from `utils/fast_stats.fast_lognormal_from_mean_std`, including its
     /// `mean <= 0` branch. Written as `log(1 + s*s/(m*m))` because that is what the reference
     /// evaluates; `log1p` is better conditioned for tiny ratios and gives different last bits.
+    ///
+    /// The guard is spelled as the negation of the reference's `m <= 0` so that a NaN mean falls
+    /// through to the arithmetic and stays NaN. `mean > 0` would swallow it and return the
+    /// `mean <= 0` constants, giving a clean unit field where the reference gives NaN, measured.
     @inlinable
     public static func lognormalLogParameters(
         mean: Double, std: Double
     ) -> (
         mu: Double, sigma: Double
     ) {
-        guard mean > 0 else { return (0.0, 0.0) }
+        guard !(mean <= 0) else { return (0.0, 0.0) }
         let sigmaSquared = Foundation.log(1.0 + (std * std) / (mean * mean))
         return (Foundation.log(mean) - sigmaSquared / 2.0, sigmaSquared.squareRoot())
     }
@@ -79,6 +83,16 @@ public enum Distributions {
     /// rejection. Same crossover NumPy uses.
     public static let poissonRejectionThreshold = 10.0
 
+    /// NumPy's `POISSON_LAM_MAX`, `Int64.max - 10 * sqrt(Int64.max)`.
+    ///
+    /// Above this the reference raises `ValueError: lam value too large`. ``poisson(lambda:_:)``
+    /// cannot throw from inside a per-pixel loop, so it clamps instead. Without the clamp the
+    /// `Int(_:)` in ``poissonTransformedRejection(lambda:_:)`` traps: `lambda = 1e19` crashes the
+    /// process, measured. Grain reaches that range, because `lambda = N * p / sat` and
+    /// `sat = 1 - p * u * (1 - 1e-6)` is one ulp above zero at `uniformity = 1.0000020000029999`,
+    /// which puts lambda at 2.8e19 for the 6125 particles per pixel a 1000 pixel wide frame gives.
+    public static let poissonLambdaMax = 9.223372006484771e18
+
     /// A Poisson variate.
     ///
     /// Grain needs the full span the particle model produces, roughly 4.5 to 1.2e8: `sat` bottoms
@@ -86,16 +100,19 @@ public enum Distributions {
     /// follows it up (`grain.md` section 4.1). One algorithm does not cover that, so this is Knuth
     /// below 10 and Hormann's transformed rejection at and above.
     ///
-    /// A non-finite lambda yields 0, a deliberate divergence. Every comparison against NaN is false,
-    /// so the reference falls past its own `lam <= 0` guard and returns whatever its normal
-    /// approximation rounds to; `Int(Double.nan)` would trap here instead.
+    /// A non-finite lambda yields 0. Neither reference path offers an answer to copy: the exact
+    /// path raises, `RandomState.poisson(nan)` giving `ValueError: lam < 0 or lam is NaN` and
+    /// `Generator.poisson(inf)` giving `ValueError: lam value too large`, while
+    /// `fast_stats.fast_poisson` returns 0 for NaN and `Int64.max` for infinity, both measured.
+    /// Returning 0 keeps `Int(Double.nan)`, which traps in Swift, out of the sampler.
     @inlinable
     public static func poisson<R: RandomSource>(lambda: Double, _ source: inout R) -> Int {
         guard lambda.isFinite, lambda > 0 else { return 0 }
         if lambda < poissonRejectionThreshold {
             return poissonKnuth(lambda: lambda, &source)
         }
-        return poissonTransformedRejection(lambda: lambda, &source)
+        return poissonTransformedRejection(
+            lambda: Swift.min(lambda, poissonLambdaMax), &source)
     }
 
     public static func poisson(lambda: Double, key: PhiloxKey, counter: UInt64) -> Int {
@@ -121,7 +138,7 @@ public enum Distributions {
     /// in the PTRS form NumPy's `random_poisson_ptrs` uses.
     ///
     /// Constant expected cost in lambda, two uniforms per attempt, one `lgamma` when the squeeze
-    /// misses. The discarded attempts are what make it an exact sampler and not an approximation.
+    /// misses. The discarded attempts are what make the sampler exact.
     @usableFromInline
     static func poissonTransformedRejection<R: RandomSource>(
         lambda: Double, _ source: inout R

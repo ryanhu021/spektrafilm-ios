@@ -409,6 +409,29 @@ struct DistributionsTests {
         }
     }
 
+    /// `m <= 0` is false for NaN, so the reference carries a NaN mean through its arithmetic and
+    /// `fast_lognormal_from_mean_std(nan, 0.5)` returns NaN, measured. A guard written `mean > 0`
+    /// would return the `mean <= 0` constant 1.0 instead and hide a NaN density behind a clean unit
+    /// clumping field.
+    @Test("a NaN mean or std stays NaN")
+    func lognormalCarriesNaN() {
+        let key = PhiloxKey(seed: 3)
+        #expect(
+            Distributions.lognormalFromMeanStd(mean: .nan, std: 0.5, key: key, counter: 0).isNaN)
+        #expect(
+            Distributions.lognormalFromMeanStd(mean: 1.0, std: .nan, key: key, counter: 0).isNaN)
+        let (mu, sigma) = Distributions.lognormalLogParameters(mean: .nan, std: 0.5)
+        #expect(mu.isNaN && sigma.isNaN)
+        // An infinite mean has sigma = 0 and mu = inf, so the sigma floor short-circuits to exp(mu).
+        #expect(
+            Distributions.lognormalFromMeanStd(mean: .infinity, std: 0.5, key: key, counter: 0)
+                == .infinity)
+        // -inf takes the `mean <= 0` branch like any other non-positive mean.
+        #expect(
+            Distributions.lognormalFromMeanStd(mean: -.infinity, std: 0.5, key: key, counter: 0)
+                == 1.0)
+    }
+
     @Test("lognormal mean and variance match the oracle")
     func lognormalMoments() throws {
         let params = try Golden("random_lognormal_params_sampled")
@@ -497,8 +520,39 @@ struct DistributionsTests {
         for lambda in [0.0, -0.0, -1.0, -1e9, Double.nan, -Double.infinity] {
             #expect(Distributions.poisson(lambda: lambda, key: key, counter: 0) == 0, "\(lambda)")
         }
-        // Infinity has no sensible answer either. Returning 0 keeps `Int(Double)` from trapping.
+        // Infinity has no answer to copy: the exact path raises and `fast_poisson` returns
+        // Int64.max. Returning 0 keeps `Int(Double)` from trapping.
         #expect(Distributions.poisson(lambda: .infinity, key: key, counter: 0) == 0)
+    }
+
+    /// A finite lambda past `Int64` range must not trap. The reference raises above its own
+    /// `POISSON_LAM_MAX`; here lambda clamps to it, which keeps every accepted candidate inside
+    /// `Int`. Grain can reach this: `sat = 1 - p * u * (1 - 1e-6)` is one ulp above zero just past
+    /// `uniformity = 1`, and `lambda = N * p / sat` then runs to 2.8e19.
+    @Test("a lambda past the Int64 range clamps instead of trapping")
+    func poissonClampsHugeLambda() {
+        let key = PhiloxKey(seed: 8)
+        let saturation = 1.0 - (1.0 - 1e-6) * 1.0000020000029999 * (1.0 - 1e-6)
+        #expect(saturation > 0 && saturation < 1e-15, "saturation \(saturation)")
+        let grainLambda = 6125.0 * (1.0 - 1e-6) / saturation
+        #expect(grainLambda > 1e19, "lambda \(grainLambda)")
+
+        for lambda in [1e19, grainLambda, 1e300, Double.greatestFiniteMagnitude] {
+            let drawn = Distributions.poisson(lambda: lambda, key: key, counter: 0)
+            // Within 10 sqrt(lambda) of the clamp, the width NumPy's bound leaves for the tail.
+            let miss = abs(Double(drawn) - Distributions.poissonLambdaMax)
+            #expect(
+                miss <= 10.0 * Distributions.poissonLambdaMax.squareRoot(),
+                "lambda \(lambda) drew \(drawn), off the clamp by \(miss)")
+        }
+        // Just under the clamp nothing changes, so the bound is not silently swallowing the range
+        // the grain model really uses.
+        var source = Philox4x32(key: key)
+        for i in 0..<64 {
+            source.reset(counter: UInt64(i))
+            let drawn = Double(Distributions.poisson(lambda: 9.0e18, &source))
+            #expect(abs(drawn - 9.0e18) <= 10.0 * 9.0e18.squareRoot(), "\(drawn)")
+        }
     }
 
     @Test("Poisson moments match the closed form on both branches")
@@ -572,7 +626,7 @@ struct DistributionsTests {
 
             // Pool neighbouring counts until every bin expects at least 5. Below 5 the chi-square
             // approximation to the statistic's null distribution breaks down, and at lambda 20 it
-            // is the low counts that are sparse, not only the tail.
+            // is the low counts that are sparse as well as the tail.
             var expected: [Double] = []
             var binOfCount = [Int](repeating: 0, count: bins + 1)
             var running = 0.0

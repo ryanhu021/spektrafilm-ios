@@ -11,9 +11,10 @@ import Foundation
 /// `xtol = 1e-10`, with matching iteration counts.
 ///
 /// Nothing here throws. Per ``SpektraError``'s contract numeric trouble is reported in the return
-/// value: a bracket that does not straddle a sign change is `nil` (SciPy raises `ValueError`), and an
+/// value: a bracket that does not straddle a sign change is `nil` (SciPy raises `ValueError`), an
 /// exhausted iteration budget is ``Root/converged`` false with the last iterate (SciPy raises
-/// `RuntimeError`).
+/// `RuntimeError`), and a NaN residual is `nil` at an endpoint or ``Root/converged`` false mid-solve
+/// (SciPy wraps `f` and raises `ValueError` on the first NaN it sees).
 public enum RootFind {
 
     /// SciPy's `brentq` defaults. `morph_curves` overrides `xtol` to 1e-10 and leaves these alone.
@@ -29,7 +30,7 @@ public enum RootFind {
 
     /// Brent's method on `[lower, upper]`, which must straddle a sign change.
     ///
-    /// - Returns: `nil` when `f(lower)` and `f(upper)` share a sign bit.
+    /// - Returns: `nil` when `f(lower)` and `f(upper)` share a sign bit, or when either is NaN.
     public static func brentq(
         lower: Double,
         upper: Double,
@@ -50,9 +51,11 @@ public enum RootFind {
         var sPre = 0.0
         var sCur = 0.0
 
+        if fPre.isNaN || fCur.isNaN { return nil }
         if fPre == 0 { return Root(value: xPre, iterations: 0, converged: true) }
         if fCur == 0 { return Root(value: xCur, iterations: 0, converged: true) }
-        // Sign bits, so a residual of -0.0 counts as negative exactly as C's signbit does.
+        // C's `signbit`. Two same-signed residuals near 1e-200 multiply to +0.0, so a product test
+        // here would read a one-sided bracket as valid and iterate on garbage.
         if fPre.sign == fCur.sign { return nil }
 
         var iterations = 0
@@ -100,6 +103,7 @@ public enum RootFind {
             fPre = fCur
             xCur += abs(sCur) > delta ? sCur : (sBis > 0 ? delta : -delta)
             fCur = f(xCur)
+            if fCur.isNaN { return Root(value: xCur, iterations: iterations, converged: false) }
         }
         return Root(value: xCur, iterations: iterations, converged: false)
     }
@@ -109,8 +113,12 @@ public enum RootFind {
     /// Tests 12 brackets, `±0.25` through `±512`, and runs ``brentq`` on the first one that straddles
     /// a sign change. A residual that is exactly zero at either end short-circuits to that end.
     ///
-    /// - Returns: `nil` when no bracket straddles a sign change; the morph reads that as a zero
-    ///   offset and carries on.
+    /// The reference guards this search with two early returns that belong to the morph, so they stay
+    /// at the call site: `allclose(mix, 0)` with `atol = 1e-8`, and `|residual(0)| <= 1e-12`. Both
+    /// yield a zero offset without solving, and dropping either changes the shipped render.
+    ///
+    /// - Returns: `nil` when no bracket straddles a sign change, or when ``brentq`` does not
+    ///   converge on the one that does; the morph reads either as a zero offset and carries on.
     public static func expandingBracketRoot(
         lower: Double = -0.25,
         upper: Double = 0.25,
@@ -130,14 +138,16 @@ public enum RootFind {
             // The reference's product test, kept as a product: for residuals below ~1e-160 it
             // underflows to ±0.0 and declines a bracket that a sign-bit test would accept.
             if rLo * rHi < 0.0 {
-                return brentq(
+                let root = brentq(
                     lower: lo,
                     upper: hi,
                     xTolerance: xTolerance,
                     relativeTolerance: relativeTolerance,
                     maxIterations: maxIterations,
                     f
-                )?.value
+                )
+                guard let root, root.converged else { return nil }
+                return root.value
             }
             lo *= 2.0
             hi *= 2.0

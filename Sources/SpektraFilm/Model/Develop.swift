@@ -86,28 +86,27 @@ public enum Develop {
         morph: PrintCurvesMorphParams
     ) throws -> ImageBuffer {
         let data = profile.data
-        let curves: [Double]
-        if morph.active {
-            curves = try PrintCurvesMorph.apply(
-                logExposure: data.logExposure,
-                model: data.densityCurvesModel,
-                params: morph,
-                positive: profile.isPositive
-            )
-        } else {
-            curves = data.densityCurves
-        }
+        let curves = try PrintCurvesMorph.apply(
+            logExposure: data.logExposure,
+            model: data.densityCurvesModel,
+            params: morph,
+            positive: profile.isPositive
+        )
         return DensityCurves.densityFromLogExposure(
             logExposure: logRaw, curves: curves, axis: data.logExposure, gammaFactor: 1.0)
     }
 }
 
-/// Creative reshaping of the print paper's characteristic curves.
+/// The print paper's characteristic curves, evaluated from their parametric fit.
 ///
-/// Off by default (`PrintRenderingParams` constructs it with `active: false`), so nothing on the
-/// default render path reaches it. Porting `utils/morph_curves.py` needs the parametric CDF curve
-/// fit and a Brent solve per control point; `Core/RootFind.swift` has the solver, the fit is not
-/// written yet.
+/// Ports `utils/morph_curves.apply_print_curves_morph`. The printing stage always goes through here,
+/// including when the morph is off: with `active: false` the curves come from
+/// `_evaluate_fitted_density`, a sum of scaled normal CDFs over the emulsion's layers, and NOT from
+/// `profile.data.densityCurves`. Reading the tabulated curves instead costs 3.2e-3 on the rendered
+/// output, because the fit and the table are not the same function.
+///
+/// The active morph needs a Brent solve per control point to re-place the layer centres.
+/// `Core/RootFind.swift` has the solver; the morph itself is not written, and it defaults off.
 public enum PrintCurvesMorph {
     public static func apply(
         logExposure: [Double],
@@ -115,7 +114,37 @@ public enum PrintCurvesMorph {
         params: PrintCurvesMorphParams,
         positive: Bool
     ) throws -> [Double] {
-        throw SpektraError.unsupportedSetting(
-            "print_render.density_curves_morph.active", value: "true")
+        guard !params.active else {
+            throw SpektraError.unsupportedSetting(
+                "print_render.density_curves_morph.active", value: "true")
+        }
+        return fittedCurves(logExposure: logExposure, model: model, positive: positive)
+    }
+
+    /// `_evaluate_fitted_density`.
+    ///
+    /// Each channel is a sum over layers of `amplitude * cdf((x - centre) / sigma)`. Positive stocks
+    /// negate the argument, since their density falls with exposure.
+    public static func fittedCurves(
+        logExposure: [Double], model: DensityCurvesModel, positive: Bool
+    ) -> [Double] {
+        precondition(!model.isEmpty, "the print profile carries no fitted density_curves_model")
+        let channels = model.channelCount
+        var out = [Double](repeating: 0, count: logExposure.count * channels)
+        for c in 0..<channels {
+            for (i, x) in logExposure.enumerated() {
+                var total = 0.0
+                for layer in 0..<model.layerCount {
+                    let z =
+                        (x - model.center(channel: c, layer: layer))
+                        / model.sigma(channel: c, layer: layer)
+                    total +=
+                        model.amplitude(channel: c, layer: layer)
+                        * Erf.normalCDF(positive ? -z : z)
+                }
+                out[i * channels + c] = total
+            }
+        }
+        return out
     }
 }

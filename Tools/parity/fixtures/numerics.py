@@ -1,7 +1,7 @@
 """Goldens for the shared scalar primitives, the three boundary index maps and the spectral grid.
 
 Nothing here is stochastic and almost everything is closed form, so the Swift side gates these at
-1e-12 or tighter.
+bit equality, or at 1e-15 for the two sums where NumPy accumulates pairwise.
 
 Non-finite values are deliberately kept out of the compared arrays. `Golden.swift`'s `parity()`
 computes `abs(a - e)`, and `inf - inf` is NaN, which poisons the RMS instead of failing loudly; the
@@ -45,6 +45,10 @@ SPOW_CASES = [
 # (a, b) pairs for np.fmax. NaN is included: it round-trips through the .spkg payload and the Swift
 # comparison treats NaN as equal to NaN, so a Swift `max` that propagated NaN would show up as a
 # NaN mismatch.
+#
+# The two signed-zero rows are carried for documentation only. The Swift comparison is
+# abs(actual - expected), which is 0 for -0.0 against +0.0, so the golden cannot check the sign of
+# the tie; NumericsTests.fmaxTieOnSignedZero pins it against the values measured here.
 FMAX_CASES = [
     (1.0, 2.0),
     (2.0, 1.0),

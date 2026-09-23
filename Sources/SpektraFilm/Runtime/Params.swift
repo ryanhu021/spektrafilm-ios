@@ -467,6 +467,9 @@ public struct RuntimePhotoParams: Sendable, Equatable {
 
 extension RuntimePhotoParams {
     /// `init_params(film_profile:, print_profile:)`.
+    ///
+    /// Returns undigested params, the same as upstream. ``Simulator`` runs ``ParamsBuilder/digest``
+    /// on the way in, so callers edit the plain values and the derived ones stay derived.
     public static func make(film: String, print: String) throws -> RuntimePhotoParams {
         let params = RuntimePhotoParams(
             film: try ProfileLibrary.load(film),

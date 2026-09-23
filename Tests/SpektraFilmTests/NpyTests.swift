@@ -10,8 +10,9 @@ import Testing
 /// dtypes, empty, 0-d, 1-D, 3-D, and the three headers that must be refused. The real 192x192x81
 /// float16 spectra LUT covers the strides and the widening at scale.
 ///
-/// Tolerance is zero throughout. Float16 and Float32 widen to `Double` exactly, so anything other
-/// than bit equality with `np.double(np.load(...))` is a bug, not rounding.
+/// Tolerance is zero throughout. Every finite Float16 and Float32 widens to `Double` exactly, and
+/// the NaN and infinity patterns are pinned by their own cases, so bit equality with
+/// `np.double(np.load(...))` is the whole contract; rounding never enters.
 @Suite("NumPy array reader")
 struct NpyTests {
 
@@ -61,6 +62,33 @@ struct NpyTests {
             sourceLocation: sourceLocation)
     }
 
+    /// Builds a `.npy` blob around `dict`, padded and newline-terminated the way NumPy writes it.
+    ///
+    /// Lets a test reach header shapes no fixture carries: a v2 length above 65535, a declared
+    /// shape with no payload behind it.
+    private static func blob(
+        dict: String, major: UInt8, padTo: Int = 0, payload: Data = Data()
+    ) -> Data {
+        let preamble = major == 1 ? 10 : 12
+        var header = Array(dict.utf8)
+        while header.count + 1 < padTo { header.append(0x20) }
+        while (preamble + header.count + 1) % 64 != 0 { header.append(0x20) }
+        header.append(0x0A)
+
+        var out = NumpyArrayReader.magic
+        out.append(contentsOf: [major, 0])
+        if major == 1 {
+            let length = UInt16(header.count)
+            out.append(contentsOf: [UInt8(length & 0xFF), UInt8(length >> 8)])
+        } else {
+            let length = UInt32(header.count)
+            out.append(contentsOf: (0..<4).map { UInt8((length >> (8 * $0)) & 0xFF) })
+        }
+        out.append(contentsOf: header)
+        out.append(payload)
+        return out
+    }
+
     // MARK: - Header variants
 
     @Test(
@@ -72,6 +100,8 @@ struct NpyTests {
             ("npy_case_v1_f2_3d", [2, 3, 4], .float16),
             ("npy_case_v2_f2_3d", [2, 3, 4], .float16),
             ("npy_case_v1_f2_specials", [9], .float16),
+            ("npy_case_v1_f4_specials", [19], .float32),
+            ("npy_case_v1_f8_specials", [14], .float64),
             ("npy_case_v1_f2_sweep", [1089], .float16),
             ("npy_case_v1_f8_scalar", [], .float64),
         ])
@@ -98,7 +128,7 @@ struct NpyTests {
         }
     }
 
-    @Test("an empty array reads as zero elements, not as a failure")
+    @Test("an empty array reads as zero elements and does not fail")
     func emptyArrays() throws {
         let flat = try Self.caseFile("npy_case_v1_f8_empty")
         #expect(flat.shape == [0])
@@ -162,7 +192,7 @@ struct NpyTests {
         #expect(String(describing: error).contains("<f8"))
     }
 
-    @Test("corrupt bytes are refused, not read as zeros")
+    @Test("corrupt bytes are refused instead of being read as zeros")
     func rejectsCorruption() throws {
         guard
             let url = Bundle.module.url(
@@ -196,6 +226,46 @@ struct NpyTests {
         var blob = NumpyArrayReader.magic
         blob.append(contentsOf: [1, 0, 0xFF, 0xFF])
         #expect(throws: SpektraError.self) { try NumpyArrayReader.parse(blob, source: "t") }
+    }
+
+    /// 2 000 000 000 squared fits an `Int`; times 8 bytes it does not. An unchecked multiply here
+    /// traps the process, which a caller cannot catch.
+    @Test("a shape whose byte count overflows Int throws instead of trapping")
+    func rejectsOverflowingByteCount() throws {
+        let blob = Self.blob(
+            dict: "{'descr': '<f8', 'fortran_order': False, 'shape': (2000000000, 2000000000), }",
+            major: 1)
+        let error = #expect(throws: SpektraError.self) {
+            try NumpyArrayReader.parse(blob, source: "t")
+        }
+        #expect(String(describing: error).contains("Int.max"))
+
+        // The per-dimension guard, for the case where the element count alone overflows.
+        let wider = Self.blob(
+            dict:
+                "{'descr': '<f8', 'fortran_order': False, 'shape': (4000000000, 4000000000, 4000000000), }",
+            major: 1)
+        #expect(throws: SpektraError.self) { try NumpyArrayReader.parse(wider, source: "t") }
+    }
+
+    /// The whole reason format 2.0 exists is a header too long for a uint16. Every v2 fixture has a
+    /// short header, so without this a reader that ignored the top two length bytes would pass.
+    @Test("a v2 header longer than 65535 bytes uses the full uint32 length")
+    func readsLongV2Header() throws {
+        let values = [0.0, 1.0 / 3, -2.5, 1e300, -0.0, .pi]
+        var payload = Data()
+        for value in values {
+            let bits = value.bitPattern.littleEndian
+            withUnsafeBytes(of: bits) { payload.append(contentsOf: $0) }
+        }
+        let blob = Self.blob(
+            dict: "{'descr': '<f8', 'fortran_order': False, 'shape': (6,), }",
+            major: 2, padTo: 70_000, payload: payload)
+        #expect(blob.count > 65_535 + 12)
+
+        let array = try NumpyArrayReader.parse(blob, source: "t")
+        #expect(array.shape == [6])
+        #expect(array.values().map(\.bitPattern) == values.map(\.bitPattern))
     }
 
     // MARK: - The shipped spectra LUT

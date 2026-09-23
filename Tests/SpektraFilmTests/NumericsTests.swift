@@ -58,6 +58,19 @@ struct NumericsTests {
         #expect(max(Double.nan, 3).isNaN)
     }
 
+    /// `num_fmax` carries both signed-zero orders, and the golden cannot check them: `parity()`
+    /// compares `abs(a - e)`, which is 0 for `-0.0` against `+0.0`. `np.fmax` returns `+0.0` for the
+    /// tie in either order, measured over array lengths 1 to 100. `Double.maximum` returns the second
+    /// operand instead, so this is what stops a substitution.
+    @Test("npFmax breaks the signed-zero tie the way np.fmax does")
+    func fmaxTieOnSignedZero() {
+        #expect(npFmax(0.0, -0.0).sign == .plus)
+        #expect(npFmax(-0.0, 0.0).sign == .plus)
+        #expect(npFmax(0.0, 0.0).sign == .plus)
+        #expect(npFmax(-0.0, -0.0).sign == .minus)
+        #expect(Double.maximum(0.0, -0.0).sign == .minus)
+    }
+
     @Test("nanToNum substitutes NumPy's default values")
     func nanToNumMatchesNumpy() throws {
         let input = try Golden("num_nan_to_num_input")
@@ -69,6 +82,8 @@ struct NumericsTests {
         #expect(nanToNum(-Double.infinity) == -.greatestFiniteMagnitude)
         #expect(nanToNum(Double.nan) == 0)
         #expect(Double.greatestFiniteMagnitude == 1.7976931348623157e308)
+        // np.nan_to_num leaves a negative zero alone, and the golden comparison cannot see that.
+        #expect(nanToNum(-0.0).sign == .minus)
     }
 
     @Test("log10Guard floors at -10")
@@ -122,6 +137,21 @@ struct NumericsTests {
         #expect(linspace(-3, 4, count: 256) == golden)
     }
 
+    /// NumPy overwrites the last sample with `stop`. None of the counts in the goldens above needs
+    /// it, so without this test the overwrite can be deleted and everything stays green. These three
+    /// counts do need it: the accumulated last sample is 0.9999999999999999, 0.9999999999999999 and
+    /// 3.999999999999999, all measured in the oracle. `linspace(0, 1, L)` is the LUT axis at seven
+    /// reference call sites, and 505 of the 4095 counts in `2...4096` land here.
+    @Test("linspace writes the final sample as stop exactly")
+    func linspaceEndpointIsWritten() {
+        #expect(linspace(0, 1, count: 50)[49] == 1.0)
+        #expect(linspace(0.05, 1.0, count: 16)[15] == 1.0)
+        #expect(linspace(-3, 4, count: 441)[440] == 4.0)
+        #expect(49 * (1.0 / 49) != 1.0)
+        // endpoint=False has no final sample to pin, so the accumulation stands.
+        #expect(linspace(0, 1, count: 50, endpoint: false)[49] == 49 * (1.0 / 50))
+    }
+
     @Test("the NaN-skipping reductions match numpy, all-NaN slices included")
     func nanReductions() throws {
         let input = try Golden("num_nan_reduce_input")
@@ -145,9 +175,8 @@ struct NumericsTests {
             [nanMean(flat)], matches: "num_nan_mean_flat", maxAbsolute: 1e-15,
             rootMeanSquare: 1e-15)
 
-        // Column 2 is entirely NaN and row 3 is entirely NaN. NumPy warns and returns NaN for both;
-        // `expectParity` reports a NaN that appears or disappears as a mismatch, so this is gated
-        // rather than skipped.
+        // Column 2 is entirely NaN and row 3 is entirely NaN. NumPy warns and returns NaN for both,
+        // and `expectParity` reports a NaN that appears or disappears as a mismatch.
         #expect(nanMin(flat, channels: 3)[2].isNaN)
         #expect(nanMax(flat, channels: 3)[2].isNaN)
         #expect(nanMean(flat, channels: 3)[2].isNaN)
@@ -346,6 +375,16 @@ struct SpectralShapeTests {
         try expectParity(
             cmfs.multipliedPerWavelength(by: probe).values,
             matches: "spectralshape_cmfs_times_probe", maxAbsolute: 0, rootMeanSquare: 0)
+
+        // `multiplied(by:)` has no golden of its own. Squaring the CMFs reuses one: the elementwise
+        // product of the table with itself is the same as scaling each row by its own value.
+        let squared = cmfs.multiplied(by: cmfs)
+        for i in 0..<SpectralShape.count {
+            for c in 0..<SpectralMatrix.channels {
+                let x = cmfs[wavelength: i, channel: c]
+                #expect(squared[wavelength: i, channel: c] == x * x)
+            }
+        }
     }
 
     @Test("element access is [wavelength][channel]")

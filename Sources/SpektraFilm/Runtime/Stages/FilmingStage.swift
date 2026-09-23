@@ -152,21 +152,35 @@ public final class FilmingStage {
     // MARK: - Spectral reconstruction
 
     /// `_rgb_to_film_raw`.
-    private func rgbToFilmRaw(_ rgb: ImageBuffer) throws -> ImageBuffer {
+    ///
+    /// The colour space defaults to the configured input space, which is what `expose` wants. The
+    /// midgray reference overrides it; see ``simpleRGBToSpectralDensity(_:)``.
+    private func rgbToFilmRaw(
+        _ rgb: ImageBuffer,
+        colourSpace: ColourSpace? = nil,
+        applyCCTFDecoding: Bool? = nil
+    ) throws -> ImageBuffer {
         try SpectralUpsampling.rgbToRaw(
             method: settings.rgbToRawMethod,
             rgb: rgb,
             sensitivity: SpectralMatrix(sensitivity),
-            colourSpace: inputColourSpace,
-            applyCCTFDecoding: io.inputCCTFDecoding,
+            colourSpace: colourSpace ?? inputColourSpace,
+            applyCCTFDecoding: applyCCTFDecoding ?? io.inputCCTFDecoding,
             referenceIlluminant: referenceIlluminant,
             tcLUT: tcLUT)
     }
 
     /// `_simple_rgb_to_density_spectral`. No couplers and no grain, so the reference stays a
     /// calibration constant.
+    ///
+    /// Reconstructs in sRGB with no transfer decoding, whatever the input colour space is.
+    /// `_rgb_to_film_raw` declares `color_space="sRGB"` as a default argument, `expose` passes the
+    /// real input space, and this caller passes nothing. The midgray reference is therefore always
+    /// sRGB-relative, which matters: 0.184 in ProPhoto RGB is a different colour, and using the
+    /// input space here shifts the print exposure factor by 3.2e-5 in log space, which lands as a
+    /// uniform 1.8e-3 error on the rendered output.
     private func simpleRGBToSpectralDensity(_ rgb: ImageBuffer) throws -> ImageBuffer {
-        var raw = try rgbToFilmRaw(rgb)
+        var raw = try rgbToFilmRaw(rgb, colourSpace: ColourSpace.sRGB, applyCCTFDecoding: false)
         raw.values.withUnsafeMutableBufferPointer { buf in
             guard let p = buf.baseAddress else { return }
             // The reference writes log10(raw + 1e-10) here, with no fmax floor.

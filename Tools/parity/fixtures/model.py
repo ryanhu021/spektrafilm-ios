@@ -212,7 +212,7 @@ TAP_CASES = [
 @fixture
 def pipeline_taps():
     """Every tap for four film, paper and output-space combinations, plus a grey ramp end to end."""
-    from spektrafilm.runtime.params_builder import init_params
+    from spektrafilm.runtime.params_builder import digest_params, init_params
     from spektrafilm.runtime.pipeline import SimulationPipeline
 
     # A patch per distinct input value, so one fixture covers shadows through highlights without
@@ -228,6 +228,7 @@ def pipeline_taps():
         params.camera.auto_exposure = False
         params.debug.lut_mode = True
         params.io.output_color_space = output_space
+        params = digest_params(params)
 
         for tap in TAPS:
             pipeline = SimulationPipeline(params)
@@ -238,6 +239,128 @@ def pipeline_taps():
     params.camera.auto_exposure = False
     params.debug.lut_mode = True
     params.io.scan_film = True
+    params = digest_params(params)
     for tap in ["rgb_pre", "log_e_film", "cmy_film", "rgb_out"]:
         pipeline = SimulationPipeline(params)
         yield f"pipeline_scanfilm_portra400_{tap}", pipeline.process(ramp, collect=tap)
+
+
+@fixture
+def develop_full():
+    """The full develop() composition, which the per-function fixtures do not cover.
+
+    Grain off, so this isolates the density curves plus the DIR coupler application. The coupler
+    spatial term is off via diffusion_size_um = 0, which is what deactivate_spatial_effects sets;
+    passing pixel_size_um = None instead raises, because the reference divides by it before checking.
+    """
+    from spektrafilm.model.couplers import apply_density_correction_dir_couplers
+    from spektrafilm.model.density_curves import interpolate_exposure_to_density
+    from spektrafilm.model.develop import develop
+    from spektrafilm.profiles.io import load_profile
+    from spektrafilm.runtime.params_schema import DirCouplersParams, GrainParams
+
+    log_raw = np.ascontiguousarray(
+        np.random.default_rng(4242).uniform(-4.0, 4.5, size=(8, 8, 3)))
+    yield "develop_log_raw_input", log_raw
+
+    grain_off = GrainParams(active=False)
+    for stock in ["kodak_portra_400", "fujifilm_velvia_100"]:
+        profile = load_profile(stock)
+        curves = np.asarray(profile.data.density_curves)
+        log_exposure = np.asarray(profile.data.log_exposure)
+        normalised = curves - np.nanmin(curves, axis=0)
+        couplers = DirCouplersParams(diffusion_size_um=0.0)
+
+        # The intermediate, before the couplers act.
+        before = interpolate_exposure_to_density(log_raw, normalised, log_exposure, 1.0)
+        yield f"develop_{stock}_precoupler", before
+
+        # The coupler correction on its own, which is the step with no fixture until now.
+        yield (
+            f"develop_{stock}_coupled",
+            apply_density_correction_dir_couplers(
+                before, log_raw, 10.0, log_exposure, normalised, couplers,
+                profile.info.type, gamma_factor=1.0,
+            ),
+        )
+
+        # And the whole function, grain off.
+        yield (
+            f"develop_{stock}_full",
+            develop(
+                log_raw, 10.0, log_exposure, curves,
+                np.asarray(profile.data.density_curves_layers),
+                couplers, grain_off, profile.info.type, gamma_factor=1.0,
+            ),
+        )
+
+
+@fixture
+def print_balance():
+    """The midgray reference and the exposure factor the print balance derives from."""
+    from spektrafilm.runtime.params_builder import digest_params, init_params
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+
+    params = init_params(film_profile="kodak_portra_400", print_profile="kodak_portra_endura")
+    params.camera.auto_exposure = False
+    params.debug.lut_mode = True
+    params = digest_params(params)
+
+    pipeline = SimulationPipeline(params)
+    midgray = pipeline._enlarger_service.density_spectral_midgray
+    yield "print_balance_midgray_spectral", midgray
+    yield (
+        "print_balance_midgray_comp_is_none",
+        np.array([1.0 if pipeline._enlarger_service.density_spectral_midgray_comp is None else 0.0]),
+    )
+
+    # The paper sensitivity and the filtered lamp, so the Swift side can be checked at each step.
+    from spektrafilm.model.illuminants import standard_illuminant
+    lamp = standard_illuminant(params.enlarger.illuminant)
+    filtered = pipeline._enlarger_service.enlarger_filtered_illuminant(lamp)
+    yield "print_balance_filtered_illuminant", filtered
+
+    sensitivity = np.nan_to_num(10 ** np.asarray(params.print.data.log_sensitivity))
+    yield "print_balance_paper_sensitivity", sensitivity
+
+    from spektrafilm.runtime.stages.printing import _exposure_factor
+    yield "print_balance_exposure_factor", _exposure_factor(sensitivity, filtered, midgray)
+
+    yield "print_balance_neutral_cmy", np.array([
+        params.enlarger.c_filter_neutral,
+        params.enlarger.m_filter_neutral,
+        params.enlarger.y_filter_neutral,
+    ])
+
+
+@fixture
+def midgray_steps():
+    """Each step of _simple_rgb_to_density_spectral, so a divergence can be localised."""
+    from spektrafilm.model.develop import develop_simple
+    from spektrafilm.runtime.params_builder import digest_params, init_params
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+
+    params = init_params(film_profile="kodak_portra_400", print_profile="kodak_portra_endura")
+    params.camera.auto_exposure = False
+    params.debug.lut_mode = True
+    params = digest_params(params)
+    pipeline = SimulationPipeline(params)
+    filming = pipeline._filming_stage
+
+    rgb = np.array([[[0.184] * 3]])
+    raw = filming._rgb_to_film_raw(rgb)
+    yield "midgray_raw", raw
+    log_raw = np.log10(raw + 1e-10)
+    yield "midgray_log_raw", log_raw
+    yield (
+        "midgray_cmy",
+        develop_simple(
+            log_raw,
+            np.asarray(params.film.data.log_exposure),
+            np.asarray(params.film.data.density_curves),
+            gamma_factor=params.film_render.density_curve_gamma,
+        ),
+    )
+
+    # The same raw through the expose path's own log, for comparison.
+    yield "midgray_log_raw_fmax", np.log10(np.fmax(raw, 0.0) + 1e-10)

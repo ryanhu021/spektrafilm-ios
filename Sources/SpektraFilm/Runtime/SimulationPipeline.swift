@@ -24,7 +24,10 @@ public final class SimulationPipeline {
         resampler: any Resampler = UnavailableResampler()
     ) throws {
         try rawParams.validate()
-        let params = Self.applyDebugOverrides(rawParams)
+        // Digesting is not optional: it overrides the enlarger neutrals from the measured database
+        // and seeds the coupler and halation parameters from the stock's tags. The dataclass
+        // defaults alone render differently.
+        let params = try ParamsBuilder.digest(rawParams)
         self.params = params
 
         let spatial: any SpatialFilter =
@@ -99,35 +102,6 @@ public final class SimulationPipeline {
             node, seconds in
             self.timings[node.label, default: 0] += seconds
         }
-    }
-
-    /// `debug.lut_mode` makes the pipeline a deterministic per-pixel transform, suitable for LUT
-    /// sampling. Spatial effects, stochastic effects, auto-exposure and the scanner corrections all
-    /// turn off regardless of their own settings.
-    static func applyDebugOverrides(_ params: RuntimePhotoParams) -> RuntimePhotoParams {
-        var p = params
-        if p.debug.lutMode {
-            p.debug.deactivateSpatialEffects = true
-            p.debug.deactivateStochasticEffects = true
-            p.camera.autoExposure = false
-            p.scanner.whiteCorrection = false
-            p.scanner.blackCorrection = false
-            p.scanner.unsharpMask = (0, 0)
-        }
-        if p.debug.deactivateStochasticEffects {
-            p.filmRender.grain.active = false
-            p.filmRender.glare.active = false
-            p.printRender.glare.active = false
-        }
-        if p.debug.deactivateSpatialEffects {
-            p.camera.lensBlurMicrons = 0
-            p.camera.diffusionFilter.active = false
-            p.enlarger.lensBlur = 0
-            p.enlarger.diffusionFilter.active = false
-            p.scanner.lensBlur = 0
-            p.filmRender.halation.active = false
-        }
-        return p
     }
 
     static func buildTopology(

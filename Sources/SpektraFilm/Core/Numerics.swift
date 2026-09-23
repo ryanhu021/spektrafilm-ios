@@ -36,10 +36,13 @@ public func spow(_ a: Double, _ p: Double) -> Double {
 /// `fmax(raw, 0)` into `log10`, and the gamut code guards nine divisions with `fmax(d, 1e-12)`.
 /// A NaN surviving either would turn a wrong colour into a trap at the next `Int(_:)` conversion.
 ///
-/// `Double.maximum` is IEEE 754 `maxNum`, which is exactly `fmax`, including `fmax(-0.0, 0.0) = 0.0`
-/// and NaN for two NaN operands.
+/// Forwards to libm `fmax`, which agrees with `np.fmax` bit for bit on all 19 pairs measured in the
+/// oracle, two NaN operands and both signed-zero orders included. `Double.maximum` breaks the
+/// signed-zero tie the other way and must not be substituted here: `Double.maximum(0.0, -0.0)` is
+/// `-0.0`, `np.fmax(0.0, -0.0)` is `+0.0`, and the goldens cannot see the difference because
+/// `abs(-0.0 - 0.0)` is 0.
 @inlinable
-public func npFmax(_ a: Double, _ b: Double) -> Double { Double.maximum(a, b) }
+public func npFmax(_ a: Double, _ b: Double) -> Double { fmax(a, b) }
 
 // MARK: - Non-finite substitution
 
@@ -91,7 +94,9 @@ public func log10Guard(_ image: ImageBuffer) -> ImageBuffer {
 /// - The step is formed **once** as `(stop - start) / div` and then multiplied by `i`. Computing
 ///   `Double(i) * (stop - start) / div` instead rounds twice and misses `linspace(-3, 4, 256)` by
 ///   8.9e-16, measured against the oracle.
-/// - With `endpoint` the last sample is overwritten with `stop` exactly rather than accumulated.
+/// - With `endpoint` the last sample is overwritten with `stop` exactly. The accumulated value is
+///   often a different double: `linspace(0, 1, 50)` accumulates 0.9999999999999999, and 505 of the
+///   4095 counts in `2...4096` do the same, measured in the oracle.
 ///
 /// `LOG_EXPOSURE = linspace(-3, 4, 256)` is bit-identical to this, and to the `log_exposure` array
 /// in all 28 bundled profiles.
@@ -138,8 +143,8 @@ public func nanMax(_ values: [Double], channels: Int) -> [Double] {
     reduceOverSamples(values, channels: channels) { Swift.max($0, $1) }
 }
 
-/// Per-channel `np.nanmean(a, axis: 0)`. An all-NaN slice returns NaN (NumPy's
-/// `Mean of empty slice`), not 0.
+/// Per-channel `np.nanmean(a, axis: 0)`. An all-NaN slice returns NaN, which is NumPy's
+/// `Mean of empty slice` path.
 public func nanMean(_ values: [Double], channels: Int) -> [Double] {
     precondition(channels > 0, "channels must be positive")
     precondition(values.count % channels == 0, "\(values.count) values is not a multiple of \(channels)")

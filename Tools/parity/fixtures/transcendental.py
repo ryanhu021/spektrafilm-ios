@@ -35,11 +35,17 @@ _BRENTQ_CASES = [
     (lambda x: math.exp(-x * x) - 0.75, 0.0, 3.0),
 ]
 
-# Roots outside the reference's initial [-0.25, 0.25], so the doubling search has to fire.
+# Roots outside the reference's initial [-0.25, 0.25], so the doubling search has to fire. The last
+# three pin conventions that a correct-looking rewrite gets wrong by 1e-13 or misses entirely: the
+# r_lo and r_hi exact-zero short-circuits, and the twelfth bracket. Dropping either short-circuit
+# lands on 0.24999999999989636; stopping at eleven doublings gives up on the +-512 case.
 _BRACKET_CASES = [
     lambda x: math.tanh(x - 1.7),
     lambda x: 1.0 - math.exp(-(x + 1.1)),
     lambda x: math.tanh(0.3 * (x - 3.8)),
+    lambda x: (x + 0.25) * (x - 3.0),
+    lambda x: (x - 0.25) * (x + 3.0),
+    lambda x: math.tanh(0.001 * (x - 300.0)),
 ]
 
 
@@ -68,7 +74,8 @@ def _sweep():
                 np.linspace(-45.0, 45.0, 181),
                 np.logspace(-20.0, 1.5, 200),
                 -np.logspace(-20.0, 1.5, 200),
-                # 26.55 is where scipy's erfc underflows to 0 and Darwin's still returns subnormals.
+                # scipy's erfc first underflows to 0 at 26.6417475570463; Darwin still returns
+                # subnormals there and out to 27, so 27.0 pins that divergence.
                 np.array([0.0, 0.5, 1.0, 26.5, 26.55, 27.0, -26.5, 1.0 / math.sqrt(2.0)]),
             ]
         )

@@ -46,6 +46,14 @@ PMF_BINS = 72
 # sites, grain's clumping field at its default and forced-on settings and glare's (0.03, 0.7*0.03),
 # plus the two degenerate branches: `mean <= 0` yields mu = sigma = 0, and `sigma < 1e-6` skips the
 # normal draw entirely.
+#
+# The last row pins the NaN corner. `m <= 0` is false for NaN, so a NaN mean reaches the arithmetic
+# and both outputs stay NaN; a port guarding on `m > 0` instead would return (0, 0) here and
+# `Golden`'s NaN-mismatch count catches it.
+#
+# The infinite-mean corners are asserted in `RandomTests` instead of here. `parity()` computes
+# `abs(inf - inf)`, which is NaN, so any golden holding an infinity fails on RMS however well the
+# two sides agree.
 LOGNORMAL_PARAMS = np.array(
     [
         [1.0, 0.3],
@@ -58,6 +66,7 @@ LOGNORMAL_PARAMS = np.array(
         [1.0, 1.0e-9],
         [0.0, 0.5],
         [-1.0, 0.5],
+        [np.nan, 0.5],
     ]
 )
 
@@ -142,8 +151,9 @@ def random_lognormal():
     """The deterministic log-space inversion, and the moments it implies."""
     from spektrafilm.utils.fast_stats import fast_lognormal_from_mean_std
 
-    # Transcribed from fast_stats.py:166 so the golden is the reference's arithmetic, not a
-    # restatement of the textbook identity.
+    # Transcribed from fast_stats.py:166, so the golden carries the reference's own arithmetic
+    # instead of the textbook identity. `mean` and `std` arrive as np.float64, so a division by
+    # zero yields inf or NaN here exactly as it does in the njit kernel.
     def log_params(mean: float, std: float) -> tuple[float, float]:
         if mean <= 0:
             return 0.0, 0.0

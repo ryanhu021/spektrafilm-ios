@@ -9,8 +9,8 @@ files and their expected values cannot drift. Regenerate them together:
     generate_goldens.py npy_case_files npy_case_values npy_lut
 
 `npy_lut` samples `Sources/SpektraFilm/Resources/luts/spectral_upsampling/irradiance_xy_tc.npy`,
-the 192x192x81 float16 table the engine loads at runtime. Widening float16 to float64 is lossless,
-so the Swift side is gated at tolerance 0.
+the 192x192x81 float16 table the engine loads at runtime. Every value in it is finite, and widening
+a finite float16 to float64 is lossless, so the Swift side is gated at tolerance 0.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ REPO = Path(__file__).resolve().parents[3]
 GOLDENS = REPO / "Tests" / "SpektraFilmTests" / "Goldens"
 LUT = REPO / "Sources" / "SpektraFilm" / "Resources" / "luts" / "spectral_upsampling" / "irradiance_xy_tc.npy"
 
-# float16 corners of the representable range, so the subnormal and NaN paths of the widening are
-# covered by a file rather than by a hand-written Swift constant.
+# float16 corners of the representable range, so a file covers the subnormal and NaN paths of the
+# widening instead of a hand-written Swift constant.
 F2_SPECIALS = [
     np.nan,
     np.inf,
@@ -39,6 +39,38 @@ F2_SPECIALS = [
     65504.0,  # largest finite
     1.0009765625,  # 1 + 2^-10
 ]
+
+def f4_specials() -> np.ndarray:
+    """float32 bit patterns whose widening a plain reinterpret would get wrong.
+
+    Both zeros, both subnormal ends, the largest finite, both infinities, quiet and signalling NaN
+    with a payload. `np.double` of a signalling float32 NaN quiets it, and so does the Swift cast;
+    without a case here nothing checks that the two quiet it the same way.
+    """
+    patterns = [
+        0x0000_0000, 0x8000_0000, 0x0000_0001, 0x807F_FFFF, 0x0080_0000, 0x8080_0000,
+        0x7F7F_FFFF, 0xFF7F_FFFF, 0x7F80_0000, 0xFF80_0000,
+        0x7F80_0001, 0xFF80_0001, 0x7FBF_FFFF, 0x7FC0_0000, 0xFFC0_0001, 0x7FFF_FFFF,
+        0x3F80_0000, 0xBF80_0000, 0x4049_0FDB,
+    ]
+    return np.array(patterns, dtype=np.uint32).view(np.float32)
+
+
+def f8_specials() -> np.ndarray:
+    """The same corners in float64, where the widening is a bit-for-bit copy.
+
+    A signalling NaN stays signalling through `np.double` of a float64 array, so this case pins the
+    opposite convention from `f4_specials`.
+    """
+    patterns = [
+        0x0000_0000_0000_0000, 0x8000_0000_0000_0000, 0x0000_0000_0000_0001,
+        0x800F_FFFF_FFFF_FFFF, 0x0010_0000_0000_0000, 0x7FEF_FFFF_FFFF_FFFF,
+        0xFFEF_FFFF_FFFF_FFFF, 0x7FF0_0000_0000_0000, 0xFFF0_0000_0000_0000,
+        0x7FF0_0000_0000_0001, 0x7FF7_FFFF_FFFF_FFFF, 0x7FF8_0000_0000_0000,
+        0xFFF8_0000_0000_0001, 0x3FF0_0000_0000_0000,
+    ]
+    return np.array(patterns, dtype=np.uint64).view(np.float64)
+
 
 def f2_sweep() -> np.ndarray:
     """Every 61st float16 bit pattern, plus the boundaries between the widening's branches.
@@ -67,6 +99,8 @@ CASES: list[tuple[str, tuple[int, int], np.ndarray]] = [
     ("npy_case_v1_f2_3d", (1, 0), np.linspace(-3.0, 3.0, 24, dtype="<f8").reshape(2, 3, 4).astype("<f2")),
     ("npy_case_v2_f2_3d", (2, 0), np.linspace(-3.0, 3.0, 24, dtype="<f8").reshape(2, 3, 4).astype("<f2")),
     ("npy_case_v1_f2_specials", (1, 0), np.array(F2_SPECIALS, dtype="<f2")),
+    ("npy_case_v1_f4_specials", (1, 0), f4_specials()),
+    ("npy_case_v1_f8_specials", (1, 0), f8_specials()),
     ("npy_case_v1_f2_sweep", (1, 0), f2_sweep()),
     ("npy_case_v1_f8_scalar", (1, 0), np.array(3.5, dtype="<f8")),
     ("npy_case_v1_f8_empty", (1, 0), np.zeros((0,), dtype="<f8")),
@@ -79,8 +113,8 @@ CASES: list[tuple[str, tuple[int, int], np.ndarray]] = [
 # Cases the Swift reader must reject. No value golden for these.
 REJECTED = {"npy_case_bad_fortran", "npy_case_bad_bigendian", "npy_case_bad_int"}
 
-# Cases whose payload is empty or a single scalar: asserted inline in Swift, not against a .spkg,
-# because a zero-element golden makes every comparison trivially pass.
+# Cases whose payload is empty or a single scalar: asserted inline in Swift instead of against a
+# .spkg, because a zero-element golden makes every comparison trivially pass.
 UNGOLDENED = REJECTED | {"npy_case_v1_f8_empty", "npy_case_v1_f8_empty_2d"}
 
 

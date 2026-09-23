@@ -86,6 +86,8 @@ struct ParityReport: CustomStringConvertible {
     let worstActual: Double
     let worstExpected: Double
     let nanMismatches: Int
+    /// Values that are numerically equal but differ in the sign of zero.
+    let signedZeroMismatches: Int
     let count: Int
 
     var description: String {
@@ -96,6 +98,9 @@ struct ParityReport: CustomStringConvertible {
                 format: "; worst at [%d]: %.12g vs %.12g", worstIndex, worstActual, worstExpected)
         }
         if nanMismatches > 0 { s += "; \(nanMismatches) NaN mismatches" }
+        if signedZeroMismatches > 0 {
+            s += "; \(signedZeroMismatches) signed-zero mismatches"
+        }
         return s
     }
 }
@@ -114,6 +119,7 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
     var sumSquares = 0.0
     var worstIndex = 0
     var nanMismatches = 0
+    var signedZeroMismatches = 0
     var compared = 0
     for i in actual.indices {
         let a = actual[i]
@@ -122,6 +128,10 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
             if a.isNaN != e.isNaN { nanMismatches += 1 }
             continue
         }
+        // abs(-0.0 - 0.0) is 0, so a signed-zero disagreement is invisible to the bounds below.
+        // That is not academic: it hid an npFmax that broke the tie the opposite way from np.fmax,
+        // in a fixture that contained the exact failing case.
+        if a == 0 && e == 0 && a.sign != e.sign { signedZeroMismatches += 1 }
         let d = abs(a - e)
         if d > maxAbs {
             maxAbs = d
@@ -137,6 +147,7 @@ func parity(_ actual: [Double], _ expected: [Double]) -> ParityReport {
         worstActual: compared > 0 ? actual[worstIndex] : .nan,
         worstExpected: compared > 0 ? expected[worstIndex] : .nan,
         nanMismatches: nanMismatches,
+        signedZeroMismatches: signedZeroMismatches,
         count: compared
     )
 }
@@ -149,6 +160,7 @@ func expectParity(
     matches golden: String,
     maxAbsolute: Double = 1e-4,
     rootMeanSquare: Double = 1e-5,
+    allowedSignedZeroMismatches: Int = 0,
     sourceLocation: SourceLocation = #_sourceLocation
 ) throws {
     let expected = try Golden(golden)
@@ -161,6 +173,10 @@ func expectParity(
         sourceLocation: sourceLocation)
     #expect(
         report.nanMismatches == 0,
+        "\(golden): \(report)",
+        sourceLocation: sourceLocation)
+    #expect(
+        report.signedZeroMismatches <= allowedSignedZeroMismatches,
         "\(golden): \(report)",
         sourceLocation: sourceLocation)
     #expect(

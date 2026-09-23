@@ -138,12 +138,14 @@ public struct NumpyArray: Sendable {
 
     /// IEEE-754 binary16 to `Double`, by assembling the binary64 bit pattern.
     ///
-    /// Hand-rolled because `Float16` is unavailable on x86_64 macOS, which the parity tests run
-    /// on. Every binary16 is exactly representable in binary64, including subnormals, so this is a
-    /// relabelling of the exponent and a shift of the significand.
+    /// Hand-rolled because `Float16` is unavailable on x86_64 macOS, which the iOS simulator builds
+    /// on an Intel host target. Every finite binary16 is exactly representable in binary64,
+    /// including subnormals, so the finite paths are a relabelling of the exponent and a shift of
+    /// the significand.
     ///
     /// Checked against `np.double(np.arange(65536, dtype=np.uint16).view(np.float16))` for all
-    /// 65 536 bit patterns: identical, including sign of zero and NaN payloads.
+    /// 65 536 bit patterns: identical, including sign of zero and NaN payloads. Also identical to
+    /// `Double(Float16(bitPattern:))` on all 65 536, measured on arm64 where that type exists.
     public static func double(fromBinary16 bits: UInt16) -> Double {
         let sign = UInt64(bits & 0x8000) << 48
         let exponent = Int((bits >> 10) & 0x1F)
@@ -293,7 +295,13 @@ public enum NumpyArrayReader {
             guard !overflow else { throw fail("shape \(shape) overflows Int") }
             count = product
         }
-        let expected = count * dtype.byteCount
+        // The element size has to be inside the same guard: shape (2000000000, 2000000000) gives a
+        // count that fits an Int and a byte count that does not, and an unchecked multiply traps
+        // the process instead of throwing.
+        let (expected, sizeOverflow) = count.multipliedReportingOverflow(by: dtype.byteCount)
+        guard !sizeOverflow else {
+            throw fail("shape \(shape) of \(dtype.rawValue) needs more than Int.max bytes")
+        }
         guard data.count - payloadOffset == expected else {
             throw fail(
                 "shape \(shape) of \(dtype.rawValue) needs \(expected) payload bytes, file has \(data.count - payloadOffset)"

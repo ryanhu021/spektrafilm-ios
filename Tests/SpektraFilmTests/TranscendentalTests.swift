@@ -148,14 +148,23 @@ struct TranscendentalTests {
     }
 
     /// Roots outside the reference's initial `[-0.25, 0.25]`, so the doubling search has to fire.
+    ///
+    /// The last three pin the conventions, in `Tools/parity/fixtures/transcendental.py`'s order: a
+    /// residual of exactly zero at `lo`, the same at `hi`, and a root only the twelfth bracket
+    /// reaches.
     static let bracketCases: [@Sendable (Double) -> Double] = [
         { Foundation.tanh($0 - 1.7) },
         { 1.0 - Foundation.exp(-($0 + 1.1)) },
         { Foundation.tanh(0.3 * ($0 - 3.8)) },
+        { ($0 + 0.25) * ($0 - 3.0) },
+        { ($0 - 0.25) * ($0 + 3.0) },
+        { Foundation.tanh(0.001 * ($0 - 300.0)) },
     ]
 
     @Test("the doubling bracket search matches the reference's loop")
     func bracketExpansion() throws {
+        // A length mismatch against the fixture traps inside `parity`, so check it here first.
+        #expect(try Golden("transcendental_bracket_roots").shape == [Self.bracketCases.count])
         let roots = Self.bracketCases.map { RootFind.expandingBracketRoot($0) ?? .nan }
         try expectParity(
             roots, matches: "transcendental_bracket_roots",
@@ -171,9 +180,53 @@ struct TranscendentalTests {
         #expect(root == nil)
     }
 
-    @Test("brentq reports a same-sign bracket instead of a root")
+    /// Three brackets the reference's loop declines, each checked against that loop in the oracle.
+    /// None can be a golden, because the reference returns `None` and a `.spkg` carries only doubles.
+    @Test("brackets the reference declines")
+    func bracketDeclined() {
+        // Root at 1024, one doubling past the twelfth bracket.
+        #expect(RootFind.expandingBracketRoot { $0 - 1024.0 } == nil)
+        // Residuals of ±1e-180 multiply to ±0.0, so the product test never sees the sign change. A
+        // sign-bit test would accept the first bracket and return 0.7.
+        #expect(RootFind.expandingBracketRoot { 1e-180 * ($0 - 0.7) } == nil)
+        // NaN fails every comparison in the loop, so the search doubles out and gives up. Profiles
+        // carry NaN for missing datasheet coverage, which is how a NaN residual gets here.
+        #expect(RootFind.expandingBracketRoot { _ in Double.nan } == nil)
+    }
+
+    /// The reference's `brentq` raises `RuntimeError` on an exhausted budget, so the search reports
+    /// no root at all. Unreachable with the default budget: a bracket that
+    /// straddles always converges well inside 100 iterations.
+    @Test("a straddling bracket that does not converge reports no root")
+    func bracketNonConvergence() {
+        let f: @Sendable (Double) -> Double = { Foundation.atan($0) - 0.5 }
+        #expect(RootFind.expandingBracketRoot(f) != nil)
+        #expect(RootFind.expandingBracketRoot(xTolerance: 1e-300, maxIterations: 4, f) == nil)
+    }
+
+    @Test("brentq declines a same-sign bracket")
     func sameSignBracket() {
         #expect(RootFind.brentq(lower: 1.0, upper: 2.0) { $0 * $0 + 1.0 } == nil)
+        // Both residuals underflow to the same sign; the product would be +0.0 and read as a bracket.
+        #expect(RootFind.brentq(lower: -1.0, upper: 2.0) { _ in 1e-200 } == nil)
+        // Opposite signs survive the same underflow, so this one is a bracket. SciPy agrees on the
+        // root and on the 42 iterations it takes.
+        let root = RootFind.brentq(lower: -1.0, upper: 2.0) { $0 < 0.5 ? -1e-200 : 1e-200 }
+        #expect(root?.value == 0.49999999999863576)
+        #expect(root?.iterations == 42)
+    }
+
+    /// SciPy wraps `f` and raises `ValueError` on the first NaN. Nothing here throws, so a NaN at an
+    /// endpoint is `nil` and a NaN mid-solve is a non-converged result. Returning it as a converged
+    /// root would hand the morph a silent wrong answer.
+    @Test("a NaN residual is reported in the return value")
+    func nanResidual() {
+        #expect(RootFind.brentq(lower: -1.0, upper: 2.0) { $0 > 1.0 ? Double.nan : $0 - 0.7 } == nil)
+        #expect(RootFind.brentq(lower: -1.0, upper: 2.0) { _ in Double.nan } == nil)
+        let mid = RootFind.brentq(lower: -1.0, upper: 2.0) {
+            abs($0 - 0.5) < 0.4 ? Double.nan : $0 - 0.7
+        }
+        #expect(mid?.converged == false)
     }
 
     /// An endpoint that is already a root short-circuits, as `brentq.c` does before iterating.
@@ -184,6 +237,15 @@ struct TranscendentalTests {
         #expect(low?.iterations == 0)
         let high = RootFind.brentq(lower: -3.0, upper: 0.0) { $0 * ($0 - 1.0) }
         #expect(high?.value == 0.0)
+    }
+
+    /// The tolerances are invisible in every root above, because `xtol` dominates `rtol * |x|` by
+    /// four orders at `xtol = 2e-12`. They still have to be SciPy's, so they are checked directly.
+    @Test("the defaults are scipy.optimize.brentq's")
+    func brentDefaults() {
+        #expect(RootFind.defaultXTolerance == 2e-12)
+        #expect(RootFind.defaultRelativeTolerance == 4.0 * Double.ulpOfOne)
+        #expect(RootFind.defaultMaxIterations == 100)
     }
 
     @Test("an exhausted iteration budget reports not converged")
