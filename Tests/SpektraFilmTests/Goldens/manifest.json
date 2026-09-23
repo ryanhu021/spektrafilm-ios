@@ -2635,6 +2635,96 @@
     "group": "observer",
     "nan_count": 0
   },
+  "photo_gold200_supra": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_gold200_supra_negative": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_input": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_portra400_endura": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_portra400_endura_negative": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_velvia_endura": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_velvia_endura_negative": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_vision3_500t_2383": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
+  "photo_vision3_500t_2383_negative": {
+    "shape": [
+      125,
+      84,
+      3
+    ],
+    "bytes": 252024,
+    "group": "real_photograph",
+    "nan_count": 0
+  },
   "pipeline_portra400_endura_p3_cmy_film": {
     "shape": [
       2,

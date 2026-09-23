@@ -151,20 +151,24 @@ if spectralOnly {
     s.start()
     let (tc, brightness) = converter.tcAndBrightness(rgb: image)
     var isolated = s.stop()
-    print("  tcAndBrightness    \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
+    print(
+        "  tcAndBrightness    \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
 
     s = PeakSampler()
     s.start()
     let sampled = converter.sampler.sample(lut: lut, coordinates: tc)
     isolated = s.stop()
-    print("  sampler.sample     \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
-    print("  tc channels \(tc.channels), sampled channels \(sampled.channels), brightness \(brightness.count)")
+    print(
+        "  sampler.sample     \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
+    print(
+        "  tc channels \(tc.channels), sampled channels \(sampled.channels), brightness \(brightness.count)")
 
     s = PeakSampler()
     s.start()
     _ = converter.raw(rgb: image)
     isolated = s.stop()
-    print("  raw (whole)        \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
+    print(
+        "  raw (whole)        \(megabytes(isolated))  (\(megabytes(Int(Double(isolated) / megapixels)))/MP)")
 }
 
 // One tap per process. phys_footprint is a high-water mark, so measuring several in one process

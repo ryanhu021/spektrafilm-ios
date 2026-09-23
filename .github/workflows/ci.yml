@@ -34,7 +34,7 @@ jobs:
       - name: Lint
         run: |
           swift format lint --strict --recursive \
-            Sources Tests App/Spektrafilm Package.swift
+            Sources Tests App/Spektrafilm Tools Package.swift
 
   app:
     name: iOS app

@@ -395,3 +395,41 @@ def resample():
     yield "resample_preview_ev", np.array([
         measure_autoexposure_ev(small, "Display P3", False, method="center_weighted")
     ])
+
+
+@fixture
+def real_photograph():
+    """A real photograph rendered end to end, at a size git can hold.
+
+    The synthetic ramps and patches elsewhere cover the arithmetic. This covers the thing a user
+    actually sees: a photograph with skin, foliage, specular highlights and deep shadow, through four
+    film and paper combinations. Errors that only show on real subject matter, like a hue shift in the
+    midtones or crushed shadows, surface here and nowhere else.
+    """
+    import OpenImageIO as oiio
+
+    from spektrafilm.runtime.params_builder import digest_params, init_params
+    from spektrafilm.runtime.pipeline import SimulationPipeline
+
+    source = oiio.ImageBuf("/tmp/spektra-ref/spektrafilm/img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif")
+    full = source.get_pixels(oiio.DOUBLE)[:, :, :3]
+    # Every 8th pixel: 84 x 125. Enough subject matter for a hue shift to show, small enough that
+    # nine of these stay under 2.5 MB in git.
+    image = np.ascontiguousarray(full[::8, ::8, :])
+    yield "photo_input", image
+
+    for label, film, paper in [
+        ("portra400_endura", "kodak_portra_400", "kodak_portra_endura"),
+        ("velvia_endura", "fujifilm_velvia_100", "kodak_portra_endura"),
+        ("vision3_500t_2383", "kodak_vision3_500t", "kodak_2383"),
+        ("gold200_supra", "kodak_gold_200", "kodak_supra_endura"),
+    ]:
+        params = init_params(film_profile=film, print_profile=paper)
+        params.camera.auto_exposure = False
+        params.debug.lut_mode = True
+        params = digest_params(params)
+        yield f"photo_{label}", SimulationPipeline(params).process(image)
+
+        # The negative too, which is what the app's tap inspection shows.
+        pipeline = SimulationPipeline(params)
+        yield f"photo_{label}_negative", pipeline.process(image, collect="cmy_film")
