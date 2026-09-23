@@ -59,9 +59,11 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .build/xcode
 
+  # Plain Python, so it runs on Linux: a private repository bills macOS minutes at ten times the
+  # Linux rate.
   docs:
     name: Docs consistency
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Check
