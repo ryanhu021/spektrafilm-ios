@@ -31,7 +31,7 @@ struct EndToEndTests {
 
     /// 18% grey through Portra 400 onto Portra Endura, in sRGB.
     ///
-    /// The top-level check that the pipeline is assembled correctly. The README quotes this value.
+    /// The top-level check that the pipeline is assembled correctly. docs/PARITY.md quotes this value.
     @Test("18% grey matches the reference render")
     func midgreyAnchor() throws {
         var params = try RuntimePhotoParams.make(
