@@ -6,26 +6,24 @@ import os
 
 /// How large a frame this device can render.
 ///
-/// The engine is float64 and holds several full-frame buffers at once, so peak memory is about
-/// 125 MB per megapixel. Measured in release on an M4 Pro, one measurement per process:
-///
-/// | Frame | Peak footprint | Time |
-/// |---|---|---|
-/// | 2 MP | 250 MB | 0.56 s |
-/// | 6 MP | 739 MB | 2.3 s |
-/// | 12 MP | 1472 MB | 3.7 s |
-///
 /// iOS terminates a foreground app that crosses its jetsam limit, roughly 1.4 GB on a 6 GB device.
-/// 6 MP fits with room to spare. 12 MP is at the limit, so the cap applies there.
+/// Measured in release on an M4 Pro, one measurement per process:
 ///
-/// Per-tap, at 2 MP: the decoded input is 26 MB/MP, filming.expose reaches 79, and filming.develop
-/// reaches 125 and sets the peak. Printing and scanning add nothing on top.
+/// | Frame | CPU backend | Metal, float32 path |
+/// |---|---|---|
+/// | 2 MP | 250 MB | 227 MB |
+/// | 6 MP | 739 MB | 480 MB |
+/// | 12 MP | 1472 MB | 914 MB |
+///
+/// The CPU backend is float64 and peaks at about 125 MB per megapixel, set by film development.
+/// The Metal float32 path peaks at a fixed part for the driver plus a per-megapixel part for its
+/// float32 frames, and fits roughly twice the frame in the same allowance.
 ///
 /// Peak is what gets an app killed, so what matters is how many frames are alive at one instant,
-/// not how many are allocated in total. Spectral upsampling, the coupler correction, grain and
-/// halation each work a channel plane at a time or consume their input. Holding whole frames
-/// instead keeps five alive in the upsampling (two suffice), eight in the coupler correction, the
-/// whole sublayer split in grain, and the input, a copy and two blurs in halation.
+/// not how many are allocated in total. On the CPU, spectral upsampling, the coupler correction,
+/// grain and halation each work a channel plane at a time or consume their input. Holding whole
+/// frames instead keeps five alive in the upsampling (two suffice), eight in the coupler
+/// correction, the whole sublayer split in grain, and the input, a copy and two blurs in halation.
 public enum RenderBudget {
 
     /// Measured peak footprint per megapixel, in bytes, on the CPU backend.

@@ -10,11 +10,11 @@ import SpektraFilm
 actor RenderService {
     /// Which of the three measured budgets a request is asking for.
     enum Quality: Sendable, Comparable {
-        /// 320 px, preview mode, while a control is moving. 19 ms on an M4 Pro.
+        /// 320 px, preview mode, while a control is moving. 16 ms on an M4 Pro's GPU.
         case scrub
-        /// 640 px, preview mode, for when the control is released. 57 ms on an M4 Pro.
+        /// 640 px, preview mode, for when the control is released. 16 ms on an M4 Pro's GPU.
         case settle
-        /// 640 px with grain and the spatial effects. 94 ms on an M4 Pro.
+        /// 640 px with grain and the spatial effects. 33 ms on an M4 Pro's GPU.
         case proof
         /// Everything on, at the largest size ``RenderBudget`` allows.
         case full

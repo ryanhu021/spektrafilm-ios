@@ -7,8 +7,8 @@ import SwiftUI
 
 /// The editor's state, and the scheduler that picks which render tier to run.
 ///
-/// A render costs 19 ms at scrub size and 57 ms at settle size on an M4 Pro, and more on a phone, so
-/// neither can run per frame while a control moves. One task renders the latest parameters. Edits that arrive while it works collapse
+/// A render costs 16 ms at scrub or settle size on an M4 Pro's GPU, and more on a phone, so neither
+/// can be relied on to run every frame while a control moves. One task renders the latest parameters. Edits that arrive while it works collapse
 /// into a single follow-up render. Releasing the control asks for the larger size.
 ///
 /// Every finished render is shown, even if the parameters have moved on since it started. Discarding
