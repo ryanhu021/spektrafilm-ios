@@ -353,41 +353,44 @@ struct NpyTests {
     /// whole table is materialised. Mapping and widening per element avoids it. This test measures
     /// both costs.
     ///
-    /// `phys_footprint` is what the iOS jetsam limit counts. Clean file-backed pages do not count
-    /// toward it, so mapping is nearly free. The bound is loose because other tests allocate in the
-    /// same process; it checks only the order of magnitude.
+    /// iOS counts dirty pages against the jetsam limit, and clean file-backed pages not at all. The
+    /// test reads the dirty page count of each allocation's own VM region. The process-wide
+    /// footprint would do in isolation, but tests run in parallel, and a concurrent test freeing
+    /// memory hides the growth.
     @Test("mapping the LUT costs far less than widening it")
     func footprint() throws {
-        let baseline = physFootprint()
         let lut = try Self.lut()
         var checksum = 0.0
         for i in 0..<192 { checksum += lut[lut.offset(i, i, 40)] }
-        let mapped = physFootprint() - baseline
         #expect(checksum > 0)
+        let mapped = lut.withPayload { dirtyBytes(of: $0.baseAddress!) }
 
-        let widenedBaseline = physFootprint()
-        var values = lut.values()
+        let values = lut.values()
         #expect(values.count == 2_985_984)
-        let widened = physFootprint() - widenedBaseline
-        values = []
+        let widened = values.withUnsafeBytes { dirtyBytes(of: $0.baseAddress!) }
 
         print(
-            "npy footprint: mapped + 192 lookups \(mapped) B, values() \(widened) B, "
+            "npy dirty bytes: mapped + 192 lookups \(mapped) B, values() \(widened) B, "
                 + "payload on disk \(lut.payloadByteCount) B")
-        // 2 985 984 doubles is 23 887 872 B. Large allocations come from fresh mmap'd regions, so
-        // reuse of another test's freed memory cannot hide the growth.
-        #expect(widened >= 8 << 20, "widening the LUT grew the footprint by only \(widened) B")
+        #expect(mapped == 0, "reading the mapped LUT dirtied \(mapped) B")
+        // 2 985 984 doubles is 23 887 872 B, all written.
+        #expect(widened >= 20 << 20, "widening the LUT dirtied only \(widened) B")
     }
 
-    private func physFootprint() -> Int {
-        var info = task_vm_info_data_t()
+    /// Dirty bytes in the VM region containing `pointer`.
+    private func dirtyBytes(of pointer: UnsafeRawPointer) -> Int {
+        var address = mach_vm_address_t(UInt(bitPattern: pointer))
+        var size: mach_vm_size_t = 0
+        var info = vm_region_extended_info_data_t()
         var count = mach_msg_type_number_t(
-            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+            MemoryLayout<vm_region_extended_info_data_t>.size / MemoryLayout<natural_t>.size)
+        var object: mach_port_t = 0
         let status = withUnsafeMutablePointer(to: &info) { pointer in
             pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+                mach_vm_region(
+                    mach_task_self_, &address, &size, VM_REGION_EXTENDED_INFO, $0, &count, &object)
             }
         }
-        return status == KERN_SUCCESS ? Int(info.phys_footprint) : 0
+        return status == KERN_SUCCESS ? Int(info.pages_dirtied) * Int(getpagesize()) : -1
     }
 }
