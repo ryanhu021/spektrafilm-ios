@@ -11,8 +11,6 @@ name: Parity oracle
 # Upstream moving does not fail this job. The oracle is pinned to a commit.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 env:
